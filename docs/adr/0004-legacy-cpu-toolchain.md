@@ -25,3 +25,5 @@ Use only official code/images through two compatibility routes:
 ## Consequences
 
 All eight prover/verifier pairs and every lifecycle proof are real. ARM emulation is substantially slower. Generated keys remain ignored because they are approximately 40 MB and reproducible. CI or a modern x86 host should use the ordinary official binaries.
+
+The compiler recreates its managed output directory. Consequently, a later `compact:skip-zk` removes existing keys; regenerate them with the full command before any wallet-backed interaction.
