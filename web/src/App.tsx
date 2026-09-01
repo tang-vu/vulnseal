@@ -1,0 +1,721 @@
+// SPDX-License-Identifier: Apache-2.0
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { VulnSealApi } from "@vulnseal/api/api";
+import { CipherstoreClient } from "@vulnseal/api/cipherstore-client";
+import type { TransactionEvidence, VulnSealProviders } from "@vulnseal/api/types";
+import {
+  createVulnSealPrivateState,
+  pureCircuits,
+} from "@vulnseal/contract";
+import {
+  bytesToHex,
+  contractStatusName,
+  publicStatusLabel,
+  randomBytes,
+  sealReport,
+  sha256,
+  utf8,
+  validateEnvironment,
+  type ReportStatusName,
+  type SealedReport,
+  type VulnerabilityReport,
+} from "@vulnseal/shared";
+import { initializeBrowserProviders } from "./midnight/browser-providers.js";
+
+type Screen =
+  | "home"
+  | "dashboard"
+  | "create"
+  | "submit"
+  | "seal"
+  | "receipt"
+  | "triage"
+  | "resolution"
+  | "verify"
+  | "privacy";
+type Persona = "researcher" | "vendor" | "verifier";
+type RuntimeMode = "guided-local" | "midnight";
+type Operation =
+  | { readonly state: "idle" }
+  | { readonly state: "working"; readonly label: string; readonly detail: string }
+  | { readonly state: "error"; readonly label: string; readonly detail: string };
+
+const env = validateEnvironment(import.meta.env);
+const programBytes = new Uint8Array(32).fill(0x17);
+const vendorSecret = new Uint8Array(32).fill(0x2a);
+const researcherSecret = new Uint8Array(32).fill(0x51);
+
+const shortHex = (value?: Uint8Array): string => {
+  if (value === undefined) return "Not anchored";
+  const hex = bytesToHex(value);
+  return `${hex.slice(0, 10)}…${hex.slice(-8)}`;
+};
+
+const copy = async (value: string): Promise<void> => navigator.clipboard.writeText(value);
+
+const initialReport: VulnerabilityReport = {
+  schemaVersion: 1,
+  title: "Cross-tenant authorization bypass",
+  summary: "A low-privilege token can read configuration from a second tenant.",
+  affectedAsset: "api.acme.test/v1/organizations/:id/settings",
+  weakness: "CWE-862 — Missing Authorization",
+  reproductionSteps: [
+    "Create two isolated test organizations.",
+    "Authenticate as a low-privilege member of the first organization.",
+    "Request the settings endpoint using the second organization identifier.",
+  ],
+  impact: "An attacker can read sensitive configuration belonging to another tenant.",
+  suggestedRemediation: "Resolve tenant scope from the authenticated principal and enforce it before lookup.",
+  attachments: [],
+  researcherContact: "researcher+sealed@example.test",
+};
+
+const navigation: ReadonlyArray<{ screen: Screen; label: string; icon: string }> = [
+  { screen: "dashboard", label: "Program", icon: "▦" },
+  { screen: "submit", label: "Submit", icon: "＋" },
+  { screen: "triage", label: "Triage", icon: "◎" },
+  { screen: "resolution", label: "Resolve", icon: "✓" },
+  { screen: "verify", label: "Verify", icon: "⌁" },
+  { screen: "privacy", label: "Privacy", icon: "◈" },
+];
+
+function Icon({ children }: { readonly children: ReactNode }) {
+  return <span className="nav-icon" aria-hidden="true">{children}</span>;
+}
+
+function Pill({ tone = "neutral", children }: { readonly tone?: string; readonly children: ReactNode }) {
+  return <span className={`pill pill-${tone}`}>{children}</span>;
+}
+
+function HashValue({ label, value }: { readonly label: string; readonly value: Uint8Array | undefined }) {
+  const full = value === undefined ? "" : bytesToHex(value);
+  return (
+    <div className="hash-row">
+      <div>
+        <span className="eyebrow">{label}</span>
+        <code>{shortHex(value)}</code>
+      </div>
+      {value !== undefined && (
+        <button className="icon-button" aria-label={`Copy ${label}`} onClick={() => void copy(full)}>Copy</button>
+      )}
+    </div>
+  );
+}
+
+function EmptyState({ title, detail, action }: {
+  readonly title: string;
+  readonly detail: string;
+  readonly action?: ReactNode;
+}) {
+  return (
+    <div className="empty-state">
+      <div className="empty-mark" aria-hidden="true">◇</div>
+      <h3>{title}</h3>
+      <p>{detail}</p>
+      {action}
+    </div>
+  );
+}
+
+function App() {
+  const [screen, setScreen] = useState<Screen>("home");
+  const [persona, setPersona] = useState<Persona>("researcher");
+  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("guided-local");
+  const [providers, setProviders] = useState<VulnSealProviders>();
+  const [api, setApi] = useState<VulnSealApi>();
+  const [programCreated, setProgramCreated] = useState(true);
+  const [report, setReport] = useState<VulnerabilityReport>(initialReport);
+  const [sealed, setSealed] = useState<SealedReport>();
+  const [reportSalt, setReportSalt] = useState<Uint8Array>();
+  const [reportId, setReportId] = useState<Uint8Array>();
+  const [patchCommitment, setPatchCommitment] = useState<Uint8Array>();
+  const [retestCommitment, setRetestCommitment] = useState<Uint8Array>();
+  const [payoutReceipt, setPayoutReceipt] = useState<Uint8Array>();
+  const [status, setStatus] = useState<ReportStatusName>("COMMITTED");
+  const [evidence, setEvidence] = useState<TransactionEvidence[]>([]);
+  const [operation, setOperation] = useState<Operation>({ state: "idle" });
+  const [patchReference, setPatchReference] = useState("release/2026.09.1+7f34c82");
+  const [retestNotes, setRetestNotes] = useState("Original reproduction now returns HTTP 403 for the cross-tenant request.");
+
+  const modeLabel = runtimeMode === "midnight" ? "Midnight network" : "Guided local";
+  const networkReady = api !== undefined;
+  const isSealed = sealed !== undefined && reportId !== undefined;
+  const timeline = useMemo(() => {
+    const order: ReportStatusName[] = [
+      "COMMITTED",
+      "TRIAGED",
+      "ACCEPTED",
+      "PATCH_READY",
+      "RETEST_PASSED",
+      "PAYOUT_AUTHORIZED",
+    ];
+    const position = Math.max(0, order.indexOf(status));
+    return order.map((entry, index) => ({
+      entry,
+      complete: index <= position,
+      current: index === position,
+    }));
+  }, [status]);
+
+  const changeScreen = (next: Screen, nextPersona?: Persona): void => {
+    if (nextPersona !== undefined) setPersona(nextPersona);
+    setScreen(next);
+    window.scrollTo?.({ top: 0, behavior: "auto" });
+  };
+
+  const connectWallet = async (): Promise<void> => {
+    setOperation({ state: "working", label: "Connecting wallet", detail: "Waiting for a compatible Lace connector API." });
+    try {
+      const initialized = await initializeBrowserProviders(env.network === "undeployed" ? "preprod" : env.network);
+      setProviders(initialized);
+      setRuntimeMode("midnight");
+      setOperation({ state: "idle" });
+    } catch (error) {
+      setOperation({
+        state: "error",
+        label: "Wallet unavailable",
+        detail: error instanceof Error ? error.message : "Wallet connection failed",
+      });
+    }
+  };
+
+  const createProgram = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    setOperation({ state: "working", label: "Creating program", detail: networkReady ? "Generating a deployment proof and awaiting finality." : "Preparing the guided local program." });
+    try {
+      if (runtimeMode === "midnight") {
+        if (providers === undefined) throw new Error("Connect a wallet before deploying a Midnight program");
+        const [scope, response, reward, disclosure] = await Promise.all([
+          sha256(utf8("api.acme.test and *.acme.test")),
+          sha256(utf8("acknowledge:2d;triage:7d;updates:14d")),
+          sha256(utf8("P1:4;P2:3;P3:2;P4:1")),
+          sha256(utf8("coordinated:90d")),
+        ]);
+        const deployed = await VulnSealApi.deploy(
+          providers,
+          createVulnSealPrivateState(vendorSecret),
+          {
+            programId: programBytes,
+            scopeDigest: scope,
+            responsePolicyDigest: response,
+            responseDays: 7n,
+            rewardPolicyDigest: reward,
+            disclosurePolicyDigest: disclosure,
+            disclosureDelayDays: 90n,
+          },
+        );
+        setApi(deployed.api);
+        setEvidence([deployed.evidence]);
+      }
+      setProgramCreated(true);
+      setOperation({ state: "idle" });
+      changeScreen("dashboard", "vendor");
+    } catch (error) {
+      setOperation({ state: "error", label: "Program creation failed", detail: error instanceof Error ? error.message : "Unknown deployment error" });
+    }
+  };
+
+  const submitSealedReport = async (): Promise<void> => {
+    changeScreen("seal", "researcher");
+    setOperation({ state: "working", label: "Canonicalizing report", detail: "Normalizing a deterministic private report document in this browser." });
+    try {
+      await Promise.resolve();
+      const encrypted = await sealReport(report, bytesToHex(programBytes));
+      setOperation({ state: "working", label: "Uploading ciphertext", detail: "Sending only the authenticated AES-256-GCM envelope to the local content store." });
+      await new CipherstoreClient(env.cipherstoreUrl).put(
+        encrypted.contentAddress,
+        encrypted.serializedEnvelope,
+      );
+      const salt = randomBytes(32);
+      const commitment = pureCircuits.deriveReportCommitment(
+        Uint8Array.from(programBytes),
+        Uint8Array.from(encrypted.canonicalReportDigest),
+        Uint8Array.from(salt),
+      );
+      setOperation({
+        state: "working",
+        label: runtimeMode === "midnight" ? "Generating ownership proof" : "Preparing Compact commitment",
+        detail: runtimeMode === "midnight"
+          ? "Lace will authorize the transaction after the proof server returns a real proof."
+          : "Guided local mode calculates the real Compact commitment but does not submit a transaction.",
+      });
+      if (api !== undefined) {
+        await api.usePrivateState(
+          createVulnSealPrivateState(researcherSecret, {
+            programId: programBytes,
+            canonicalDigest: encrypted.canonicalReportDigest,
+            salt,
+          }),
+        );
+        const transaction = await api.submitReport(encrypted.ciphertextDigest);
+        setEvidence((entries) => [...entries, transaction]);
+      }
+      setSealed(encrypted);
+      setReportSalt(salt);
+      setReportId(commitment);
+      setStatus("COMMITTED");
+      setOperation({ state: "idle" });
+      changeScreen("receipt", "researcher");
+    } catch (error) {
+      setOperation({
+        state: "error",
+        label: "Sealing stopped safely",
+        detail: error instanceof Error ? error.message : "Unknown sealing error",
+      });
+    }
+  };
+
+  const vendorTransition = async (kind: "triage" | "accept"): Promise<void> => {
+    if (reportId === undefined) return;
+    setOperation({ state: "working", label: kind === "triage" ? "Opening triage" : "Accepting report", detail: api ? "Proving vendor authorization and awaiting finality." : "Updating the clearly labeled guided local workflow." });
+    try {
+      if (api !== undefined) {
+        await api.usePrivateState(createVulnSealPrivateState(vendorSecret));
+        const transaction = kind === "triage"
+          ? await api.beginTriage(reportId)
+          : await api.acceptReport(reportId, 3n, await sha256(utf8("accepted:P2:2026-09-01")));
+        setEvidence((entries) => [...entries, transaction]);
+      }
+      setStatus(kind === "triage" ? "TRIAGED" : "ACCEPTED");
+      setOperation({ state: "idle" });
+    } catch (error) {
+      setOperation({ state: "error", label: "Transition rejected", detail: error instanceof Error ? error.message : "Unknown transition error" });
+    }
+  };
+
+  const anchorPatch = async (): Promise<void> => {
+    if (reportId === undefined) return;
+    setOperation({ state: "working", label: "Anchoring patch", detail: api ? "Binding the private patch digest to this report." : "Preparing a local patch reference without claiming an on-chain transaction." });
+    try {
+      const patchDigest = await sha256(utf8(patchReference));
+      let publicPatch = patchDigest;
+      if (api !== undefined) {
+        await api.usePrivateState(
+          createVulnSealPrivateState(vendorSecret, undefined, {
+            reportId,
+            patchDigest,
+          }),
+        );
+        const transaction = await api.anchorPatch(reportId);
+        setEvidence((entries) => [...entries, transaction]);
+        const snapshot = await api.readPublicState();
+        publicPatch = snapshot.ledger.reports.lookup(reportId).patchCommitment;
+      }
+      setPatchCommitment(publicPatch);
+      setStatus("PATCH_READY");
+      setOperation({ state: "idle" });
+    } catch (error) {
+      setOperation({ state: "error", label: "Patch anchoring failed", detail: error instanceof Error ? error.message : "Unknown patch error" });
+    }
+  };
+
+  const submitRetest = async (): Promise<void> => {
+    if (reportId === undefined || reportSalt === undefined || sealed === undefined || patchCommitment === undefined) return;
+    setOperation({ state: "working", label: "Submitting retest", detail: api ? "Proving report ownership and binding private evidence to the anchored patch." : "Recording a local preview result without claiming a proof." });
+    try {
+      const evidenceDigest = await sha256(utf8(retestNotes));
+      let publicRetest = evidenceDigest;
+      if (api !== undefined) {
+        await api.usePrivateState(
+          createVulnSealPrivateState(
+            researcherSecret,
+            {
+              programId: programBytes,
+              canonicalDigest: sealed.canonicalReportDigest,
+              salt: reportSalt,
+            },
+            undefined,
+            {
+              reportId,
+              patchCommitment,
+              evidenceDigest,
+            },
+          ),
+        );
+        const transaction = await api.submitRetest(reportId, true);
+        setEvidence((entries) => [...entries, transaction]);
+        const snapshot = await api.readPublicState();
+        publicRetest = snapshot.ledger.reports.lookup(reportId).retestCommitment;
+      }
+      setRetestCommitment(publicRetest);
+      setStatus("RETEST_PASSED");
+      setOperation({ state: "idle" });
+    } catch (error) {
+      setOperation({ state: "error", label: "Retest rejected", detail: error instanceof Error ? error.message : "Unknown retest error" });
+    }
+  };
+
+  const authorizePayout = async (): Promise<void> => {
+    if (reportId === undefined) return;
+    setOperation({ state: "working", label: "Authorizing payout", detail: api ? "Checking accepted and passed-retest state inside the contract." : "Recording local authorization only—no funds move." });
+    try {
+      let receipt = await sha256(utf8(`local-preview:${bytesToHex(reportId)}:tier-3`));
+      if (api !== undefined) {
+        await api.usePrivateState(createVulnSealPrivateState(vendorSecret));
+        const transaction = await api.authorizePayout(reportId, 3n);
+        setEvidence((entries) => [...entries, transaction]);
+        const snapshot = await api.readPublicState();
+        const record = snapshot.ledger.reports.lookup(reportId);
+        receipt = record.payoutReceipt;
+        setStatus(contractStatusName(record.status));
+      } else {
+        setStatus("PAYOUT_AUTHORIZED");
+      }
+      setPayoutReceipt(receipt);
+      setOperation({ state: "idle" });
+    } catch (error) {
+      setOperation({ state: "error", label: "Payout authorization rejected", detail: error instanceof Error ? error.message : "Unknown authorization error" });
+    }
+  };
+
+  const resetDemo = (): void => {
+    setSealed(undefined);
+    setReportSalt(undefined);
+    setReportId(undefined);
+    setPatchCommitment(undefined);
+    setRetestCommitment(undefined);
+    setPayoutReceipt(undefined);
+    setStatus("COMMITTED");
+    setEvidence(api === undefined ? [] : evidence.slice(0, 1));
+    setOperation({ state: "idle" });
+    changeScreen("submit", "researcher");
+  };
+
+  const main = (() => {
+    switch (screen) {
+      case "home":
+        return <Landing onExplore={() => changeScreen("dashboard")} onSubmit={() => changeScreen("submit", "researcher")} />;
+      case "dashboard":
+        return <Dashboard programCreated={programCreated} status={status} reportId={reportId} timeline={timeline} onCreate={() => changeScreen("create", "vendor")} onTriage={() => changeScreen("triage", "vendor")} onVerify={() => changeScreen("verify", "verifier")} />;
+      case "create":
+        return <CreateProgram mode={runtimeMode} connected={providers !== undefined} operation={operation} onConnect={() => void connectWallet()} onSubmit={(event) => void createProgram(event)} />;
+      case "submit":
+        return <ReportWizard report={report} onChange={setReport} onSeal={() => void submitSealedReport()} />;
+      case "seal":
+        return <SealProgress operation={operation} onRetry={() => void submitSealedReport()} onBack={() => changeScreen("submit")} />;
+      case "receipt":
+        return <Receipt sealed={sealed} reportId={reportId} evidence={evidence} network={api !== undefined} onTriage={() => changeScreen("triage", "vendor")} onReset={resetDemo} />;
+      case "triage":
+        return <Triage status={status} reportId={reportId} operation={operation} onBegin={() => void vendorTransition("triage")} onAccept={() => void vendorTransition("accept")} onResolution={() => changeScreen("resolution", "vendor")} />;
+      case "resolution":
+        return <Resolution status={status} reportId={reportId} patchCommitment={patchCommitment} retestCommitment={retestCommitment} payoutReceipt={payoutReceipt} operation={operation} patchReference={patchReference} retestNotes={retestNotes} onPatchReference={setPatchReference} onRetestNotes={setRetestNotes} onAnchor={() => void anchorPatch()} onRetest={() => void submitRetest()} onAuthorize={() => void authorizePayout()} onVerify={() => changeScreen("verify", "verifier")} />;
+      case "verify":
+        return <Verifier status={status} reportId={reportId} sealed={sealed} patchCommitment={patchCommitment} retestCommitment={retestCommitment} payoutReceipt={payoutReceipt} evidence={evidence} timeline={timeline} network={api !== undefined} />;
+      case "privacy":
+        return <PrivacyModel />;
+    }
+  })();
+
+  return (
+    <div className="app-shell">
+      <header className="topbar">
+        <button className="brand" onClick={() => changeScreen("home")} aria-label="VulnSeal home">
+          <span className="brand-mark" aria-hidden="true"><span>V</span></span>
+          <span>VulnSeal<small>Proof of disclosure</small></span>
+        </button>
+        <nav className="desktop-nav" aria-label="Primary navigation">
+          {navigation.map((item) => (
+            <button key={item.screen} className={screen === item.screen ? "active" : ""} onClick={() => changeScreen(item.screen)}>
+              <Icon>{item.icon}</Icon>{item.label}
+            </button>
+          ))}
+        </nav>
+        <div className="header-actions">
+          <div className="persona-control" aria-label="Active persona">
+            <span className="presence" aria-hidden="true" />
+            <select value={persona} onChange={(event) => setPersona(event.target.value as Persona)} aria-label="Active persona">
+              <option value="researcher">Researcher</option>
+              <option value="vendor">Vendor</option>
+              <option value="verifier">Verifier</option>
+            </select>
+          </div>
+          <button className="network-button" onClick={() => void connectWallet()}>
+            <span className={`status-dot ${providers ? "online" : ""}`} aria-hidden="true" />
+            {providers ? "Lace connected" : modeLabel}
+          </button>
+        </div>
+      </header>
+      {runtimeMode === "guided-local" && (
+        <div className="truth-banner" role="status">
+          <span>Guided local mode</span>
+          Web Crypto and Compact commitment calculation are real. Workflow changes are not Midnight transactions until Lace is connected.
+        </div>
+      )}
+      {operation.state === "error" && screen !== "seal" && (
+        <div className="global-operation" role="alert">
+          <strong>{operation.label}</strong>
+          <span>{operation.detail}</span>
+        </div>
+      )}
+      <main id="main-content">{main}</main>
+      <nav className="mobile-nav" aria-label="Mobile navigation">
+        {navigation.slice(0, 5).map((item) => (
+          <button key={item.screen} className={screen === item.screen ? "active" : ""} onClick={() => changeScreen(item.screen)}>
+            <Icon>{item.icon}</Icon><span>{item.label}</span>
+          </button>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
+function PageHeading({ eyebrow, title, detail, actions }: { readonly eyebrow: string; readonly title: string; readonly detail: string; readonly actions?: ReactNode }) {
+  return (
+    <div className="page-heading">
+      <div><span className="eyebrow accent">{eyebrow}</span><h1>{title}</h1><p>{detail}</p></div>
+      {actions && <div className="page-actions">{actions}</div>}
+    </div>
+  );
+}
+
+function Landing({ onExplore, onSubmit }: { readonly onExplore: () => void; readonly onSubmit: () => void }) {
+  return (
+    <div className="landing">
+      <section className="hero">
+        <div className="hero-copy">
+          <Pill tone="accent">Built for Midnight · Wave 1</Pill>
+          <h1>Disclose the truth.<br /><span>Keep the exploit sealed.</span></h1>
+          <p className="hero-lead">VulnSeal gives researchers and vendors a verifiable disclosure trail—without publishing exploit details, private evidence, or researcher identity.</p>
+          <div className="button-row">
+            <button className="primary-button" onClick={onSubmit}>Seal a vulnerability <span aria-hidden="true">→</span></button>
+            <button className="secondary-button" onClick={onExplore}>Explore the demo</button>
+          </div>
+          <div className="trust-row" aria-label="Product assurances">
+            <span>◈ Local encryption</span><span>⌁ Compact ownership circuit</span><span>✓ Minimal public state</span>
+          </div>
+        </div>
+        <div className="hero-proof-card" aria-label="Example private disclosure workflow">
+          <div className="proof-card-head"><span>ILLUSTRATIVE AUDIT PREVIEW</span><Pill tone="success">Product preview</Pill></div>
+          <div className="sealed-document">
+            <span className="lock-mark" aria-hidden="true">◆</span>
+            <div><strong>Exploit details sealed</strong><small>AES-256-GCM · client encrypted</small></div>
+          </div>
+          <div className="mini-timeline">
+            {["Report committed", "Vendor accepted", "Patch anchored", "Retest passed", "Payout authorized"].map((item, index) => (
+              <div key={item}><span className="timeline-node">{index + 1}</span><p>{item}<small>{index === 0 ? "Example ledger position" : `Example transition 0${index + 1}`}</small></p></div>
+            ))}
+          </div>
+          <div className="proof-card-foot"><span>Contents revealed</span><strong>Nothing</strong></div>
+        </div>
+      </section>
+      <section className="principles" aria-label="How VulnSeal works">
+        <article><span className="feature-number">01</span><h2>Seal locally</h2><p>The browser canonicalizes and encrypts the report before any upload. Plaintext never reaches the ciphertext service.</p></article>
+        <article><span className="feature-number">02</span><h2>Prove the process</h2><p>Compact circuits constrain ownership, vendor authorization, patch binding, retest, and payout authorization.</p></article>
+        <article><span className="feature-number">03</span><h2>Reveal only when safe</h2><p>Public observers verify the workflow and commitments—not the exploit, private discussion, or researcher contact.</p></article>
+      </section>
+    </div>
+  );
+}
+
+function Dashboard({ programCreated, status, reportId, timeline, onCreate, onTriage, onVerify }: {
+  readonly programCreated: boolean; readonly status: ReportStatusName; readonly reportId: Uint8Array | undefined;
+  readonly timeline: ReadonlyArray<{ entry: ReportStatusName; complete: boolean; current: boolean }>;
+  readonly onCreate: () => void; readonly onTriage: () => void; readonly onVerify: () => void;
+}) {
+  if (!programCreated) return <section className="page"><EmptyState title="No disclosure program yet" detail="Publish scope and response commitments before accepting sealed reports." action={<button className="primary-button" onClick={onCreate}>Create program</button>} /></section>;
+  return (
+    <section className="page">
+      <PageHeading eyebrow="Vendor workspace" title="Acme Security Program" detail="A public policy surface with a private disclosure channel." actions={<><button className="secondary-button" onClick={onVerify}>Public view</button><button className="primary-button" onClick={onCreate}>New program</button></>} />
+      <div className="metric-grid">
+        <article className="metric-card"><span>Open sealed reports</span><strong>{reportId ? "1" : "0"}</strong><small>{reportId ? "Requires vendor attention" : "No pending reports"}</small></article>
+        <article className="metric-card"><span>Median first response</span><strong>—</strong><small>Waiting for real program data</small></article>
+        <article className="metric-card"><span>Resolved this wave</span><strong>{status === "PAYOUT_AUTHORIZED" || status === "CLOSED" ? "1" : "0"}</strong><small>No invented historical metrics</small></article>
+        <article className="metric-card accent-card"><span>Privacy posture</span><strong>Sealed</strong><small>0 private report fields public</small></article>
+      </div>
+      <div className="dashboard-grid">
+        <section className="panel report-panel">
+          <div className="panel-head"><div><span className="eyebrow">Report queue</span><h2>Active disclosures</h2></div><Pill tone={reportId ? "warning" : "neutral"}>{reportId ? "1 open" : "Empty"}</Pill></div>
+          {reportId ? (
+            <button className="report-row" onClick={onTriage}>
+              <span className="severity-mark">P2</span><span><strong>Sealed report {shortHex(reportId)}</strong><small>Exploit content private · submission receipt available</small></span><Pill tone="accent">{publicStatusLabel[status]}</Pill><span aria-hidden="true">›</span>
+            </button>
+          ) : <EmptyState title="No reports have been sealed" detail="A researcher submission appears here after ciphertext storage and commitment." />}
+        </section>
+        <aside className="panel policy-card">
+          <div className="panel-head"><div><span className="eyebrow">Public configuration</span><h2>Program policy</h2></div><span className="verified-mark" aria-label="Policy active">✓</span></div>
+          <dl><div><dt>Scope</dt><dd>api.acme.test · *.acme.test</dd></div><div><dt>First response</dt><dd>Within 7 days</dd></div><div><dt>Disclosure window</dt><dd>90 days</dd></div><div><dt>Reward policy</dt><dd>Four public tiers</dd></div></dl>
+          <HashValue label="Program identifier" value={programBytes} />
+        </aside>
+      </div>
+      <section className="panel lifecycle-panel">
+        <div className="panel-head"><div><span className="eyebrow">Current lifecycle</span><h2>Authorized workflow</h2></div><span className="muted">Contract-relative order</span></div>
+        <div className="horizontal-timeline">{timeline.map(({ entry, complete, current }, index) => <div className={complete ? "complete" : ""} key={entry}><span className={current ? "current" : ""}>{complete ? "✓" : index + 1}</span><small>{publicStatusLabel[entry]}</small></div>)}</div>
+      </section>
+    </section>
+  );
+}
+
+function CreateProgram({ mode, connected, operation, onConnect, onSubmit }: { readonly mode: RuntimeMode; readonly connected: boolean; readonly operation: Operation; readonly onConnect: () => void; readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+  return (
+    <section className="page narrow-page">
+      <PageHeading eyebrow="Vendor setup" title="Create a disclosure program" detail="Publish the minimum policy surface researchers need. Sensitive internal procedures stay off-ledger." />
+      <form className="form-panel" onSubmit={onSubmit}>
+        <div className="form-section"><span className="step-number">01</span><div><h2>Program identity</h2><p>This name is for the interface. The contract stores a fixed public identifier.</p></div></div>
+        <label>Program name<input defaultValue="Acme Security Program" required /></label>
+        <div className="field-grid"><label>Primary scope<input defaultValue="api.acme.test" required /></label><label>Additional scope<input defaultValue="*.acme.test" /></label></div>
+        <div className="form-section"><span className="step-number">02</span><div><h2>Response and disclosure policy</h2><p>These values become public commitments and coarse policy fields.</p></div></div>
+        <div className="field-grid"><label>First response target<select defaultValue="7"><option value="2">2 days</option><option value="7">7 days</option><option value="14">14 days</option></select></label><label>Coordinated disclosure window<select defaultValue="90"><option value="30">30 days</option><option value="60">60 days</option><option value="90">90 days</option></select></label></div>
+        <label>Reward policy<textarea defaultValue={"P1 · Critical — Tier 4\nP2 · High — Tier 3\nP3 · Medium — Tier 2\nP4 · Low — Tier 1"} rows={4} /></label>
+        <div className="reveal-box"><span aria-hidden="true">◈</span><div><strong>What becomes public?</strong><p>Program identifier, authorization key, scope digest, response targets, and policy digests. Internal contacts and triage playbooks do not.</p></div></div>
+        {mode === "midnight" && !connected && <div className="inline-error"><strong>Wallet disconnected</strong><span>Connect Lace before deployment.</span><button type="button" className="secondary-button" onClick={onConnect}>Connect Lace</button></div>}
+        {operation.state !== "idle" && <OperationNotice operation={operation} />}
+        <div className="form-actions"><span>{mode === "midnight" ? "A real deployment requires proof generation and Lace authorization." : "This creates a guided local program only."}</span><button className="primary-button" disabled={operation.state === "working" || (mode === "midnight" && !connected)}>Create program</button></div>
+      </form>
+    </section>
+  );
+}
+
+function ReportWizard({ report, onChange, onSeal }: { readonly report: VulnerabilityReport; readonly onChange: (report: VulnerabilityReport) => void; readonly onSeal: () => void }) {
+  const update = <K extends keyof VulnerabilityReport>(key: K, value: VulnerabilityReport[K]): void => onChange({ ...report, [key]: value });
+  return (
+    <section className="page narrow-page">
+      <PageHeading eyebrow="Researcher submission" title="Seal a vulnerability report" detail="Everything below stays inside the authenticated ciphertext. Only digests and workflow metadata cross the public boundary." actions={<Pill tone="success">Draft stays local</Pill>} />
+      <div className="wizard-steps" aria-label="Submission progress"><div className="active"><span>1</span><small>Report</small></div><div><span>2</span><small>Encrypt</small></div><div><span>3</span><small>Commit</small></div><div><span>4</span><small>Receipt</small></div></div>
+      <form className="form-panel" onSubmit={(event) => { event.preventDefault(); onSeal(); }}>
+        <div className="privacy-callout"><span className="lock-mark" aria-hidden="true">◆</span><div><strong>Private input boundary</strong><p>Title, reproduction, impact, attachments, and contact are canonicalized and encrypted in your browser.</p></div><Pill tone="success">Not public</Pill></div>
+        <label>Report title<input value={report.title} onChange={(event) => update("title", event.target.value)} required /></label>
+        <div className="field-grid"><label>Affected asset<input value={report.affectedAsset} onChange={(event) => update("affectedAsset", event.target.value)} required /></label><label>Weakness<input value={report.weakness} onChange={(event) => update("weakness", event.target.value)} required /></label></div>
+        <label>Executive summary<textarea rows={3} value={report.summary} onChange={(event) => update("summary", event.target.value)} required /></label>
+        <label>Reproduction steps<textarea rows={6} value={report.reproductionSteps.join("\n")} onChange={(event) => update("reproductionSteps", event.target.value.split("\n").filter(Boolean))} required /><small>One step per line. Never paste production credentials or third-party personal data.</small></label>
+        <label>Impact<textarea rows={3} value={report.impact} onChange={(event) => update("impact", event.target.value)} required /></label>
+        <label>Suggested remediation<textarea rows={3} value={report.suggestedRemediation} onChange={(event) => update("suggestedRemediation", event.target.value)} /></label>
+        <label>Private researcher contact<input type="email" value={report.researcherContact} onChange={(event) => update("researcherContact", event.target.value)} /><small>Encrypted with the report; never added to public ledger state.</small></label>
+        <div className="attachment-drop"><span aria-hidden="true">＋</span><div><strong>Attachment digests</strong><p>Wave 1 records attachment digests; binary upload is intentionally deferred.</p></div><Pill>0 files</Pill></div>
+        <label className="check-row"><input type="checkbox" required /><span>I confirm this test was authorized and the report excludes live secrets.</span></label>
+        <div className="form-actions"><span>Next: local AES-256-GCM encryption and Compact commitment.</span><button className="primary-button">Encrypt &amp; seal <span aria-hidden="true">→</span></button></div>
+      </form>
+    </section>
+  );
+}
+
+function SealProgress({ operation, onRetry, onBack }: { readonly operation: Operation; readonly onRetry: () => void; readonly onBack: () => void }) {
+  return (
+    <section className="page focus-page">
+      <div className={`progress-orb ${operation.state}`} aria-hidden="true"><span>{operation.state === "error" ? "!" : "V"}</span></div>
+      <span className="eyebrow accent">Private computation</span>
+      <h1>{operation.state === "error" ? "Your report remains local" : operation.state === "working" ? operation.label : "Preparing your receipt"}</h1>
+      <p>{operation.state === "error" ? operation.detail : operation.state === "working" ? operation.detail : "Finalizing the next safe step."}</p>
+      <div className="progress-list">
+        <div className="complete"><span>✓</span><p>Canonical report<small>Deterministic UTF-8 JSON</small></p></div>
+        <div className={operation.state === "working" ? "active" : operation.state === "error" ? "failed" : "complete"}><span>{operation.state === "error" ? "!" : "◌"}</span><p>Encrypt &amp; store<small>Authenticated ciphertext only</small></p></div>
+        <div><span>3</span><p>Generate ownership proof<small>Runs only in Midnight mode</small></p></div>
+        <div><span>4</span><p>Finalize receipt<small>Transaction evidence when available</small></p></div>
+      </div>
+      {operation.state === "error" && <div className="button-row"><button className="secondary-button" onClick={onBack}>Review report</button><button className="primary-button" onClick={onRetry}>Retry safely</button></div>}
+      <div className="privacy-footnote">No plaintext, key, salt, or researcher secret is sent to the ciphertext service.</div>
+    </section>
+  );
+}
+
+function Receipt({ sealed, reportId, evidence, network, onTriage, onReset }: { readonly sealed: SealedReport | undefined; readonly reportId: Uint8Array | undefined; readonly evidence: readonly TransactionEvidence[]; readonly network: boolean; readonly onTriage: () => void; readonly onReset: () => void }) {
+  const tx = [...evidence].reverse().find((entry: TransactionEvidence) => entry.circuit === "submitReport");
+  if (sealed === undefined || reportId === undefined) return <section className="page"><EmptyState title="No receipt yet" detail="Seal a report to create a content digest and Compact commitment." /></section>;
+  return (
+    <section className="page narrow-page receipt-page">
+      <div className="success-emblem" aria-hidden="true">✓</div>
+      <Pill tone={network ? "success" : "warning"}>{network ? "Midnight transaction finalized" : "Guided local receipt · not on-chain"}</Pill>
+      <h1>Your report is sealed</h1>
+      <p>The encrypted artifact has a content address and the report has a Compact-derived commitment. Keep the encryption material secure.</p>
+      <section className="receipt-card">
+        <div className="receipt-top"><div><span className="eyebrow">Submission receipt</span><strong>VULN-{bytesToHex(reportId).slice(0, 8).toUpperCase()}</strong></div><Pill tone="accent">Sealed</Pill></div>
+        <HashValue label="Report commitment" value={reportId} />
+        <HashValue label="Ciphertext digest" value={sealed.ciphertextDigest} />
+        <div className="receipt-facts"><div><span>Encryption</span><strong>AES-256-GCM</strong></div><div><span>Network evidence</span><strong>{tx ? `Block ${tx.blockHeight}` : "None in guided local"}</strong></div><div><span>Public exploit data</span><strong>0 fields</strong></div></div>
+        {tx && <div className="tx-evidence"><span>Transaction ID</span><code>{tx.txId}</code></div>}
+      </section>
+      <div className="warning-box"><span aria-hidden="true">!</span><div><strong>Back up your private material</strong><p>The report key, salt, and researcher secret are not recoverable from public state. This demo keeps them only for the current tab.</p></div></div>
+      <div className="button-row centered"><button className="secondary-button" onClick={onReset}>Seal another</button><button className="primary-button" onClick={onTriage}>Continue as vendor <span aria-hidden="true">→</span></button></div>
+    </section>
+  );
+}
+
+function Triage({ status, reportId, operation, onBegin, onAccept, onResolution }: { readonly status: ReportStatusName; readonly reportId: Uint8Array | undefined; readonly operation: Operation; readonly onBegin: () => void; readonly onAccept: () => void; readonly onResolution: () => void }) {
+  if (reportId === undefined) return <section className="page"><EmptyState title="Triage queue is empty" detail="A sealed submission is required before vendor review." /></section>;
+  return (
+    <section className="page">
+      <PageHeading eyebrow="Vendor triage" title="Review without breaking the seal" detail="The vendor decrypts through the authorized client. Public state records only the decision path and coarse severity." actions={<Pill tone="accent">{publicStatusLabel[status]}</Pill>} />
+      <div className="triage-layout">
+        <section className="panel decrypted-report">
+          <div className="decrypted-banner"><span aria-hidden="true">◆</span><p><strong>Decrypted locally for vendor persona</strong><small>This content is never written to public state or logs.</small></p><Pill tone="success">Private</Pill></div>
+          <h2>Cross-tenant authorization bypass</h2><p className="muted">api.acme.test/v1/organizations/:id/settings · CWE-862</p>
+          <div className="report-section"><span>Summary</span><p>A low-privilege token can read configuration from a second tenant.</p></div>
+          <div className="report-section"><span>Impact</span><p>An attacker can read sensitive configuration belonging to another tenant.</p></div>
+          <div className="report-section"><span>Reproduction</span><ol><li>Create two isolated test organizations.</li><li>Authenticate as a member of the first.</li><li>Request settings using the second identifier.</li></ol></div>
+        </section>
+        <aside className="panel decision-panel">
+          <span className="eyebrow">Authorized decision</span><h2>Triage controls</h2>
+          <label>Public severity tier<select defaultValue="3"><option value="4">P1 · Critical</option><option value="3">P2 · High</option><option value="2">P3 · Medium</option><option value="1">P4 · Low</option></select></label>
+          <label>Private rationale<textarea rows={5} defaultValue="Authorization is missing after organization lookup. Reproduced in the test tenant." /></label>
+          <div className="reveal-list"><strong>On acceptance, reveal:</strong><span>✓ Accepted status</span><span>✓ Severity tier 3</span><span>✓ Decision digest</span><span className="private">◆ Rationale remains private</span></div>
+          {operation.state !== "idle" && <OperationNotice operation={operation} />}
+          {status === "COMMITTED" && <button className="primary-button wide" onClick={onBegin}>Begin authorized triage</button>}
+          {status === "TRIAGED" && <><button className="primary-button wide" onClick={onAccept}>Accept as P2</button><button className="danger-button wide">Reject with digest</button></>}
+          {(status === "ACCEPTED" || status === "PATCH_READY" || status.startsWith("RETEST") || status === "PAYOUT_AUTHORIZED") && <button className="primary-button wide" onClick={onResolution}>Continue to remediation</button>}
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function Resolution(props: {
+  readonly status: ReportStatusName; readonly reportId: Uint8Array | undefined; readonly patchCommitment: Uint8Array | undefined; readonly retestCommitment: Uint8Array | undefined; readonly payoutReceipt: Uint8Array | undefined; readonly operation: Operation;
+  readonly patchReference: string; readonly retestNotes: string; readonly onPatchReference: (value: string) => void; readonly onRetestNotes: (value: string) => void;
+  readonly onAnchor: () => void; readonly onRetest: () => void; readonly onAuthorize: () => void; readonly onVerify: () => void;
+}) {
+  if (props.reportId === undefined) return <section className="page"><EmptyState title="No resolution workflow" detail="Accept a report before anchoring a patch." /></section>;
+  const stage = props.status === "ACCEPTED" ? 0 : props.status === "PATCH_READY" ? 1 : props.status === "RETEST_PASSED" ? 2 : props.status === "PAYOUT_AUTHORIZED" ? 3 : 0;
+  return (
+    <section className="page narrow-page">
+      <PageHeading eyebrow="Patch and retest" title="Prove the resolution path" detail="Each commitment is bound to this report. A payout receipt can exist only after acceptance and a passing retest." />
+      <div className="resolution-rail">{["Patch", "Retest", "Authorize", "Verify"].map((label, index) => <div className={index <= stage ? "complete" : ""} key={label}><span>{index < stage ? "✓" : index + 1}</span><small>{label}</small></div>)}</div>
+      <section className="form-panel resolution-card">
+        {stage === 0 && <><span className="eyebrow">Vendor step</span><h2>Anchor a private patch commitment</h2><p>Hash the release reference locally. The circuit binds its private digest to report {shortHex(props.reportId)}.</p><label>Patch or release reference<input value={props.patchReference} onChange={(event) => props.onPatchReference(event.target.value)} /></label><div className="reveal-box"><span aria-hidden="true">◈</span><div><strong>Public output</strong><p>A domain-separated patch commitment—never source code, diff contents, or private repository location.</p></div></div><button className="primary-button" onClick={props.onAnchor}>Anchor patch commitment</button></>}
+        {stage === 1 && <><span className="eyebrow">Researcher step</span><h2>Submit private retest evidence</h2><HashValue label="Patch commitment" value={props.patchCommitment} /><label>Private retest notes<textarea rows={5} value={props.retestNotes} onChange={(event) => props.onRetestNotes(event.target.value)} /></label><div className="result-choice"><button className="selected" onClick={props.onRetest}><span>✓</span><strong>Pass retest</strong><small>Disclose result only</small></button><button><span>×</span><strong>Fail retest</strong><small>Return to vendor</small></button></div></>}
+        {stage === 2 && <><span className="eyebrow">Vendor step</span><h2>Authorize the bounty—not a transfer</h2><HashValue label="Retest commitment" value={props.retestCommitment} /><div className="reward-summary"><div><span>Public reward tier</span><strong>Tier 3 · P2</strong></div><div><span>Funds moved</span><strong>None in Wave 1</strong></div></div><button className="primary-button" onClick={props.onAuthorize}>Generate payout authorization</button></>}
+        {stage === 3 && <><div className="success-emblem small" aria-hidden="true">✓</div><span className="eyebrow accent">Workflow complete</span><h2>Payout authorization is verifiable</h2><HashValue label="Payout authorization receipt" value={props.payoutReceipt} /><p>No token transfer is claimed. The receipt proves the contract reached the configured accepted → patch → passed-retest path.</p><button className="primary-button" onClick={props.onVerify}>Open public verifier</button></>}
+        {props.operation.state !== "idle" && <OperationNotice operation={props.operation} />}
+      </section>
+    </section>
+  );
+}
+
+function Verifier({ status, reportId, sealed, patchCommitment, retestCommitment, payoutReceipt, evidence, timeline, network }: {
+  readonly status: ReportStatusName; readonly reportId: Uint8Array | undefined; readonly sealed: SealedReport | undefined; readonly patchCommitment: Uint8Array | undefined; readonly retestCommitment: Uint8Array | undefined; readonly payoutReceipt: Uint8Array | undefined; readonly evidence: readonly TransactionEvidence[]; readonly timeline: ReadonlyArray<{ entry: ReportStatusName; complete: boolean; current: boolean }>; readonly network: boolean;
+}) {
+  if (reportId === undefined || sealed === undefined) return <section className="page"><PageHeading eyebrow="Public verifier" title="Verify a sealed disclosure" detail="Enter a report commitment or open a completed demo receipt." /><div className="search-box"><label htmlFor="verify-id">Report commitment</label><div><input id="verify-id" placeholder="64-character commitment" /><button className="primary-button">Verify</button></div></div><EmptyState title="No public trail loaded" detail="The verifier never needs the vulnerability plaintext, encryption key, salt, or researcher identity." /></section>;
+  return (
+    <section className="page verifier-page">
+      <PageHeading eyebrow="Public verifier" title="Resolution trail verified" detail="Anyone can inspect this audit surface. It contains no exploit content or researcher contact." actions={<Pill tone={network ? "success" : "warning"}>{network ? "Indexer-backed evidence" : "Guided local trail"}</Pill>} />
+      <div className="verdict-card"><span className="verdict-mark" aria-hidden="true">✓</span><div><span className="eyebrow">Verifiable statement</span><h2>Report existed, remained sealed, followed the authorized process, passed retest, and reached payout authorization—without exposing the exploit.</h2><p>{network ? "Supported by finalized Midnight transaction evidence shown below." : "This screen demonstrates the public data model only. It is not presented as on-chain evidence."}</p></div></div>
+      <div className="verifier-grid">
+        <section className="panel audit-timeline"><div className="panel-head"><div><span className="eyebrow">Audit timeline</span><h2>Public workflow</h2></div><Pill tone="accent">{publicStatusLabel[status]}</Pill></div>
+          {timeline.map(({ entry, complete }, index) => (
+            <div className={complete ? "audit-event complete" : "audit-event"} key={entry}><span>{complete ? "✓" : index + 1}</span><div><strong>{publicStatusLabel[entry]}</strong><small>{complete ? evidence[index]?.blockHeight ? `Finalized at block ${evidence[index]?.blockHeight}` : network ? `Finalized transaction ${index + 1}` : `Guided sequence ${index + 1}` : "Not reached"}</small></div>{complete && <Pill tone="success">{network ? "Finalized" : "Local step"}</Pill>}</div>
+          ))}
+        </section>
+        <aside className="panel public-data-card"><div className="panel-head"><div><span className="eyebrow">Public data</span><h2>Commitment set</h2></div></div><HashValue label="Report" value={reportId} /><HashValue label="Ciphertext" value={sealed.ciphertextDigest} /><HashValue label="Patch" value={patchCommitment} /><HashValue label="Retest" value={retestCommitment} /><HashValue label="Payout auth" value={payoutReceipt} /><div className="privacy-score"><span>Private fields exposed</span><strong>0</strong></div></aside>
+      </div>
+      <section className="not-proven"><span aria-hidden="true">i</span><div><strong>What this does not prove</strong><p>It does not prove the exploit is technically valid, severity is objective, two differently sealed reports are semantic duplicates, or money was transferred.</p></div></section>
+    </section>
+  );
+}
+
+function PrivacyModel() {
+  return (
+    <section className="page privacy-page">
+      <PageHeading eyebrow="Privacy model" title="Know exactly what is revealed" detail="VulnSeal separates encrypted application data, private witness inputs, and the minimum public audit surface." />
+      <div className="boundary-grid">
+        <article className="boundary-card private-card"><div className="boundary-head"><span aria-hidden="true">◆</span><div><span className="eyebrow">Private · researcher</span><h2>Never public</h2></div></div><ul><li>Canonical report and reproduction</li><li>Impact and remediation notes</li><li>Attachment digests before commitment</li><li>Report salt and researcher secret</li><li>Encryption key and private contact</li><li>Private retest evidence</li></ul><p>Held by the client’s private-state boundary and encrypted report artifact.</p></article>
+        <article className="boundary-card encrypted-card"><div className="boundary-head"><span aria-hidden="true">▣</span><div><span className="eyebrow">Off-chain · encrypted</span><h2>Ciphertext only</h2></div></div><ul><li>AES-256-GCM envelope</li><li>Random 96-bit IV</li><li>Program-bound additional data</li><li>Content-addressed SHA-256 digest</li><li>No plaintext storage endpoint</li></ul><p>A compromised store can delete or observe ciphertext size and timing, but cannot decrypt without the key.</p></article>
+        <article className="boundary-card public-card"><div className="boundary-head"><span aria-hidden="true">⌁</span><div><span className="eyebrow">Public · Midnight</span><h2>Verifiable minimum</h2></div></div><ul><li>Program and policy digests</li><li>Derived authorization identities</li><li>Report and ciphertext commitments</li><li>Coarse workflow and severity</li><li>Patch and retest commitments</li><li>Payout-authorization receipt</li></ul><p>Public state supports auditability without making the exploit readable.</p></article>
+      </div>
+      <section className="guarantee-table panel"><div className="panel-head"><div><span className="eyebrow">Honest guarantees</span><h2>Cryptographic claim boundary</h2></div></div><div className="table-row header"><span>Claim</span><span>Mechanism</span><span>Status</span></div><div className="table-row"><span>Knowledge of sealed preimage and secret</span><span>Compact witness constraints</span><Pill tone="success">Proven in circuit</Pill></div><div className="table-row"><span>Authorized vendor state transition</span><span>Domain-separated owner key</span><Pill tone="success">Proven in circuit</Pill></div><div className="table-row"><span>Exploit is valid and severity objective</span><span>Human security review</span><Pill tone="warning">Not ZK-proven</Pill></div><div className="table-row"><span>Funds were paid</span><span>Future escrow transaction</span><Pill>Wave 2</Pill></div></section>
+    </section>
+  );
+}
+
+function OperationNotice({ operation }: { readonly operation: Exclude<Operation, { state: "idle" }> }) {
+  return <div className={`operation-notice ${operation.state}`} role={operation.state === "error" ? "alert" : "status"}><span aria-hidden="true">{operation.state === "error" ? "!" : "◌"}</span><div><strong>{operation.label}</strong><p>{operation.detail}</p></div></div>;
+}
+
+export default App;

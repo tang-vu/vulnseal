@@ -1,0 +1,36 @@
+{
+  "name": "@vulnseal/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@vulnseal/api": "0.1.0",
+    "@vulnseal/contract": "0.1.0",
+    "@vulnseal/shared": "0.1.0",
+    "assert": "2.1.0",
+    "buffer": "6.0.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.6",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "@vitejs/plugin-react": "6.1.1",
+    "axe-core": "4.13.0",
+    "jsdom": "29.1.1",
+    "vite": "8.2.2",
+    "vite-plugin-wasm": "3.6.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit && vite build && node ../scripts/copy-web-contract-assets.mjs",
+    "dev": "vite --host 127.0.0.1",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

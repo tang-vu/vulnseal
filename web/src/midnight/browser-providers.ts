@@ -1,0 +1,107 @@
+// Provider wiring follows the current official example-bboard browser pattern.
+// SPDX-License-Identifier: Apache-2.0
+import type { ConnectedAPI, InitialAPI } from "@midnight-ntwrk/dapp-connector-api";
+import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-config-provider";
+import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
+import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
+import { fromHex, toHex } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
+import {
+  Binding,
+  type FinalizedTransaction,
+  Proof,
+  SignatureEnabled,
+  Transaction,
+  type TransactionId,
+} from "@midnight-ntwrk/midnight-js-protocol/ledger";
+import type { UnboundTransaction } from "@midnight-ntwrk/midnight-js-types";
+import type {
+  VulnSealCircuitKeys,
+  VulnSealPrivateStateId,
+  VulnSealProviders,
+} from "@vulnseal/api/types";
+import type { VulnSealPrivateState } from "@vulnseal/contract";
+import { inMemoryPrivateStateProvider } from "./in-memory-private-state-provider.js";
+
+declare global {
+  interface Window {
+    midnight?: { [key: string]: InitialAPI };
+  }
+}
+
+const connectorMajor = 4;
+
+const compatibleWallet = (): InitialAPI | undefined =>
+  Object.values(window.midnight ?? {}).find((candidate): candidate is InitialAPI => {
+    if (candidate === undefined || typeof candidate.apiVersion !== "string") return false;
+    return Number.parseInt(candidate.apiVersion.split(".")[0] ?? "0", 10) === connectorMajor;
+  });
+
+const waitForWallet = async (timeoutMs = 1_500): Promise<InitialAPI> => {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const wallet = compatibleWallet();
+    if (wallet) return wallet;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error("Compatible Midnight Lace wallet not found");
+};
+
+const connect = async (networkId: string): Promise<ConnectedAPI> => {
+  const connected = await (await waitForWallet()).connect(networkId);
+  const status = await connected.getConnectionStatus();
+  if (status.status !== "connected") throw new Error("Wallet authorization was not granted");
+  return connected;
+};
+
+export const initializeBrowserProviders = async (
+  networkId: string,
+): Promise<VulnSealProviders> => {
+  const connected = await connect(networkId);
+  const config = await connected.getConfiguration();
+  if (!config.proverServerUri) throw new Error("Wallet has no proof-server configuration");
+  const addresses = await connected.getShieldedAddresses();
+  const zkConfigProvider = new FetchZkConfigProvider<VulnSealCircuitKeys>(
+    window.location.origin,
+    window.fetch.bind(window),
+  );
+  return {
+    privateStateProvider: inMemoryPrivateStateProvider<
+      VulnSealPrivateStateId,
+      VulnSealPrivateState
+    >(),
+    publicDataProvider: indexerPublicDataProvider(
+      config.indexerUri,
+      config.indexerWsUri,
+      window.WebSocket as unknown as Parameters<typeof indexerPublicDataProvider>[2],
+    ),
+    zkConfigProvider,
+    proofProvider: httpClientProofProvider(config.proverServerUri, zkConfigProvider),
+    walletProvider: {
+      getCoinPublicKey: () => addresses.shieldedCoinPublicKey,
+      getEncryptionPublicKey: () => addresses.shieldedEncryptionPublicKey,
+      balanceTx: async (
+        transaction: UnboundTransaction,
+        ttl?: Date,
+      ): Promise<FinalizedTransaction> => {
+        void ttl;
+        const balanced = await connected.balanceUnsealedTransaction(
+          toHex(transaction.serialize()),
+        );
+        return Transaction.deserialize<SignatureEnabled, Proof, Binding>(
+          "signature",
+          "proof",
+          "binding",
+          fromHex(balanced.tx),
+        );
+      },
+    },
+    midnightProvider: {
+      submitTx: async (transaction: FinalizedTransaction): Promise<TransactionId> => {
+        await connected.submitTransaction(toHex(transaction.serialize()));
+        const identifier = transaction.identifiers()[0];
+        if (identifier === undefined) throw new Error("Submitted transaction has no identifier");
+        return identifier;
+      },
+    },
+  };
+};
