@@ -24,6 +24,8 @@ test("guided disclosure reaches an honest public payout-authorization trail", as
   await expect(page.getByText(/Guided local receipt · not on-chain/i)).toBeVisible();
 
   await page.getByRole("button", { name: /Continue as vendor/i }).click();
+  await expect(page.getByText("Decrypted locally for vendor persona")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Cross-tenant authorization bypass" })).toBeVisible();
   await page.getByRole("button", { name: "Begin authorized triage" }).click();
   await page.getByRole("button", { name: "Accept as P2" }).click();
   await page.getByRole("button", { name: "Continue to remediation" }).click();
