@@ -5,6 +5,7 @@ coverage/
 playwright-report/
 test-results/
 *.tsbuildinfo
+**/.vite/
 
 # Compact generated proof material is generated locally/CI.
 contract/src/managed/
