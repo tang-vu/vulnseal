@@ -1,0 +1,402 @@
+// This file is part of VulnSeal.
+// Copyright (C) 2026 VulnSeal contributors
+// SPDX-License-Identifier: Apache-2.0
+
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+/** Coarse public workflow state. No exploit content is represented here. */
+export enum ReportStatus {
+  COMMITTED,
+  TRIAGED,
+  ACCEPTED,
+  REJECTED,
+  PATCH_READY,
+  RETEST_PASSED,
+  RETEST_FAILED,
+  PAYOUT_AUTHORIZED,
+  CLOSED
+}
+
+/**
+ * The complete public record for one sealed report. Zero-valued commitments
+ * mean the corresponding workflow step has not happened yet.
+ */
+export struct ReportRecord {
+  commitment: Bytes<32>;
+  ciphertextDigest: Bytes<32>;
+  researcherKey: Bytes<32>;
+  submissionReceipt: Bytes<32>;
+  status: ReportStatus;
+  severity: Uint<8>;
+  decisionDigest: Bytes<32>;
+  patchCommitment: Bytes<32>;
+  retestCommitment: Bytes<32>;
+  retestPassed: Boolean;
+  payoutReceipt: Bytes<32>;
+  rewardTier: Uint<8>;
+  createdSequence: Uint<64>;
+  updatedSequence: Uint<64>;
+}
+
+export ledger programId: Bytes<32>;
+export ledger ownerKey: Bytes<32>;
+export ledger scopeDigest: Bytes<32>;
+export ledger responsePolicyDigest: Bytes<32>;
+export ledger responseDays: Uint<16>;
+export ledger rewardPolicyDigest: Bytes<32>;
+export ledger disclosurePolicyDigest: Bytes<32>;
+export ledger disclosureDelayDays: Uint<16>;
+export ledger sequence: Uint<64>;
+export ledger reports: Map<Bytes<32>, ReportRecord>;
+export ledger payoutReceipts: Set<Bytes<32>>;
+
+/** Security-critical private inputs supplied by the TypeScript witness layer. */
+witness actorSecret(): Bytes<32>;
+witness reportPreimage(): [Bytes<32>, Bytes<32>, Bytes<32>];
+witness patchEvidence(): [Bytes<32>, Bytes<32>];
+witness retestEvidence(): [Bytes<32>, Bytes<32>, Bytes<32>];
+
+constructor(
+  initialProgramId: Bytes<32>,
+  initialScopeDigest: Bytes<32>,
+  initialResponsePolicyDigest: Bytes<32>,
+  initialResponseDays: Uint<16>,
+  initialRewardPolicyDigest: Bytes<32>,
+  initialDisclosurePolicyDigest: Bytes<32>,
+  initialDisclosureDelayDays: Uint<16>
+) {
+  programId = disclose(initialProgramId);
+  scopeDigest = disclose(initialScopeDigest);
+  responsePolicyDigest = disclose(initialResponsePolicyDigest);
+  responseDays = disclose(initialResponseDays);
+  rewardPolicyDigest = disclose(initialRewardPolicyDigest);
+  disclosurePolicyDigest = disclose(initialDisclosurePolicyDigest);
+  disclosureDelayDays = disclose(initialDisclosureDelayDays);
+  ownerKey = disclose(deriveVendorKey(initialProgramId, actorSecret()));
+  sequence = 1;
+}
+
+export pure circuit deriveVendorKey(subjectProgramId: Bytes<32>, secret: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([
+    pad(32, "vulnseal:vendor-key:v1"),
+    subjectProgramId,
+    secret
+  ]);
+}
+
+export pure circuit deriveReportCommitment(
+  subjectProgramId: Bytes<32>,
+  canonicalReportDigest: Bytes<32>,
+  reportSalt: Bytes<32>
+): Bytes<32> {
+  return persistentHash<Vector<4, Bytes<32>>>([
+    pad(32, "vulnseal:report:v1"),
+    canonicalReportDigest,
+    reportSalt,
+    subjectProgramId
+  ]);
+}
+
+export pure circuit deriveResearcherKey(
+  subjectProgramId: Bytes<32>,
+  reportCommitment: Bytes<32>,
+  secret: Bytes<32>
+): Bytes<32> {
+  return persistentHash<Vector<4, Bytes<32>>>([
+    pad(32, "vulnseal:researcher-key:v1"),
+    subjectProgramId,
+    reportCommitment,
+    secret
+  ]);
+}
+
+pure circuit deriveSubmissionReceipt(
+  reportCommitment: Bytes<32>,
+  encryptedDigest: Bytes<32>,
+  researcher: Bytes<32>
+): Bytes<32> {
+  return persistentHash<Vector<4, Bytes<32>>>([
+    pad(32, "vulnseal:submission:v1"),
+    reportCommitment,
+    encryptedDigest,
+    researcher
+  ]);
+}
+
+pure circuit derivePatchCommitment(
+  reportCommitment: Bytes<32>,
+  patchDigest: Bytes<32>
+): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([
+    pad(32, "vulnseal:patch:v1"),
+    reportCommitment,
+    patchDigest
+  ]);
+}
+
+pure circuit deriveRetestCommitment(
+  reportCommitment: Bytes<32>,
+  patchCommitment: Bytes<32>,
+  evidenceDigest: Bytes<32>,
+  passed: Boolean
+): Bytes<32> {
+  return persistentHash<Vector<5, Bytes<32>>>([
+    pad(32, "vulnseal:retest:v1"),
+    reportCommitment,
+    patchCommitment,
+    evidenceDigest,
+    persistentHash<Boolean>(passed)
+  ]);
+}
+
+pure circuit derivePayoutReceipt(
+  reportCommitment: Bytes<32>,
+  patchCommitment: Bytes<32>,
+  retestCommitment: Bytes<32>,
+  rewardTier: Uint<8>
+): Bytes<32> {
+  return persistentHash<Vector<5, Bytes<32>>>([
+    pad(32, "vulnseal:payout-auth:v1"),
+    reportCommitment,
+    patchCommitment,
+    retestCommitment,
+    persistentHash<Uint<8>>(rewardTier)
+  ]);
+}
+
+circuit assertVendor(): [] {
+  assert(ownerKey == deriveVendorKey(programId, actorSecret()), "Only the program owner may perform this transition");
+}
+
+circuit assertResearcher(reportId: Bytes<32>, report: ReportRecord): [] {
+  const [subjectProgram, canonicalDigest, salt] = reportPreimage();
+  assert(subjectProgram == programId, "Report preimage is bound to another program");
+  assert(deriveReportCommitment(subjectProgram, canonicalDigest, salt) == reportId, "Report preimage does not match commitment");
+  assert(report.researcherKey == deriveResearcherKey(programId, reportId, actorSecret()), "Researcher secret does not authorize this report");
+}
+
+circuit loadReport(reportId: Bytes<32>): ReportRecord {
+  const disclosedReportId = disclose(reportId);
+  assert(reports.member(disclosedReportId), "Report does not exist");
+  return reports.lookup(disclosedReportId);
+}
+
+/**
+ * Commits to private report material and publishes only commitments,
+ * ciphertext integrity metadata, a derived pseudonymous key, and a receipt.
+ */
+export circuit submitReport(encryptedDigest: Bytes<32>): Bytes<32> {
+  const [subjectProgram, canonicalDigest, salt] = reportPreimage();
+  assert(subjectProgram == programId, "Report preimage is bound to another program");
+  const commitment = deriveReportCommitment(subjectProgram, canonicalDigest, salt);
+  const disclosedCommitment = disclose(commitment);
+  assert(!reports.member(disclosedCommitment), "Report commitment already exists");
+  const researcher = disclose(deriveResearcherKey(programId, commitment, actorSecret()));
+  const receipt = disclose(deriveSubmissionReceipt(commitment, encryptedDigest, researcher));
+  const record = ReportRecord {
+    commitment: disclosedCommitment,
+    ciphertextDigest: disclose(encryptedDigest),
+    researcherKey: researcher,
+    submissionReceipt: receipt,
+    status: ReportStatus.COMMITTED,
+    severity: 0,
+    decisionDigest: default<Bytes<32>>,
+    patchCommitment: default<Bytes<32>>,
+    retestCommitment: default<Bytes<32>>,
+    retestPassed: false,
+    payoutReceipt: default<Bytes<32>>,
+    rewardTier: 0,
+    createdSequence: sequence,
+    updatedSequence: sequence
+  };
+  reports.insert(disclosedCommitment, disclose(record));
+  sequence = (sequence + 1) as Uint<64>;
+  return disclosedCommitment;
+}
+
+export circuit beginTriage(reportId: Bytes<32>): [] {
+  assertVendor();
+  const id = disclose(reportId);
+  const report = loadReport(id);
+  assert(report.status == ReportStatus.COMMITTED, "Report is not awaiting triage");
+  reports.insert(id, disclose(ReportRecord {
+    commitment: report.commitment,
+    ciphertextDigest: report.ciphertextDigest,
+    researcherKey: report.researcherKey,
+    submissionReceipt: report.submissionReceipt,
+    status: ReportStatus.TRIAGED,
+    severity: report.severity,
+    decisionDigest: report.decisionDigest,
+    patchCommitment: report.patchCommitment,
+    retestCommitment: report.retestCommitment,
+    retestPassed: report.retestPassed,
+    payoutReceipt: report.payoutReceipt,
+    rewardTier: report.rewardTier,
+    createdSequence: report.createdSequence,
+    updatedSequence: sequence
+  }));
+  sequence = (sequence + 1) as Uint<64>;
+}
+
+export circuit acceptReport(reportId: Bytes<32>, severity: Uint<8>, decisionDigest: Bytes<32>): [] {
+  assertVendor();
+  assert(severity > 0 && severity <= 4, "Severity must be a public tier from 1 to 4");
+  const id = disclose(reportId);
+  const report = loadReport(id);
+  assert(report.status == ReportStatus.TRIAGED, "Only a triaged report can be accepted");
+  reports.insert(id, disclose(ReportRecord {
+    commitment: report.commitment,
+    ciphertextDigest: report.ciphertextDigest,
+    researcherKey: report.researcherKey,
+    submissionReceipt: report.submissionReceipt,
+    status: ReportStatus.ACCEPTED,
+    severity: severity,
+    decisionDigest: decisionDigest,
+    patchCommitment: report.patchCommitment,
+    retestCommitment: report.retestCommitment,
+    retestPassed: report.retestPassed,
+    payoutReceipt: report.payoutReceipt,
+    rewardTier: report.rewardTier,
+    createdSequence: report.createdSequence,
+    updatedSequence: sequence
+  }));
+  sequence = (sequence + 1) as Uint<64>;
+}
+
+export circuit rejectReport(reportId: Bytes<32>, decisionDigest: Bytes<32>): [] {
+  assertVendor();
+  const id = disclose(reportId);
+  const report = loadReport(id);
+  assert(report.status == ReportStatus.TRIAGED, "Only a triaged report can be rejected");
+  reports.insert(id, disclose(ReportRecord {
+    commitment: report.commitment,
+    ciphertextDigest: report.ciphertextDigest,
+    researcherKey: report.researcherKey,
+    submissionReceipt: report.submissionReceipt,
+    status: ReportStatus.REJECTED,
+    severity: 0,
+    decisionDigest: decisionDigest,
+    patchCommitment: report.patchCommitment,
+    retestCommitment: report.retestCommitment,
+    retestPassed: false,
+    payoutReceipt: report.payoutReceipt,
+    rewardTier: 0,
+    createdSequence: report.createdSequence,
+    updatedSequence: sequence
+  }));
+  sequence = (sequence + 1) as Uint<64>;
+}
+
+export circuit anchorPatch(reportId: Bytes<32>): Bytes<32> {
+  assertVendor();
+  const id = disclose(reportId);
+  const report = loadReport(id);
+  assert(report.status == ReportStatus.ACCEPTED || report.status == ReportStatus.RETEST_FAILED, "Patch requires an accepted or failed-retest report");
+  const [subjectReport, patchDigest] = patchEvidence();
+  assert(subjectReport == id, "Patch evidence is bound to another report");
+  const patch = disclose(derivePatchCommitment(subjectReport, patchDigest));
+  reports.insert(id, disclose(ReportRecord {
+    commitment: report.commitment,
+    ciphertextDigest: report.ciphertextDigest,
+    researcherKey: report.researcherKey,
+    submissionReceipt: report.submissionReceipt,
+    status: ReportStatus.PATCH_READY,
+    severity: report.severity,
+    decisionDigest: report.decisionDigest,
+    patchCommitment: patch,
+    retestCommitment: default<Bytes<32>>,
+    retestPassed: false,
+    payoutReceipt: report.payoutReceipt,
+    rewardTier: report.rewardTier,
+    createdSequence: report.createdSequence,
+    updatedSequence: sequence
+  }));
+  sequence = (sequence + 1) as Uint<64>;
+  return patch;
+}
+
+export circuit submitRetest(reportId: Bytes<32>, passed: Boolean): Bytes<32> {
+  const id = disclose(reportId);
+  const report = loadReport(id);
+  assert(report.status == ReportStatus.PATCH_READY, "Retest requires an anchored patch");
+  assertResearcher(id, report);
+  const [subjectReport, subjectPatch, evidenceDigest] = retestEvidence();
+  assert(subjectReport == id, "Retest evidence is bound to another report");
+  assert(subjectPatch == report.patchCommitment, "Retest evidence is bound to another patch");
+  const retest = disclose(deriveRetestCommitment(id, subjectPatch, evidenceDigest, passed));
+  const newStatus = passed ? ReportStatus.RETEST_PASSED : ReportStatus.RETEST_FAILED;
+  reports.insert(id, disclose(ReportRecord {
+    commitment: report.commitment,
+    ciphertextDigest: report.ciphertextDigest,
+    researcherKey: report.researcherKey,
+    submissionReceipt: report.submissionReceipt,
+    status: newStatus,
+    severity: report.severity,
+    decisionDigest: report.decisionDigest,
+    patchCommitment: report.patchCommitment,
+    retestCommitment: retest,
+    retestPassed: passed,
+    payoutReceipt: report.payoutReceipt,
+    rewardTier: report.rewardTier,
+    createdSequence: report.createdSequence,
+    updatedSequence: sequence
+  }));
+  sequence = (sequence + 1) as Uint<64>;
+  return retest;
+}
+
+export circuit authorizePayout(reportId: Bytes<32>, rewardTier: Uint<8>): Bytes<32> {
+  assertVendor();
+  assert(rewardTier > 0 && rewardTier <= 4, "Reward tier must be from 1 to 4");
+  const id = disclose(reportId);
+  const report = loadReport(id);
+  assert(report.status == ReportStatus.RETEST_PASSED, "Payout authorization requires a passing retest");
+  assert(report.retestPassed, "Passing retest flag is required");
+  const receipt = disclose(derivePayoutReceipt(id, report.patchCommitment, report.retestCommitment, rewardTier));
+  assert(!payoutReceipts.member(receipt), "Payout authorization receipt already used");
+  payoutReceipts.insert(receipt);
+  reports.insert(id, disclose(ReportRecord {
+    commitment: report.commitment,
+    ciphertextDigest: report.ciphertextDigest,
+    researcherKey: report.researcherKey,
+    submissionReceipt: report.submissionReceipt,
+    status: ReportStatus.PAYOUT_AUTHORIZED,
+    severity: report.severity,
+    decisionDigest: report.decisionDigest,
+    patchCommitment: report.patchCommitment,
+    retestCommitment: report.retestCommitment,
+    retestPassed: report.retestPassed,
+    payoutReceipt: receipt,
+    rewardTier: rewardTier,
+    createdSequence: report.createdSequence,
+    updatedSequence: sequence
+  }));
+  sequence = (sequence + 1) as Uint<64>;
+  return receipt;
+}
+
+export circuit closeReport(reportId: Bytes<32>): [] {
+  assertVendor();
+  const id = disclose(reportId);
+  const report = loadReport(id);
+  assert(report.status == ReportStatus.REJECTED || report.status == ReportStatus.PAYOUT_AUTHORIZED, "Only rejected or payout-authorized reports can close");
+  reports.insert(id, disclose(ReportRecord {
+    commitment: report.commitment,
+    ciphertextDigest: report.ciphertextDigest,
+    researcherKey: report.researcherKey,
+    submissionReceipt: report.submissionReceipt,
+    status: ReportStatus.CLOSED,
+    severity: report.severity,
+    decisionDigest: report.decisionDigest,
+    patchCommitment: report.patchCommitment,
+    retestCommitment: report.retestCommitment,
+    retestPassed: report.retestPassed,
+    payoutReceipt: report.payoutReceipt,
+    rewardTier: report.rewardTier,
+    createdSequence: report.createdSequence,
+    updatedSequence: sequence
+  }));
+  sequence = (sequence + 1) as Uint<64>;
+}

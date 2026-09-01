@@ -1,0 +1,40 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Compact generated proof material is generated locally/CI.
+contract/src/managed/
+
+# Secrets and private artifacts
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.seed
+*.mnemonic
+*.wallet
+private-state/
+integration/.private-state/
+integration/midnight-level-db/
+reports/
+cipherstore/data/
+
+# Tooling and OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/settings.json
+*.log
+npm-debug.log*
+
+# Local Midnight data
+.midnight/
+.compact/
+proof-server-data/
+node-data/
+indexer-data/

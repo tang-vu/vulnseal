@@ -1,0 +1,64 @@
+{
+  "capturedAt": "2026-09-01T07:41:16.181Z",
+  "network": "undeployed-local",
+  "evidenceKind": "real local Midnight transactions and proof-server requests",
+  "contractAddress": "1a1642dc57bd2ec02e65e76a8938b2a7791c771441fed26b2856dc29950e569e",
+  "finalStatus": "PAYOUT_AUTHORIZED",
+  "publicRecordFields": [
+    "ciphertextDigest",
+    "commitment",
+    "createdSequence",
+    "decisionDigest",
+    "patchCommitment",
+    "payoutReceipt",
+    "researcherKey",
+    "retestCommitment",
+    "retestPassed",
+    "rewardTier",
+    "severity",
+    "status",
+    "submissionReceipt",
+    "updatedSequence"
+  ],
+  "transactions": [
+    {
+      "circuit": "constructor",
+      "txId": "005e6a915a19a4cd1f636eb87c65c3dcf5c47c096ad26e8de533595c7b81c8c632",
+      "blockHeight": "68"
+    },
+    {
+      "circuit": "submitReport",
+      "txId": "008fbd40121a93cdb3ae9ddc86d5bb8461a2b9f982c9ec21c8ce4e5382468a654f",
+      "blockHeight": "83"
+    },
+    {
+      "circuit": "beginTriage",
+      "txId": "00f4bcce2c245a6e8e09cb9bf01dea8ff8996f7e9faaa2b22a3c73d1a325037181",
+      "blockHeight": "91"
+    },
+    {
+      "circuit": "acceptReport",
+      "txId": "006b62ad9cd3634ce404a637100377047bea93296c1bb8d3bf71e6d7bc162c1904",
+      "blockHeight": "99"
+    },
+    {
+      "circuit": "anchorPatch",
+      "txId": "00e36f15f4e41155ebf470cafb427ce407e44a923ef7a5a9646e1313041d9e39df",
+      "blockHeight": "110"
+    },
+    {
+      "circuit": "submitRetest",
+      "txId": "003fd8788d10a8b0194b8ea66c0103ac03c24180eb9cc190461300234e9e0ca98e",
+      "blockHeight": "125"
+    },
+    {
+      "circuit": "authorizePayout",
+      "txId": "00b245ec298c71f6bcc741fb41d02cd98354d4820454b995893cc18392e9fd0816",
+      "blockHeight": "136"
+    }
+  ],
+  "limitations": [
+    "Local ephemeral chain; this is not Preprod deployment evidence.",
+    "Payout authorization records workflow approval; it does not transfer funds."
+  ]
+}

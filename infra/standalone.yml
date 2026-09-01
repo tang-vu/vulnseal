@@ -1,0 +1,48 @@
+# Adapted from midnightntwrk/example-zkloan at commit
+# 5da98549ef62addb72e391332bbcf0bea51e4213 (Apache-2.0).
+services:
+  proof-server:
+    image: ${MIDNIGHT_PROOF_IMAGE:-midnightntwrk/proof-server:8.1.0}
+    platform: ${MIDNIGHT_PROOF_PLATFORM:-linux/amd64}
+    command: ["midnight-proof-server -v"]
+    ports:
+      - "127.0.0.1:6300:6300"
+    environment:
+      RUST_BACKTRACE: full
+
+  indexer:
+    image: ${MIDNIGHT_INDEXER_IMAGE:-midnightntwrk/indexer-standalone:4.3.3}
+    platform: ${MIDNIGHT_INDEXER_PLATFORM:-linux/amd64}
+    restart: "on-failure:10"
+    env_file: standalone.env.example
+    ports:
+      - "127.0.0.1:8088:8088"
+    environment:
+      RUST_LOG: indexer=info,chain_indexer=info,indexer_api=info,wallet_indexer=info,indexer_common=info,fastrace_opentelemetry=off
+      APP__APPLICATION__NETWORK_ID: undeployed
+    healthcheck:
+      test: ["CMD-SHELL", "cat /var/run/indexer-standalone/running"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    depends_on:
+      node:
+        condition: service_healthy
+
+  node:
+    image: ${MIDNIGHT_NODE_IMAGE:-midnightntwrk/midnight-node:1.0.0}
+    # Set MIDNIGHT_NODE_PLATFORM=linux/arm64/v8 to use Docker's CPU emulator
+    # when an older x86 host cannot execute the official amd64 binary.
+    platform: ${MIDNIGHT_NODE_PLATFORM:-linux/amd64}
+    ports:
+      - "127.0.0.1:9944:9944"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9944/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    environment:
+      CFG_PRESET: dev
+      SIDECHAIN_BLOCK_BENEFICIARY: 04bcf7ad3be7a5c790460be82a713af570f22e0f801f6659ab8e84a52be6969e

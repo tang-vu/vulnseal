@@ -1,0 +1,65 @@
+{
+  "name": "vulnseal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24.11.1"
+  },
+  "workspaces": [
+    "contract",
+    "api",
+    "cipherstore",
+    "integration",
+    "packages/shared",
+    "web"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "compact": "npm run compact --workspace @vulnseal/contract",
+    "compact:skip-zk": "npm run compact:skip-zk --workspace @vulnseal/contract",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:run": "npm run test:run --workspaces --if-present",
+    "test:e2e": "playwright test",
+    "test:integration": "npm run lifecycle -w @vulnseal/integration",
+    "midnight:up": "docker compose -f infra/standalone.yml up -d",
+    "midnight:down": "docker compose -f infra/standalone.yml down",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "validate": "npm run typecheck && npm run test:run && npm run build",
+    "audit:prod": "npm audit --omit=dev",
+    "demo": "concurrently -k -n cipherstore,web -c yellow,green \"npm run dev -w @vulnseal/cipherstore\" \"npm run dev -w @vulnseal/web\""
+  },
+  "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "0.16.0",
+    "@midnight-ntwrk/dapp-connector-api": "4.0.1",
+    "@midnight-ntwrk/midnight-js-contracts": "4.1.1",
+    "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-network-id": "4.1.1",
+    "@midnight-ntwrk/midnight-js-node-zk-config-provider": "4.1.1",
+    "@midnight-ntwrk/midnight-js-protocol": "4.1.1",
+    "@midnight-ntwrk/midnight-js-types": "4.1.1",
+    "@midnight-ntwrk/midnight-js-utils": "4.1.1",
+    "@midnight-ntwrk/onchain-runtime-v3": "3.0.0",
+    "@midnight-ntwrk/wallet-sdk": "1.2.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "24.13.3",
+    "@types/ws": "8.18.1",
+    "concurrently": "10.0.5",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11",
+    "rxjs": "7.8.2",
+    "ws": "8.21.3"
+  },
+  "overrides": {
+    "@midnight-ntwrk/ledger-v8": "8.1.0",
+    "@midnight-ntwrk/onchain-runtime-v3": "3.0.0",
+    "@midnight-ntwrk/midnight-js-network-id": "4.1.1"
+  }
+}
