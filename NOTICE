@@ -1,0 +1,14 @@
+VulnSeal
+Copyright 2026 VulnSeal contributors
+
+This product includes design patterns adapted from software developed by the
+Midnight Foundation and/or Input Output Global:
+
+- midnightntwrk/example-bboard, commit
+  38bfac8c574abb0c5a96c9e076779716c3e88231 (MIT license).
+- midnightntwrk/example-zkloan, commit
+  5da98549ef62addb72e391332bbcf0bea51e4213 (Apache License 2.0).
+
+The adapted material is limited to current provider, wallet, build, and local
+service integration patterns. VulnSeal's product model, Compact workflow,
+privacy architecture, UI, and tests are original implementation work.
