@@ -21,7 +21,10 @@ const required = (name: "MIDNIGHT_PREPROD_SEED" | "MIDNIGHT_STORAGE_PASSWORD"): 
 const run = async (): Promise<void> => {
   setNetworkId(preprodConfig.networkId);
   process.stdout.write("Synchronizing the gitignored Preprod test wallet; no secret values will be logged.\n");
-  const wallet = await startPreprodWallet(required("MIDNIGHT_PREPROD_SEED"));
+  const wallet = await startPreprodWallet(
+    required("MIDNIGHT_PREPROD_SEED"),
+    required("MIDNIGHT_STORAGE_PASSWORD"),
+  );
   const transactions: TransactionEvidence[] = [];
   try {
     const midnightWallet = await preprodWalletProvider(wallet);
@@ -119,7 +122,7 @@ const run = async (): Promise<void> => {
     await writeFile(path.join(directory, "preprod-lifecycle.json"), `${JSON.stringify(output, null, 2)}\n`, "utf8");
     process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
   } finally {
-    await wallet.wallet.stop();
+    await wallet.close();
   }
 };
 

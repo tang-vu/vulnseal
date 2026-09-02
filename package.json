@@ -26,6 +26,7 @@
     "test:integration": "npm run lifecycle -w @vulnseal/integration",
     "preprod:prepare": "npm run preprod:prepare -w @vulnseal/integration",
     "preprod:lifecycle": "npm run preprod:lifecycle -w @vulnseal/integration",
+    "preprod:verify": "npm run preprod:verify -w @vulnseal/integration",
     "midnight:up": "docker compose -f infra/standalone.yml up -d",
     "midnight:proof:up": "docker compose --env-file infra/arm64-emulation.env -f infra/standalone.yml up -d proof-server",
     "midnight:proof:down": "docker compose --env-file infra/arm64-emulation.env -f infra/standalone.yml stop proof-server",

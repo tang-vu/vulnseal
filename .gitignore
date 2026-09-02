@@ -21,6 +21,7 @@ contract/src/managed/
 *.wallet
 private-state/
 integration/.private-state/
+integration/.wallet-state/
 integration/midnight-level-db/
 reports/
 cipherstore/data/
