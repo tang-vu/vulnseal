@@ -12,6 +12,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lifecycle": "npm run build && node dist/local-lifecycle.js",
+    "preprod:prepare": "npm run build && node --env-file-if-exists=.env.preprod dist/preprod-prepare.js",
+    "preprod:lifecycle": "npm run build && node --env-file=.env.preprod dist/preprod-lifecycle.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   }
 }

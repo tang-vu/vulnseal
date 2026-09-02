@@ -1,19 +1,20 @@
 # Preprod evidence
 
-Status: **not deployed** as of 2026-09-01.
+Status: **not deployed; ceremony prepared and awaiting faucet funding** as of 2026-09-02.
 
 No Preprod contract address, transaction ID, block reference, wallet, token balance, or public verifier link is claimed. The real evidence currently stored in this repository is from an ephemeral local Midnight network and is labeled accordingly.
 
-## Required human-assisted procedure
+The current official endpoints were re-verified against the Midnight environments page last updated 2026-08-31. The Preprod RPC and GraphQL v4 indexer responded from this host, the full eight-circuit proving-key set is present, and the official proof server `8.1.0` is healthy locally under the documented ARM64 compatibility profile.
 
-1. Install/configure the currently supported Lace version for Midnight Preprod.
-2. Create or select an authorized test account; do not share its seed with scripts, logs, or maintainers.
-3. Obtain test assets through the official faucet. Any captcha/login is completed by the human.
-4. Verify current Preprod node, indexer, proof-server, network ID, and token APIs against official documentation at deployment time.
-5. Build from a clean commit and full Compact key generation.
-6. Have the human approve contract deployment and each lifecycle transaction in Lace.
-7. Record contract address, transaction IDs, block heights/references, network ID, commit SHA, tool versions, and public-state query output containing no secrets.
-8. Independently open/query each reference, then update this file and the README.
+## Remaining ceremony
+
+1. `npm run preprod:prepare` creates or reuses a Git-ignored headless test wallet and prints only its public Preprod address.
+2. A human funds that address through the official faucet UI; the faucet has no public programmatic drip API.
+3. `npm run midnight:proof:up` starts the official proof server. On this host, install ARM64 binfmt first as documented in the README.
+4. `npm run preprod:lifecycle` synchronizes the wallet, registers received tNIGHT for DUST generation, deploys the contract, executes the complete lifecycle, checks the privacy allowlist, and writes redacted evidence only after success.
+5. Independently query the contract and transaction references, then replace this pending status with the observed evidence.
+
+The generated seed and private-state password stay in `integration/.env.preprod`, which is ignored by Git. They must never be pasted into an issue, log, README, or chat.
 
 ## Evidence acceptance checklist
 

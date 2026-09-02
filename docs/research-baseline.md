@@ -2,6 +2,8 @@
 
 Recorded 2026-09-01 (Asia/Saigon). Versions and APIs were selected from current official sources, not model memory.
 
+Preprod endpoints and the official headless-wallet flow were re-verified on 2026-09-02 against the Midnight environments page last updated 2026-08-31 and `example-hello-world` commit `67b8c9a0c76eebadfcc6d2de638dae21a20fb2fc`.
+
 ## Contest timing
 
 The official [Midnight Buildathon page](https://midnight.network/hackathon/buildathon) lists Wave 1 as **August 27–September 16, 2026**. Work began on September 1, inside that period. The AKINDO event page is [Build Privacy-First Apps on Midnight](https://app.akindo.io/wave-hacks/jaMZjqPOBsLXvjdG). No repository history was rewritten or backdated.
@@ -28,6 +30,8 @@ The official [Midnight Buildathon page](https://midnight.network/hackathon/build
 All project dependencies are locked by `package-lock.json`. Midnight packages use exact versions. Workspaces use npm only.
 
 ## Official reference points
+
+- [example-hello-world](https://github.com/midnightntwrk/example-hello-world), inspected at `67b8c9a0c76eebadfcc6d2de638dae21a20fb2fc` — current Preprod endpoints, headless wallet, human-facing faucet, NIGHT-to-DUST, and live-testnet automation patterns.
 
 - [Midnight documentation](https://docs.midnight.network/) — Compact, Midnight.js, wallet, networks, and local development.
 - [Official GitHub organization](https://github.com/midnightntwrk) — source of all Midnight references.

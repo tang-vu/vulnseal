@@ -133,6 +133,24 @@ Stop the services when finished:
 docker compose -f infra/standalone.yml down
 ```
 
+## Preprod deployment ceremony
+
+The headless ceremony keeps the generated test-wallet seed and private-state password in the Git-ignored `integration/.env.preprod`; neither value is printed. It outputs only the public funding address:
+
+```bash
+npm run preprod:prepare
+docker run --privileged --rm tonistiigi/binfmt --install arm64
+npm run midnight:proof:up
+```
+
+Fund that public address using the official human-facing [Preprod faucet](https://midnight-tmnight-preprod.nethermind.dev/), then run:
+
+```bash
+npm run preprod:lifecycle
+```
+
+The runner synchronizes the wallet, registers received tNIGHT for DUST generation when required, deploys VulnSeal, executes all seven lifecycle transactions, verifies the final public state and privacy allowlist, and writes `docs/evidence/preprod-lifecycle.json` only after success. Stop the local proof server with `npm run midnight:proof:down`.
+
 ## Three-minute walkthrough
 
 1. Open **Programs** and inspect the public scope, response, reward, and disclosure policy.
@@ -153,7 +171,7 @@ The production-ready narration is in [demo-script.md](docs/demo-script.md).
 - The ciphertext service can delete or withhold blobs. It cannot silently change one without breaking its digest, and it never needs plaintext.
 - Browser compromise can expose plaintext, encryption material, and witnesses before proving.
 - `PAYOUT_AUTHORIZED` is an auditable authorization receipt only; no asset is escrowed or transferred in Wave 1.
-- The evidence in this repository is local. [preprod-evidence.md](docs/preprod-evidence.md) contains no fabricated address or transaction.
+- Until the ceremony succeeds, the committed evidence in this repository remains local. [preprod-evidence.md](docs/preprod-evidence.md) contains no fabricated address or transaction.
 
 Read [SECURITY.md](SECURITY.md), [threat-model.md](docs/threat-model.md), and [claims-evidence.md](docs/claims-evidence.md) before treating VulnSeal as more than experimental software.
 
