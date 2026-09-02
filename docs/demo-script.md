@@ -40,7 +40,7 @@ Open **Public verifier**.
 
 “A public observer sees that the report existed by this ledger position, stayed sealed, followed the authorized process, passed retest, and reached payout authorization—without seeing the exploit.”
 
-Show the local evidence file with seven transaction IDs/block heights and the `publicRecordFields` allowlist.
+Show the public Preprod contract, payout-authorization transaction at block 2371914, and the `publicRecordFields` allowlist in `docs/evidence/preprod-lifecycle.json`.
 
 ## 2:40–3:00 — Honest close
 
@@ -52,4 +52,5 @@ Show the local evidence file with seven transaction IDs/block heights and the `p
 - Ensure no seed, secret, report from a real target, terminal environment, or wallet identifier is visible.
 - Use a fictional vulnerability against a fictional target.
 - If showing local evidence, label it “local ephemeral Midnight network.”
+- When showing Preprod, distinguish the SDK identifier from the enclosing explorer transaction hash and state that Preprod can reset.
 - Replace README video placeholder only after upload is verified from a logged-out browser.

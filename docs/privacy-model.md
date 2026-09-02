@@ -18,9 +18,9 @@ VulnSeal minimizes what a public observer needs to learn while retaining evidenc
 
 The implementation can establish:
 
-1. A commitment was included in a local Midnight ledger position.
+1. A commitment was included in a Midnight ledger position, demonstrated locally and on Preprod.
 2. The submitting circuit knew a canonical report digest, salt, and secret consistent with the published commitment and derived researcher key.
-3. A later locally revealed report can be canonicalized and recomputed against the original commitment.
+3. A later selectively revealed report can be canonicalized and recomputed against the original commitment.
 4. Vendor transitions knew the program-bound owner secret.
 5. Researcher retest evidence was bound to the original report and the current patch commitment.
 6. A payout-authorization receipt could be created only after a passing retest along the implemented state path.
@@ -35,7 +35,7 @@ The implementation cannot establish:
 - that the holder of a secret has a particular legal identity;
 - that money moved or will move;
 - that a compromised browser did not leak plaintext before encryption;
-- Preprod or production finality from local evidence.
+- mainnet permanence or production security from the resettable Preprod deployment.
 
 ## Linkability and metadata
 
@@ -51,4 +51,4 @@ Actor secrets, report salts, and encryption keys must be generated with a crypto
 
 ## Data minimization test
 
-The contract suite enumerates public record keys and asserts the absence of title, summary, reproduction steps, impact, contact, and salt. The real local integration repeats this check on indexer-returned ledger state. This proves the current schema boundary; it does not prove that every surrounding wallet, browser extension, proxy, or infrastructure log is private.
+The contract suite enumerates public record keys and asserts the absence of title, summary, reproduction steps, impact, contact, and salt. Both real local and Preprod integrations repeat this check on indexer-returned ledger state. This proves the current schema boundary; it does not prove that every surrounding wallet, browser extension, proxy, or infrastructure log is private.

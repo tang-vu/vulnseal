@@ -20,7 +20,9 @@ Reports are canonicalized and encrypted in the browser with Web Crypto AES-256-G
 
 ## Working evidence
 
-The repository includes a reproducible local lifecycle that deployed the Compact contract and finalized seven real transactions against Midnight node `1.0.0`, indexer `4.3.3`, and proof server `8.1.0`. The run reached `PAYOUT_AUTHORIZED`; transaction IDs and block heights are in [local-lifecycle.json](docs/evidence/local-lifecycle.json). This is local ephemeral-chain evidence, **not Preprod evidence**.
+VulnSeal is deployed on Midnight Preprod at [`83c5aa34…a9eb`](https://preprod.midnightexplorer.com/contracts/0x83c5aa340bd149b447c873fc2eecc4a9dadd183e5b26f9c3784e4c9acdaba9eb). On 2026-09-02, the contract finalized the complete synthetic workflow—deployment, sealed submission, triage, acceptance, patch, passing retest, and payout authorization—across seven `SUCCESS` transactions. The official indexer and RPC independently confirmed the final `PAYOUT_AUTHORIZED` action at block `2371914`; see [Preprod evidence](docs/preprod-evidence.md).
+
+The repository also includes a reproducible local lifecycle against Midnight node `1.0.0`, indexer `4.3.3`, and proof server `8.1.0`. Its seven transaction identifiers and block heights are in [local-lifecycle.json](docs/evidence/local-lifecycle.json). Local and Preprod evidence are labeled separately.
 
 The contract has eight proving circuits, meaningful private witnesses, generated ZKIR, and locally generated prover/verifier keys. The simulator suite has 13 lifecycle and adversarial tests. The UI journey has component, accessibility, failure-state, desktop, and mobile end-to-end tests. Exact results are recorded in [validation-report.md](docs/validation-report.md).
 
@@ -133,7 +135,7 @@ Stop the services when finished:
 docker compose -f infra/standalone.yml down
 ```
 
-## Preprod deployment ceremony
+## Reproduce the Preprod deployment ceremony
 
 The headless ceremony keeps the generated test-wallet seed and private-state password in the Git-ignored `integration/.env.preprod`; neither value is printed. It outputs only the public funding address:
 
@@ -147,9 +149,10 @@ Fund that public address using the official human-facing [Preprod faucet](https:
 
 ```bash
 npm run preprod:lifecycle
+npm run preprod:verify
 ```
 
-The runner synchronizes the wallet, registers received tNIGHT for DUST generation when required, deploys VulnSeal, executes all seven lifecycle transactions, verifies the final public state and privacy allowlist, and writes `docs/evidence/preprod-lifecycle.json` only after success. Stop the local proof server with `npm run midnight:proof:down`.
+The lifecycle runner synchronizes the wallet, persists only an AES-256-GCM-encrypted checkpoint ([ADR-0005](docs/adr/0005-encrypted-wallet-checkpoint.md)), registers received tNIGHT for DUST generation when required, deploys VulnSeal, executes all seven lifecycle transactions, verifies the final public state and privacy allowlist, and writes `docs/evidence/preprod-lifecycle.json` only after success. `preprod:verify` needs no wallet or secrets; it rechecks all recorded identifiers, hashes, contract tip, and finality through the public official indexer/RPC. The reference run and snapshot are recorded in [preprod-evidence.md](docs/preprod-evidence.md). Stop the local proof server with `npm run midnight:proof:down`.
 
 ## Three-minute walkthrough
 
@@ -171,13 +174,13 @@ The production-ready narration is in [demo-script.md](docs/demo-script.md).
 - The ciphertext service can delete or withhold blobs. It cannot silently change one without breaking its digest, and it never needs plaintext.
 - Browser compromise can expose plaintext, encryption material, and witnesses before proving.
 - `PAYOUT_AUTHORIZED` is an auditable authorization receipt only; no asset is escrowed or transferred in Wave 1.
-- Until the ceremony succeeds, the committed evidence in this repository remains local. [preprod-evidence.md](docs/preprod-evidence.md) contains no fabricated address or transaction.
+- Preprod can reset and is not mainnet; the recorded deployment is test-network evidence, not a production-security or permanence guarantee.
 
 Read [SECURITY.md](SECURITY.md), [threat-model.md](docs/threat-model.md), and [claims-evidence.md](docs/claims-evidence.md) before treating VulnSeal as more than experimental software.
 
 ## Wave status
 
-- **Wave 1 — Proof of Disclosure:** implemented locally; Compact compile, simulator tests, real local transactions/proofs, encryption pipeline, full UX, and competition artifacts are present. Preprod deployment remains a human-signing step.
+- **Wave 1 — Proof of Disclosure:** implemented and deployed to Preprod; Compact compile, simulator tests, real local and Preprod transactions/proofs, encryption pipeline, full UX, and competition artifacts are present.
 - **Wave 2 — Proof of Resolution:** test-token escrow, disputes/mediators, encrypted update chain, and Preprod hardening. See [wave-2-plan.md](docs/wave-2-plan.md).
 - **Wave 3 — Proof of Adoption:** GitHub integration, production ciphertext adapter, privacy-safe analytics, pilots, and SDK. See [wave-3-plan.md](docs/wave-3-plan.md).
 

@@ -4,7 +4,7 @@ Wave 2 begins only after Wave 1 is stable and its baseline is tagged. Every subm
 
 ## Outcomes
 
-- Deploy the current workflow to Preprod if not completed in Wave 1 and add a repeatable deployment evidence bundle.
+- Maintain the Wave 1 Preprod deployment runner and add migration/redeployment evidence if the resettable network changes.
 - Add test-token escrow using only currently supported token/contract APIs researched at implementation time.
 - Separate payout authorization from escrow release and prove both independently.
 - Add a bounded dispute state, encrypted evidence additions, and an explicitly authorized mediator policy.
@@ -15,7 +15,7 @@ Wave 2 begins only after Wave 1 is stable and its baseline is tagged. Every subm
 
 ## Exit evidence
 
-Preprod contract address and transaction references, independently queryable final state, test-token balance deltas, all Wave 1 regression checks, dispute/escrow negative tests, threat-model delta, and an explicit Wave 1 → Wave 2 comparison. No payment claim without a verifiable transfer.
+A new Preprod contract address and transaction references for the expanded workflow, independently queryable final state, test-token balance deltas, all Wave 1 regression checks, dispute/escrow negative tests, threat-model delta, and an explicit Wave 1 → Wave 2 comparison. No payment claim without a verifiable transfer.
 
 ## Deliberately deferred
 

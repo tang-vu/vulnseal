@@ -115,4 +115,4 @@ Corruption or a wrong key/AAD causes authenticated decryption to fail. The conte
 - **Simulator:** real Compact-generated JavaScript execution with deterministic witnesses; no network proof or transaction claim.
 - **Guided Local UI:** real browser cryptography and storage with a clearly labeled product journey; transitions are not called finalized unless a wallet/network provider returns evidence.
 - **Local Midnight integration:** real proofs, node transactions, indexer reads, transaction IDs, and block heights on an ephemeral undeployed network.
-- **Preprod:** not yet performed; no address is claimed.
+- **Preprod:** real deployment and seven-circuit lifecycle at contract `83c5aa34…a9eb`, independently checked through the official indexer and RPC. Preprod is resettable test infrastructure, not mainnet permanence.

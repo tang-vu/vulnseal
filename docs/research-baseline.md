@@ -55,7 +55,7 @@ The archived `example-counter` was not used as the foundation. Kapa MCP was not 
 | Official sample compile | `example-bboard` Compact source compiles with `--skip-zk`; bundled full key generation exits with illegal instruction on the host Xeon E5-2678 v3 |
 | VulnSeal full keys | Success using the official ledger `ledger-8.0.2` ZKIR source built with Rust `1.96.0`; eight prover/verifier pairs generated |
 | Official amd64 services | Exit `132` on this old CPU |
-| Official ARM64 manifests | Node/indexer/proof server ran healthy under Docker/QEMU binfmt; used for real local evidence |
+| Official ARM64 manifests | Node/indexer/proof server ran healthy under Docker/QEMU binfmt; used for real local and Preprod proof evidence |
 
 The fallback changes execution architecture, not cryptographic semantics: it uses official source and official multi-architecture images. It is slower and is documented in [ADR-0004](adr/0004-legacy-cpu-toolchain.md).
 

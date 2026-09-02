@@ -1,6 +1,6 @@
 # ADR-0004: Official-source compatibility route for an older CPU
 
-- Status: accepted for local evidence only
+- Status: accepted for local and Preprod evidence
 - Date: 2026-09-01
 
 ## Context
@@ -24,6 +24,6 @@ Use only official code/images through two compatibility routes:
 
 ## Consequences
 
-All eight prover/verifier pairs and every lifecycle proof are real. ARM emulation is substantially slower. Generated keys remain ignored because they are approximately 40 MB and reproducible. CI or a modern x86 host should use the ordinary official binaries.
+All eight prover/verifier pairs and every lifecycle proof are real. The same official ARM64 proof-server image under emulation produced the successful Preprod lifecycle. ARM emulation is substantially slower. Generated keys remain ignored because they are approximately 40 MB and reproducible. CI or a modern x86 host should use the ordinary official binaries.
 
 The compiler recreates its managed output directory. Consequently, a later `compact:skip-zk` removes existing keys; regenerate them with the full command before any wallet-backed interaction.

@@ -45,11 +45,11 @@ Show the Mermaid diagram from `docs/architecture.md`.
 
 - Compact `0.31.1`, eight real proving circuits and key pairs.
 - 13 contract lifecycle/adversarial simulator tests.
-- Real local node/indexer/proof-server lifecycle: seven finalized transactions.
-- Final state `PAYOUT_AUTHORIZED`, with tx IDs and block heights.
+- Real local and Preprod node/indexer/proof-server lifecycles: seven finalized contract transactions each.
+- Preprod contract `83c5aa34…a9eb`; final state `PAYOUT_AUTHORIZED` at block 2371914.
 - Desktop and mobile full-flow tests plus accessibility checks.
 
-Label: local ephemeral network; Preprod is not claimed.
+Show the public explorer contract and the independent indexer/RPC evidence snapshot. Say “authorization,” never “payment.”
 
 ## Slide 7 — Security and honest limitations
 
@@ -69,8 +69,8 @@ No traction is claimed. First validation is structured interviews and opt-in pil
 
 ## Slide 9 — Three Waves
 
-- Wave 1: proof of disclosure—complete local encrypted workflow and public verifier.
-- Wave 2: proof of resolution—Preprod, test-token escrow, disputes, richer evidence chain.
+- Wave 1: proof of disclosure—complete encrypted workflow, public verifier, and Preprod evidence.
+- Wave 2: proof of resolution—test-token escrow, disputes, stronger authorization, richer evidence chain.
 - Wave 3: proof of adoption—GitHub/SDK, production storage, privacy-safe analytics, pilots, audit.
 
 ## Slide 10 — Closing vision

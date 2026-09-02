@@ -1,0 +1,87 @@
+{
+  "verifiedAt": "2026-09-02T10:20:59.443Z",
+  "network": "preprod",
+  "indexer": "https://indexer.preprod.midnight.network/api/v4/graphql",
+  "rpc": "https://rpc.preprod.midnight.network",
+  "contractAddress": "83c5aa340bd149b447c873fc2eecc4a9dadd183e5b26f9c3784e4c9acdaba9eb",
+  "latestContractAction": {
+    "type": "ContractCall",
+    "status": "SUCCESS",
+    "blockHeight": 2371914,
+    "blockHash": "71acb36d1d46364ca4fca5b6f30ed9bf5f4538fd262dabc772adafa02a5e5585",
+    "payoutIdentifierPresent": true
+  },
+  "finalitySnapshot": {
+    "finalizedHeadHeight": 2371964,
+    "finalizedHeadHash": "0x5f28435bc19617e3fa22fcd650295ecee8bf9725def6bbcbece7378c2609ded9",
+    "lifecycleTipHeight": 2371914,
+    "lifecycleTipFinalized": true
+  },
+  "transactions": [
+    {
+      "circuit": "nightToDustRegistration",
+      "identifier": "00aa501cbd88283ba0d9f8ea18eaaa468b11e1a748fb18e1494f779f21680263ca",
+      "transactionHash": "270c93a6ac5abbeb218f651cc79fca2b8f395b91645294c1229de246ce9e6e8a",
+      "blockHeight": 2371834,
+      "blockHash": "7ddda8a64b39c756426aca93980dd6d54e96c240dac383060427c9b98224cc52",
+      "status": "SUCCESS"
+    },
+    {
+      "circuit": "constructor",
+      "identifier": "00b43beb1f533b27d1c08a1aa0c229ed192c05cbc727486661d125f09e6e460c0c",
+      "transactionHash": "8e5cad796ba2eeb7f6e07424d8478ce95a0428a916c492e6e689a5ce09bc7957",
+      "blockHeight": 2371845,
+      "blockHash": "c671574ad4b266d1033cc9591a290c780f0f5f4afa3d41fec3ffc4a36415c3ff",
+      "status": "SUCCESS"
+    },
+    {
+      "circuit": "submitReport",
+      "identifier": "0000aff5ebbac1e6071d73c6ebe6fc68044dac982d1c8dd931ae8371522bb8c94b",
+      "transactionHash": "884d714ad8891fbfc2c445631460f140c3e9f24918877e15fc9745947245c66f",
+      "blockHeight": 2371859,
+      "blockHash": "09bfa37fe56cb77478fc9000be9c84d268601d790a60bbd17577c50e7f75fd7b",
+      "status": "SUCCESS"
+    },
+    {
+      "circuit": "beginTriage",
+      "identifier": "00858bcaf696614f20885860b75ded29c4f2557ee9c46ca7affea28cc35879a45b",
+      "transactionHash": "ba647038b8a4bd0d39ee5430010181fe4f5983d1c4c2de37206b6ca35aab1f5d",
+      "blockHeight": 2371867,
+      "blockHash": "552bd9b297ec0e73a8a387c53bf0da75113bd3f686eb1b6ab6663d4ea326a3b3",
+      "status": "SUCCESS"
+    },
+    {
+      "circuit": "acceptReport",
+      "identifier": "00b7332a816c51088c43181de88eb4e2302ca686715362fb7d3300dd4031e90186",
+      "transactionHash": "950fec84cb4c1b856d74020e4ceac81cbce5fefaf63ecbc13495429cc05b6f6b",
+      "blockHeight": 2371877,
+      "blockHash": "020a423e78ab90b83d0d9200291449b1fbd49beede0846b4544d5159750a8645",
+      "status": "SUCCESS"
+    },
+    {
+      "circuit": "anchorPatch",
+      "identifier": "00cd6f76408c44f5aaa578ad376732a7f585975d914467687ad914a771a7d6e3d1",
+      "transactionHash": "707bc0e666a752c195527360718d9a54d2f1290330f30a6e5fd1c19468875363",
+      "blockHeight": 2371889,
+      "blockHash": "2ac3543654ea5b2c8ba2ea79e96c80cdffe9144e66530f8db2a29a5c71af97ab",
+      "status": "SUCCESS"
+    },
+    {
+      "circuit": "submitRetest",
+      "identifier": "006d248ece827765268077d3af13f3f201bd8132d864ca57bd1143705302cac204",
+      "transactionHash": "a6dd702be56efb240d6c7eeab572495067d4d0493342bdb32eec1f1d9d38333c",
+      "blockHeight": 2371904,
+      "blockHash": "5135465bdff24143c90a6db515dc9816f8d14013fc0efa898a59901ddfdbb4ff",
+      "status": "SUCCESS"
+    },
+    {
+      "circuit": "authorizePayout",
+      "identifier": "00315eaad1b87f436849790da0f0072be407dfdf9079b78f15e73c838b9ede2c19",
+      "transactionHash": "8e02f5bd2405c40e7fc0e6577dda80c8a8d23c2f6667ea0de3fdfb3599d3a271",
+      "blockHeight": 2371914,
+      "blockHash": "71acb36d1d46364ca4fca5b6f30ed9bf5f4538fd262dabc772adafa02a5e5585",
+      "status": "SUCCESS"
+    }
+  ],
+  "verification": "Each identifier was queried independently through transactions(offset: {identifier}) on the official GraphQL v4 indexer. Finality was checked against chain_getFinalizedHead and chain_getHeader on the official Preprod RPC."
+}

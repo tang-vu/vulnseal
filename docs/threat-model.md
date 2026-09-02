@@ -23,7 +23,7 @@ Primary assets are unreleased vulnerability content, reporter identity/contact d
 | Unavailable proof server | Blocks submission/transition | UI has explicit offline/failure state; local services are health-checkable | No liveness guarantee; redundant proof infrastructure and retry queue later |
 | Unavailable indexer | Public UI becomes stale or unavailable | Direct health checks and error states; node remains source of truth | Verifier availability; independent indexers later |
 | Secret theft | Attacker executes authorized transition | Domain/subject binding limits blast radius | Knowledge authorization cannot distinguish thief; rotation/recovery/multisig policy later |
-| Initialization hijack | Attacker becomes owner | Owner key is set only in constructor from deployer's private witness; no reinitializer | Deployment UI must verify expected contract/address; Preprod ceremony needed |
+| Initialization hijack | Attacker becomes owner | Owner key is set only in constructor from deployer's private witness; no reinitializer | Deployment UI and operators must verify the expected contract/address |
 | Wrong patch/retest binding | Reuses evidence across reports or fixes | Circuits assert report ID and exact current patch commitment | Evidence content can still be dishonest; independent verification/dispute later |
 
 ## Witness review
@@ -37,7 +37,8 @@ Wave 1 has no on-chain fee policy beyond normal network costs, no spam moderatio
 ## Security verification performed
 
 - Compact simulator negative and lifecycle tests.
-- Real local indexer-state privacy assertion.
+- Real local and Preprod indexer-state privacy assertions.
+- Independent Preprod transaction, contract-action, and finalized-head checks.
 - AES-GCM corruption rejection and content digest checks.
 - Safe logger redaction tests.
 - Environment validation tests.

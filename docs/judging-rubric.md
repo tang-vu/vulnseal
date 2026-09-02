@@ -9,13 +9,13 @@
 | Dual-ledger architecture | Explicit private/public table and encrypted artifact boundary | Ready |
 | Secure authorization/state machine | Eight edge-specific circuits, domain/subject binding, no general setter, 13 tests | Ready for scoped Wave 1 |
 | Compatible dependencies | Exact Midnight pins and lockfile; runtime-class pin documented | Ready |
-| Real local proof/transaction evidence | Seven transaction IDs/blocks through payout authorization | Ready locally; Preprod pending |
+| Real local and Preprod proof/transaction evidence | Seven lifecycle transactions through payout authorization in both environments; Preprod indexer/RPC verification | Ready |
 
 ## Quality Assurance & Reliability — 15%
 
-Contract, shared crypto, ciphertext store, API, React, accessibility, failure-state, desktop/mobile E2E, and real integration checks exist. Quick start and exact environment are documented. CI runs deterministic checks; the expensive local Midnight lifecycle remains a documented manual job because it requires Docker/proof resources.
+Contract, shared crypto, ciphertext store, API, React, accessibility, failure-state, desktop/mobile E2E, and real integration checks exist. Quick start and exact environment are documented. CI runs deterministic checks; resource-intensive local and Preprod Midnight lifecycles remain documented manual jobs because they require Docker/proof resources and, for Preprod, faucet funding.
 
-Readiness: **strong local coverage; independent CI run and Preprod remain**.
+Readiness: **strong automated coverage plus independently verified Preprod evidence; independent hosted CI run remains**.
 
 ## Product & Vision — 15%
 
@@ -27,7 +27,7 @@ Readiness: **ready**.
 
 Role-based researcher, vendor, and public-verifier flows are complete. The interface explains what is revealed at action time, distinguishes guided/local/finalized evidence, renders wallet/proof-service errors, and has desktop/mobile visual evidence.
 
-Readiness: **ready locally; live Lace/Preprod polish pending**.
+Readiness: **ready; wallet-backed product states and Preprod evidence are present**.
 
 ## Communication — 10%
 

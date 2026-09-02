@@ -1,0 +1,64 @@
+{
+  "capturedAt": "2026-09-02T10:14:58.080Z",
+  "network": "preprod",
+  "evidenceKind": "real Midnight Preprod transactions and zero-knowledge proof-server requests",
+  "contractAddress": "83c5aa340bd149b447c873fc2eecc4a9dadd183e5b26f9c3784e4c9acdaba9eb",
+  "finalStatus": "PAYOUT_AUTHORIZED",
+  "publicRecordFields": [
+    "ciphertextDigest",
+    "commitment",
+    "createdSequence",
+    "decisionDigest",
+    "patchCommitment",
+    "payoutReceipt",
+    "researcherKey",
+    "retestCommitment",
+    "retestPassed",
+    "rewardTier",
+    "severity",
+    "status",
+    "submissionReceipt",
+    "updatedSequence"
+  ],
+  "transactions": [
+    {
+      "circuit": "constructor",
+      "txId": "00b43beb1f533b27d1c08a1aa0c229ed192c05cbc727486661d125f09e6e460c0c",
+      "blockHeight": "2371845"
+    },
+    {
+      "circuit": "submitReport",
+      "txId": "0000aff5ebbac1e6071d73c6ebe6fc68044dac982d1c8dd931ae8371522bb8c94b",
+      "blockHeight": "2371859"
+    },
+    {
+      "circuit": "beginTriage",
+      "txId": "00858bcaf696614f20885860b75ded29c4f2557ee9c46ca7affea28cc35879a45b",
+      "blockHeight": "2371867"
+    },
+    {
+      "circuit": "acceptReport",
+      "txId": "00b7332a816c51088c43181de88eb4e2302ca686715362fb7d3300dd4031e90186",
+      "blockHeight": "2371877"
+    },
+    {
+      "circuit": "anchorPatch",
+      "txId": "00cd6f76408c44f5aaa578ad376732a7f585975d914467687ad914a771a7d6e3d1",
+      "blockHeight": "2371889"
+    },
+    {
+      "circuit": "submitRetest",
+      "txId": "006d248ece827765268077d3af13f3f201bd8132d864ca57bd1143705302cac204",
+      "blockHeight": "2371904"
+    },
+    {
+      "circuit": "authorizePayout",
+      "txId": "00315eaad1b87f436849790da0f0072be407dfdf9079b78f15e73c838b9ede2c19",
+      "blockHeight": "2371914"
+    }
+  ],
+  "limitations": [
+    "Payout authorization records workflow approval; it does not transfer funds.",
+    "The report payload used for this public testnet ceremony is synthetic and contains no vulnerability."
+  ]
+}
