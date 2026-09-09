@@ -14,6 +14,7 @@ import { HandoffPanel } from "./HandoffPanel.js";
 import { validateDisclosure, type Disclosure, type RecipientKeys } from "./handoff.js";
 import { ReportWizard } from "./App.js";
 import { AttachmentReview } from "./AttachmentFields.js";
+import { LocalRoleStorage } from "./LocalRoleStorage.js";
 
 const env = validateEnvironment(import.meta.env);
 const blank: VulnerabilityReport = { schemaVersion: 1, title: "", affectedAsset: "", weakness: "", summary: "", reproductionSteps: [], impact: "", suggestedRemediation: "", researcherContact: "", attachments: [] };
@@ -93,6 +94,11 @@ export function RoleWorkspace() {
       {error && <p role="alert" className="operation-notice error">{error}</p>}
       {message && <p role="status" className="operation-notice">{message}</p>}
       {receipt && <p className="operation-notice public-value">Finalized {receipt.circuit}: {receipt.txId} at block {receipt.blockHeight}. A failed follow-up read does not erase this transaction.</p>}
+      <LocalRoleStorage vault={vault} disabled={working} onSaved={setSaved} onRestore={(restored) => lock(async () => {
+        if (vault) throw new Error("Restore in a fresh tab to preserve the open workspace");
+        const joined = restored.contractAddress ? await joinRoleVault(restored) : undefined;
+        setVault(restored); setSaved(restored); setSession(joined?.session); setSnapshot(joined?.snapshot); setSelectedId(restored.reports[0]?.reportId ?? "");
+      })} />
       <fieldset className="workflow-controls" disabled={working}>
         {!vault ? <>
           <section className="form-panel"><h2>Create a vendor identity</h2><label>Workspace network<select value={network} onChange={(event) => setNetwork(event.target.value)}><option value="preprod">Preprod</option><option value="local">Local Midnight</option></select></label>

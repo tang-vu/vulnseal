@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: Apache-2.0
+import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, expect, it, vi } from "vitest";
+import { decryptRoleVault, type RoleVault } from "./role-recovery.js";
+const mocks = vi.hoisted(() => ({ list: vi.fn(), read: vi.fn(), write: vi.fn() }));
+vi.mock("./role-storage.js", () => ({ listStoredRoles: mocks.list, readStoredRole: mocks.read, writeStoredRole: mocks.write }));
+import { LocalRoleStorage } from "./LocalRoleStorage.js";
+afterEach(() => { cleanup(); vi.clearAllMocks(); });
+it("autosaves a changed vault and marks it durable only after encrypted persistence succeeds", async () => {
+  const vault: RoleVault = { version: 1, role: "vendor", network: "preprod", programId: "12".repeat(32), actorSecret: "34".repeat(32), contractAddress: null, reports: [] };
+  mocks.list.mockResolvedValue([]);
+  mocks.write.mockImplementation(async (id: string, label: string, encrypted: string, revision: number | null) => ({ id, label, encrypted, revision: (revision ?? 0) + 1, updatedAt: new Date().toISOString() }));
+  const onSaved = vi.fn(), onRestore = vi.fn();
+  const { rerender } = render(<LocalRoleStorage vault={vault} disabled={false} onSaved={onSaved} onRestore={onRestore} />);
+  const user = userEvent.setup();
+  await user.type(screen.getByLabelText("Browser copy password"), "Automatic browser copy password");
+  await user.type(screen.getByLabelText("Confirm browser copy password"), "Automatic browser copy password");
+  await user.click(screen.getByRole("button", { name: "Enable encrypted browser autosave" }));
+  await screen.findByText(/Saved encrypted browser copy · revision 1/);
+  const updated = { ...vault, contractAddress: "ab".repeat(32) };
+  rerender(<LocalRoleStorage vault={updated} disabled={false} onSaved={onSaved} onRestore={onRestore} />);
+  await screen.findByText(/Saved encrypted browser copy · revision 2/);
+  expect(onSaved).toHaveBeenLastCalledWith(updated);
+  const encrypted = mocks.write.mock.calls[1]![2];
+  expect((await decryptRoleVault(encrypted, "Automatic browser copy password")).contractAddress).toBe(updated.contractAddress);
+  expect(encrypted).not.toContain(vault.actorSecret);
+  mocks.write.mockRejectedValueOnce(new Error("Concurrent storage update"));
+  const conflicting = { ...updated, contractAddress: "cd".repeat(32) };
+  rerender(<LocalRoleStorage vault={conflicting} disabled={false} onSaved={onSaved} onRestore={onRestore} />);
+  await screen.findByText(/Concurrent storage update/);
+  expect(onSaved).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("button", { name: "Stop browser autosave" })).not.toBeInTheDocument();
+}, 15_000);

@@ -1,5 +1,19 @@
 # Validation report
 
+## Encrypted browser autosave validation — 2026-09-09
+
+| Check | Command / environment | Observed result |
+| --- | --- | --- |
+| Consolidated checks | `npm run validate` | Exit 0; six workspace typechecks/builds; 20 test files / 96 tests passed (web: 14 files / 52 tests) |
+| Serialized autosave | Three writer tests with real encryption | Ordered snapshots decrypt correctly; conflict stops queued writes; stopping before persistence prevents writes |
+| Save gate and failure handling | Component test with mocked storage | Changed vault is marked saved only after persistence; write failure stops autosave without marking the newer vault saved |
+| Production browser suite | `VULNSEAL_CAPTURE_VISUALS=1 npm run test:e2e` | Exit 0; 26 passed in 1.3 minutes across desktop Chrome and Pixel 7 |
+| Device recovery | Two production browser cases | Actual IndexedDB contains only metadata and encrypted envelope; original tab closed; wrong password rejected; fresh-tab unlock restores vendor identity and enables the saved-vault gate |
+| Atomic revision checks | Two browser cases, repository storage module injected into test pages | Real IndexedDB across two tabs permits exactly one concurrent revision update; stale update and plaintext replacement fail; original ciphertext remains intact |
+| Final storage browser checks | `VULNSEAL_CAPTURE_VISUALS=1 npm run test:e2e -- e2e/role-storage.spec.ts` | Exit 0; 4 passed in 35.9 seconds after error-copy and screenshot-position refinements |
+
+The storage-module injection is confined to tests; production exposes no debug storage API. Screenshots are in `docs/screenshots/*-browser-storage.png`. These checks use no injected wallet and submit no network transactions. Native Lace recovery, pending-transaction recovery, draft persistence, quota management and deletion controls remain open. See [ADR-0011](adr/0011-encrypted-browser-autosave.md).
+
 ## Independent role workspace validation — 2026-09-09
 
 | Check | Command / environment | Observed result |
