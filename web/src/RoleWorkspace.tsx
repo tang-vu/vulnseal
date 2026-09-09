@@ -54,16 +54,17 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const [saved, setSaved] = useState<RoleVault>();
   const currentVault = useRef(vault); currentVault.current = vault;
   const persistJournal = useRef<((value: RoleVault) => Promise<void>) | undefined>(undefined);
+  const retestPatch = useRef<string | undefined>(undefined);
   const retestChoice = useRef<boolean | null>(null);
   const submissionNotes = useRef<ReportNotes | null>(null);
   const submissionIntent = useRef<SubmissionIntent | undefined>(undefined);
   const requireJournal = () => {
     if (!persistJournal.current) throw new Error("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
   };
-  const duringSubmission = async <T,>(intent: SubmissionIntent, action: () => Promise<T>, notes: ReportNotes | null = null, passed: boolean | null = null): Promise<T> => {
+  const duringSubmission = async <T,>(intent: SubmissionIntent, action: () => Promise<T>, notes: ReportNotes | null = null, passed: boolean | null = null, patch?: string): Promise<T> => {
     if (submissionIntent.current) throw new Error("Another submission is active");
-    submissionIntent.current = intent; submissionNotes.current = notes; retestChoice.current = passed;
-    try { return await action(); } finally { submissionIntent.current = undefined; submissionNotes.current = null; retestChoice.current = null; }
+    submissionIntent.current = intent; submissionNotes.current = notes; retestChoice.current = passed; retestPatch.current = patch;
+    try { return await action(); } finally { submissionIntent.current = undefined; submissionNotes.current = null; retestChoice.current = null; retestPatch.current = undefined; }
   };
   const recordSubmission = async (transactionId: string) => {
     const current = currentVault.current, persist = persistJournal.current;
@@ -72,7 +73,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
     if (!submissionIntent.current) throw new Error("Submission intent is missing. No transaction was sent.");
     let updated = await withSubmissionAttempt(current, transactionId, submissionIntent.current);
     if (submissionNotes.current) updated = await withSubmissionNotes(updated, transactionId, submissionNotes.current);
-    if (retestChoice.current !== null) updated = await withRetestChoice(updated, transactionId, retestChoice.current);
+    if (retestChoice.current !== null) updated = await withRetestChoice(updated, transactionId, retestChoice.current, retestPatch.current);
     await persist(updated);
     currentVault.current = updated; setVault(updated); setSaved(updated);
   };
@@ -161,7 +162,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
     const command = typeof input === "function" ? await input() : input;
     setSnapshot(undefined); setReceipt(undefined);
     const id = command.kind === "submitReport" ? pureCircuits.deriveReportCommitment(Uint8Array.from(command.report.programId), Uint8Array.from(command.report.canonicalDigest), Uint8Array.from(command.report.salt)) : command.reportId;
-    const result = await duringSubmission({ circuit: command.kind, reportId: bytesToHex(id) }, () => session.execute(command), { reportId: bytesToHex(id), text: detail, tier }, command.kind === "submitRetest" ? command.passed : null); setReceipt(result);
+    const result = await duringSubmission({ circuit: command.kind, reportId: bytesToHex(id) }, () => session.execute(command), { reportId: bytesToHex(id), text: detail, tier }, command.kind === "submitRetest" ? command.passed : null, command.kind === "submitRetest" ? bytesToHex(command.patchCommitment) : undefined); setReceipt(result);
     let updated = currentVault.current!;
     try {
       updated = await withFinalizedSubmission(updated, result);
@@ -216,7 +217,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
       })} />
       {vault && <section className="form-panel"><h2>Submission journal</h2>
         <p>Real role submissions require encrypted browser autosave. The transaction identifier is saved before calling the wallet. A recorded attempt is not proof of broadcast, success or finality; check the wallet or indexer before retrying after an interruption.</p>
-        {vault.submissionAttempts?.length ? <ul>{vault.submissionAttempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt} · outcome requires reconciliation<SubmissionIntentView entry={entry} includePrivateNotes /><TransactionCheck network={vault.network} transactionId={entry.transactionId} contractAddress={vault.contractAddress} circuit={entry.intent?.circuit} />{vault.contractAddress && entry.intent?.reportId && <ReportEffectCheck network={vault.network} transactionId={entry.transactionId} contractAddress={vault.contractAddress} programId={vault.programId} reportId={entry.intent.reportId} circuit={entry.intent.circuit} savedNotes={entry.notes} savedRetestPassed={entry.retestPassed} savedEnvelope={vault.reports.find((report) => report.reportId === entry.intent?.reportId)?.envelope} />}</li>)}</ul> : <p>No recorded submission attempts.</p>}
+        {vault.submissionAttempts?.length ? <ul>{vault.submissionAttempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt} · outcome requires reconciliation<SubmissionIntentView entry={entry} includePrivateNotes /><TransactionCheck network={vault.network} transactionId={entry.transactionId} contractAddress={vault.contractAddress} circuit={entry.intent?.circuit} />{vault.contractAddress && entry.intent?.reportId && <ReportEffectCheck network={vault.network} transactionId={entry.transactionId} contractAddress={vault.contractAddress} programId={vault.programId} reportId={entry.intent.reportId} circuit={entry.intent.circuit} savedNotes={entry.notes} savedRetestPassed={entry.retestPassed} savedRetestPatch={entry.retestPatchCommitment} savedEnvelope={vault.reports.find((report) => report.reportId === entry.intent?.reportId)?.envelope} />}</li>)}</ul> : <p>No recorded submission attempts.</p>}
       </section>}
       <fieldset className="workflow-controls" disabled={working}>
         {!vault ? <>

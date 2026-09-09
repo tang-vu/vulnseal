@@ -7,6 +7,18 @@ afterEach(cleanup);
 const notes = { reportId: "ab".repeat(32), text: " Exact retest\n", tier: "3" };
 const values = async () => ({ decisionDigest: "00".repeat(32), severity: "3", rewardTier: "0", patchCommitment: "cd".repeat(32), retestPassed: false, retestCommitment: await savedRetestCommitment(notes.reportId, "cd".repeat(32), notes.text, false) });
 
+it("detects a different selected patch even when the observed retest is internally consistent", async () => {
+  const observed = await values();
+  const view = render(<SavedRetestCheck reportId={notes.reportId} notes={notes} passed={false} patch={observed.patchCommitment} values={observed} />);
+  expect(await screen.findByText(/Saved retest matches/)).toBeInTheDocument();
+  const replacement = "ef".repeat(32);
+  view.rerender(<SavedRetestCheck reportId={notes.reportId} notes={notes} passed={false} patch={observed.patchCommitment} values={{ ...observed, patchCommitment: replacement, retestCommitment: await savedRetestCommitment(notes.reportId, replacement, notes.text, false) }} />);
+  expect(await screen.findByRole("alert")).toHaveTextContent("selected patch, retest commitment");
+  view.rerender(<SavedRetestCheck reportId={notes.reportId} notes={notes} passed={false} values={observed} />);
+  expect(await screen.findByText(/Saved retest matches/)).toBeInTheDocument();
+  expect(screen.getByText(/intended patch was not saved/)).toBeInTheDocument();
+});
+
 it("compares explicit false and exact notes, and clears a match after the choice changes", async () => {
   const observed = await values();
   const view = render(<SavedRetestCheck reportId={notes.reportId} notes={notes} passed={false} values={observed} />);

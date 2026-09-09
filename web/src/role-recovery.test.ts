@@ -4,6 +4,25 @@ import { decryptRoleVault, encryptRoleVault, parseInvitation, validateRoleVault,
 import { recoveryFixture } from "./test/recovery-fixture.js";
 import { withSubmissionNotes, withRetestChoice } from "./role-recovery.js";
 
+it("retains the selected retest patch in v10 without inventing legacy patches", async () => {
+  const original = await roleFixture(), reportId = original.reports[0]!.reportId, txId = "12".repeat(32), patch = "cd".repeat(32);
+  let vault = await withSubmissionAttempt(original, txId, { circuit: "submitRetest", reportId });
+  vault = await withRetestChoice(vault, txId, false, patch);
+  vault = await withSubmissionNotes(vault, txId, { reportId, text: "Saved evidence", tier: "3" });
+  vault = withAttachmentDraft(vault, { filename: "pending", mediaType: "", size: "", digest: "" });
+  vault = await withFinalizedSubmission(vault, { circuit: "submitRetest", txId, blockHeight: "901" });
+  vault = await withSubmissionAttempt(vault, "34".repeat(32), { circuit: "submitRetest", reportId });
+  vault = await withRetestChoice(vault, "34".repeat(32), true);
+  expect(vault.version).toBe(10);
+  expect(vault.submissionAttempts![0]!.retestPatchCommitment).toBe(patch);
+  expect(vault.submissionAttempts![1]!.retestPatchCommitment).toBeNull();
+  expect(await decryptRoleVault(await encryptRoleVault(vault, "Selected patch recovery password"), "Selected patch recovery password")).toEqual(vault);
+  await expect(withRetestChoice(vault, txId, false, "ef".repeat(32))).rejects.toThrow("cannot be replaced");
+  await expect(withRetestChoice(vault, txId, false, "invalid")).rejects.toThrow();
+  await expect(validateRoleVault({ ...vault, version: 9 })).rejects.toThrow("Unsupported role document");
+  await expect(validateRoleVault({ ...vault, submissionAttempts: [{ ...vault.submissionAttempts![0], retestPassed: null }] })).rejects.toThrow("explicit retest choice");
+});
+
 it("preserves explicit retest choices through v9 recovery and later edits without guessing older choices", async () => {
   const original = await roleFixture(), reportId = original.reports[0]!.reportId;
   const first = "12".repeat(32), second = "34".repeat(32);

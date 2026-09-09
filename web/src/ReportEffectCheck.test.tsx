@@ -18,7 +18,7 @@ afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 const start = () => fireEvent.click(screen.getByRole("button", { name: "Check report effects", hidden: true }));
 
 it("starts only explicitly, sends public metadata and terminates on the overall deadline", () => {
-  render(<ReportEffectCheck {...props} savedRetestPassed={false} savedEnvelope="Saved envelope must stay local" savedNotes={{ reportId: props.reportId, text: "Private snapshot must stay local", tier: "3" }} />);
+  render(<ReportEffectCheck {...props} savedRetestPatch={"ef".repeat(32)} savedRetestPassed={false} savedEnvelope="Saved envelope must stay local" savedNotes={{ reportId: props.reportId, text: "Private snapshot must stay local", tier: "3" }} />);
   expect(instances).toHaveLength(0);
   start();
   expect(instances[0]!.postMessage).toHaveBeenCalledWith({ transactionId: props.transactionId, contractAddress: props.contractAddress, programId: props.programId, reportId: props.reportId, circuit: props.circuit, indexerUrl: "https://indexer.preprod.midnight.network/api/v4/graphql", rpcUrl: "https://rpc.preprod.midnight.network", websocketUrl: "wss://indexer.preprod.midnight.network/api/v4/graphql/ws" });

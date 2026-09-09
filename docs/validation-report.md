@@ -1,5 +1,15 @@
 # Validation report
 
+## Retain and compare the selected retest patch — 2026-09-09
+
+Role-vault v10 adds a nullable selected patch commitment per attempt. New retest commands snapshot the actual command's patch before the encrypted pre-broadcast checkpoint; it cannot replace an already saved patch. Older entries migrate to null. The schema requires an explicit retest choice for non-null patches, and notes, attachment drafts, later attempts and receipts preserve the field. Versions 1–9 remain readable, but older releases cannot open v10. The wallet-free journal projection omits selected patch context along with notes and choice.
+
+Reconciliation now separately compares the saved patch with the observed patch and derives the expected retest commitment using the saved patch. Thus an internally consistent observed retest on a different patch is still rejected as a mismatch. V9 entries retain the prior partial comparison with an explicit missing-intended-patch notice; no historical patch is invented. Backup authenticity, complete arguments and safe retry remain outside this comparison.
+
+All **34 focused recovery/workspace/comparison/worker-boundary tests passed in 68.95 seconds**, followed by web typechecking. Tests cover encrypted round-trip, migration/edit/receipt preservation, conflicting patch rejection, a wrong observed patch with its own valid commitment, and the actual workspace's pending encrypted checkpoint containing the command patch. All **6 desktop/mobile role-note cases passed in 47.7 seconds**, covering both v9 and v10 offline restoration and existing private-note recovery. The ordinary browser suite now has 72 cases; the full expanded suite was not rerun in this increment. No native wallet operation was performed.
+
+The final normal release build exited successfully: **8 circuits, 62 files, 62,620,866 bytes**, with a fresh compiler comparison at 12:08:11.806 UTC. Contract source and retained proving keys were unchanged.
+
 ## Consolidated validation of recovery and wallet changes — 2026-09-09
 
 At code revision `87071f8`, `npm run validate` exited successfully without reruns: all six workspace builds and typechecks passed, followed by **230 tests across 44 files** (shared 13, contract 13, API 27, ciphertext service 18, integration 9, web 150). The web portion took 69.80 seconds and includes all three retest checkpoint-ordering cases in one green full run. Generated source-map warnings remain; they did not fail compilation or tests.

@@ -6,12 +6,13 @@ import { bytesToHex, hexToBytes } from "@vulnseal/shared";
 import { recoveryFixture } from "../web/src/test/recovery-fixture.js";
 import { decryptRoleVault, encryptRoleVault, withSubmissionAttempt, withSubmissionNotes, withRetestChoice } from "../web/src/role-recovery.js";
 
-test("saved retest failure remains explicit after offline encrypted recovery", async ({ page }) => {
+for (const patch of [undefined, "07".repeat(32)]) {
+test(`v${patch ? 10 : 9} saved retest failure remains explicit after offline encrypted recovery`, async ({ page }) => {
   const { snapshot } = await recoveryFixture();
   const report = { network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: snapshot.report!.id, envelope: snapshot.report!.envelope, key: snapshot.report!.key, salt: snapshot.report!.salt };
   const id = "cd".repeat(32), password = "Saved retest choice password";
   const pending = await withSubmissionAttempt({ version: 1, role: "researcher", network: "preprod", contractAddress: report.contractAddress, programId: report.programId, actorSecret: snapshot.researcherSecret, reports: [report] }, id, { circuit: "submitRetest", reportId: report.reportId });
-  const encrypted = await encryptRoleVault(await withRetestChoice(pending, id, false), password);
+  const encrypted = await encryptRoleVault(await withRetestChoice(pending, id, false, patch), password);
   await page.goto("/#roles");
   await page.getByLabel("Restore backups without connecting Lace").check();
   await page.getByLabel("Single-role backup file").setInputFiles({ name: "retest.json", mimeType: "application/json", buffer: Buffer.from(encrypted) });
@@ -21,7 +22,10 @@ test("saved retest failure remains explicit after offline encrypted recovery", a
   await expect(page.getByText(/Saved retest choice: Fail/)).toBeVisible();
   await expect(page.getByText(/Saved retest choice: Pass/)).toHaveCount(0);
   await expect(page.getByText(/local intent, not a verified outcome/)).toBeVisible();
+  if (patch) await expect(page.getByText(`Saved selected patch: ${patch}`)).toBeVisible();
+  else await expect(page.getByText("Selected patch was not recorded for this attempt.")).toBeVisible();
 });
+}
 
 test("private notes stay with their reports across offline switching and encrypted recovery", async ({ page, context }, testInfo) => {
   const { snapshot, sealed } = await recoveryFixture();

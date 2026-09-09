@@ -68,7 +68,8 @@ describe("independent role workspace", () => {
     await user.click(button);
     await waitFor(() => expect(attemptedCiphertext).toBeDefined());
     const checkpointVault = await decryptRoleVault(attemptedCiphertext!, "Workspace journal password");
-    expect(checkpointVault.version).toBe(9);
+    expect(checkpointVault.version).toBe(10);
+    expect(checkpointVault.submissionAttempts![0]!.retestPatchCommitment).toBe("07".repeat(32));
     expect(checkpointVault.submissionAttempts![0]).toMatchObject({ transactionId: roleTransactionId, intent: { circuit: "submitRetest", reportId: vault.reports[0]!.reportId }, notes: { reportId: vault.reports[0]!.reportId, text, tier: "3" }, retestPassed: passed, finalization: null });
     expect(continueSubmission).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Private decision, patch reference or retest notes")).toBeDisabled();
