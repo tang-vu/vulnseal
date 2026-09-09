@@ -1,5 +1,15 @@
 # Validation report
 
+## Fresh compiler-source comparison — 2026-09-09
+
+`release:build` now begins with `compact:check-source`: a real isolated `compact compile --skip-zk` followed by comparison against retained managed outputs. The run at `2026-09-09T09:13:29.126Z` used compiler `0.31.1` and source SHA-256 `cf4a98e7256d7f10d9ea9a2ce009875ed7fb2de17b0c3c9c13de2db7b95e6d39`. All eleven files matched byte-for-byte: compiler metadata, generated JavaScript/declarations and eight textual ZKIR circuits. The parsed source map also matched after excluding only its directory-dependent `sourceRoot`. The original managed directory and keys were not replaced.
+
+The new rejection test passed for stale JavaScript, declarations, circuit input and metadata, altered source mappings, an unsafe circuit name and a missing circuit file. All four existing packaging/HTTP tests passed. The complete updated release command passed the compiler gate, all six workspace builds and the manifest gate, retaining eight proving circuits, 62 files and 62,534,360 bytes. CI now includes the compiler comparison and rejection test; no remote CI execution is claimed.
+
+The scripted checks removed their own temporary output. The initial manual comparison directory remains under ignored `.compact/source-check-adf3a238d5354ede904a47c5043b1baa`: automatic command review rejected its subsequent PowerShell cleanup with `blocked by policy`. It is not part of the packaged or committed artifact.
+
+This proves current-source agreement for the compared compiler outputs, not fresh key/BZKIR generation or compiler authenticity. The older-CPU custom key generator recorded in ADR-0004 was not found in the inspected WSL locations; the existing keys were retained. No native wallet, new proof/transaction, container rebuild, deployment or full application/browser regression was performed in this tooling increment. The previous 64-case browser run remains the application baseline. See [the release guide](web-release.md) for the check's exact scope and WSL option.
+
 ## Retained release promotion and rollback — 2026-09-09
 
 The new Compose topology runs two immutable-reference web backends behind a digest-pinned Caddy ingress. Separate release IDs retain their directory routes; promotion changes only the non-cacheable root redirect. The ingress startup script rejects duplicate IDs, malformed IDs and unknown active IDs. Image build/config validation and all three actual container rejection checks passed.

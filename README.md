@@ -84,6 +84,9 @@ Versions are pinned from the current official `midnightntwrk/example-bboard` and
 npm ci
 cp .env.example .env
 npm run compact:skip-zk
+
+# Check retained bindings/ZKIR against fresh compilation without replacing keys
+npm run compact:check-source
 npm run build
 npm run demo
 ```
