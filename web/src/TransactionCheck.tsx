@@ -3,11 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { compareTransactionIntent, observeTransaction, type TransactionObservation } from "./transaction-verification.js";
 import { publicEndpoints } from "./public-endpoints.js";
 
-export function TransactionCheck({ network, transactionId, contractAddress, circuit }: { readonly network: string; readonly transactionId: string; readonly contractAddress?: string | null; readonly circuit?: string | undefined }) {
+export function TransactionCheck({ network, transactionId, contractAddress, circuit, onChooseDeploymentAddress }: { readonly network: string; readonly transactionId: string; readonly contractAddress?: string | null; readonly circuit?: string | undefined; readonly onChooseDeploymentAddress?: ((address: string) => void) | undefined }) {
   const [result, setResult] = useState<TransactionObservation>();
   const [error, setError] = useState("");
   const [working, setWorking] = useState(false);
   const controller = useRef<AbortController | undefined>(undefined);
+  const deployment = !contractAddress && circuit === "constructor" && result?.kind === "finalized" && result.status === "SUCCESS" && result.contractActions?.length === 1 && result.contractActions[0]?.kind === "ContractDeploy" ? result.contractActions[0] : undefined;
   useEffect(() => { setResult(undefined); setError(""); setWorking(false); return () => controller.current?.abort(); }, [network, transactionId, contractAddress, circuit]);
   const check = async () => {
     controller.current?.abort(); const pending = new AbortController(); controller.current = pending;
@@ -32,6 +33,7 @@ export function TransactionCheck({ network, transactionId, contractAddress, circ
           ambiguous: "The indexer lists multiple actions for this contract and circuit. The recorded operation cannot be uniquely identified.",
         } as const)[compareTransactionIntent(result.contractActions, contractAddress, circuit)]}</p>
         {result.contractActions && <><h4>Contract actions reported by the indexer</h4>{result.contractActions.length ? <ul>{result.contractActions.map((action, index) => <li key={index} className="public-value">{action.kind === "ContractDeploy" ? "Deployment" : action.kind === "ContractUpdate" ? "Contract update" : `Call ${action.entryPoint}`}: {action.address}</li>)}</ul> : <p>No contract actions reported.</p>}</>}
+        {deployment && onChooseDeploymentAddress && <><p>This is a candidate address reported by the indexer. Selecting it only fills the reconnect form; connecting must still verify this workspace's program and vendor authority before saving the address.</p><button type="button" className="secondary-button" onClick={() => onChooseDeploymentAddress(deployment.address)}>Use observed address in reconnect form</button></>}
       </>}
       <p>Checked {result.checkedAt}. Source: {result.indexerUrl}. This observation trusts the indexer/RPC and does not authenticate the circuit or establish retry safety.</p>
     </div>}

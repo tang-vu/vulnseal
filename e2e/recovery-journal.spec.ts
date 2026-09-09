@@ -1,6 +1,39 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect, test } from "@playwright/test";
-import { encryptRoleVault } from "../web/src/role-recovery.js";
+import { decryptRoleVault, encryptRoleVault } from "../web/src/role-recovery.js";
+import { readFile } from "node:fs/promises";
+
+test("an observed deployment address fills recovery without silently binding the backup", async ({ page }) => {
+  const transactionId = "cd".repeat(32), address = "ab".repeat(32), blockHash = "ef".repeat(32);
+  const password = "Deployment address recovery password";
+  const encrypted = await encryptRoleVault({ version: 5, role: "vendor", network: "preprod", contractAddress: null, programId: "12".repeat(32), actorSecret: "34".repeat(32), reports: [], draft: null, reportNotes: [], submissionAttempts: [{ transactionId, recordedAt: "2026-09-09T00:00:00.000Z", intent: { circuit: "constructor", reportId: null } }] }, password);
+  const posts: string[] = [];
+  page.on("request", (request) => { if (request.method() === "POST") posts.push(request.postData() ?? ""); });
+  await page.route("https://indexer.preprod.midnight.network/api/v4/graphql", (route) => route.fulfill({ json: { data: { transactions: [{ identifiers: [transactionId], hash: "56".repeat(32), block: { height: 100, hash: blockHash }, transactionResult: { status: "SUCCESS" }, contractActions: [{ __typename: "ContractDeploy", address }] }] } } }));
+  await page.route("https://rpc.preprod.midnight.network/", (route) => route.fulfill({ json: { jsonrpc: "2.0", id: 1, result: route.request().postDataJSON().method === "chain_getHeader" ? { number: "0x64" } : `0x${blockHash}` } }));
+  await page.goto("/#roles");
+  await page.getByLabel("Restore backups without connecting Lace").check();
+  await page.getByLabel("Single-role backup file").setInputFiles({ name: "deployment.json", mimeType: "application/json", buffer: Buffer.from(encrypted) });
+  await page.getByLabel("Role restore password").fill(password);
+  await page.getByRole("button", { name: "Restore role workspace" }).click();
+  await expect(page.getByRole("heading", { name: "Vendor workspace" })).toBeVisible();
+  expect(posts).toEqual([]);
+  await page.getByRole("button", { name: "Check transaction status" }).click();
+  await page.getByRole("button", { name: "Use observed address in reconnect form" }).click();
+  await expect(page.getByLabel("Existing contract address")).toHaveValue(address);
+  expect(posts).toHaveLength(4);
+  expect(posts.join(" ")).not.toContain("34".repeat(32));
+  await page.getByRole("button", { name: "Connect Lace and verify program" }).click();
+  await expect(page.getByRole("alert")).toContainText("Compatible Midnight Lace wallet not found");
+  await page.getByRole("button", { name: "Save role backup" }).click();
+  await page.getByLabel("Role backup password", { exact: true }).fill(password);
+  await page.getByLabel("Confirm role backup password").fill(password);
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download single-role backup" }).click()]);
+  const restored = await decryptRoleVault(await readFile((await download.path())!, "utf8"), password);
+  expect(restored.contractAddress).toBeNull();
+  expect(restored.submissionAttempts![0]!.transactionId).toBe(transactionId);
+  expect(posts).toHaveLength(4);
+});
 
 test("long offline journals page and find old attempts without network checks", async ({ page }) => {
   const attempts = Array.from({ length: 23 }, (_, i) => ({ transactionId: (i + 1).toString(16).padStart(64, "0"), recordedAt: "2026-09-09T00:00:00.000Z" }));

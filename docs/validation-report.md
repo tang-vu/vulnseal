@@ -1,5 +1,13 @@
 # Validation report
 
+## Recover an observed deployment address into the reconnect form — 2026-09-09
+
+An unbound, inactive role workspace can now explicitly select a candidate address from its recorded constructor attempt. The shortcut requires a finalized SUCCESS with exactly one reported action, which must be a deployment. It only fills the existing reconnect form and opens the reports tab; it does not save the address or connect the wallet. The existing join path must still check program and vendor authority before updating the vault. Expired sessions and the wallet-free inspector do not receive this shortcut. Indexer/RPC observations remain source-trusting.
+
+All **11 component cases passed in 3.16 seconds**, covering explicit lookup/selection, pending/failure/partial-success results, missing/empty/ambiguous actions, a call masquerading as a constructor, absent/non-constructor intent and already bound workspaces. Web typechecking passed. Both new desktop/mobile browser cases passed in **36.8 seconds** with no retries: restore an encrypted unbound vendor journal, query injected public evidence, select the address, fail the connection because Lace is absent, download/decrypt the backup, and verify that its address remains null and original transaction identifier survives. Only the four expected public-observation requests are sent. The ordinary suite now contains 76 cases; no full expanded-suite run is claimed.
+
+The final normal release build passed after fresh compiler comparison at **12:58:12.014 UTC**: **8 circuits, 62 files, 62,637,482 bytes**. No backup schema, contract source or proving keys changed. These tests establish candidate selection and preservation on failed connection, not successful native-wallet authority verification or authenticated deployment recovery.
+
 ## Deployment-specific confirmation timeout recovery — 2026-09-09
 
 Two new component cases exercise the actual vendor-identity/autosave/deployment UI with injected provider initialization and a delayed deployment result. Both decrypt the browser checkpoint and verify a retained constructor intent and transaction identifier while the contract address remains unknown. After expiring the application confirmation wait, backup and locking stay available, deployment is disabled, and reconnect controls are absent. Late success must not persist the returned address/receipt or attach a role session; late failure must not replace recovery guidance. Programmatically submitting the disabled deployment form is also rejected before another provider initialization or deployment call.
