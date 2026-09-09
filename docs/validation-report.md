@@ -1,5 +1,13 @@
 # Validation report
 
+## Verify initial-submit timeout recovery through the UI -- 2026-09-09
+
+The initial-report recovery regression now covers API rejection, a never-resolving private-state preparation and a never-resolving submit call. The timeout cases advance the application timer, deliver the late result, and verify that no completed report or late transaction receipt appears. Preparation timeout makes zero submit calls, including after late preparation resolves; submission timeout makes exactly one.
+
+Each case downloads and decrypts the actual encrypted backup, compares its pending ciphertext envelope with the upload body, validates the retained key/salt and commitment through the recovery decoder, and checks `submissionStarted=true`, no completed report and no fabricated history. A fresh App mount restores that file against a mocked authority-checked ledger and keeps replacement/retry unavailable. The completed chain performs exactly one ciphertext PUT, including after restore.
+
+The full network component file passed **10 tests in 35.00 seconds** and web typechecking passed. After adding the final one-PUT assertion, the three affected cases passed again in **17.11 seconds** (seven unrelated cases skipped in that focused run). These tests use mocked wallet/API/HTTP and fake timer advancement, with actual local encryption/decryption. They do not establish native Lace behavior, network finality, crash persistence or safe retry reconciliation. No production implementation, release bytes, contract or proving keys changed in this verification increment.
+
 ## Preserve demo backup access after a stalled report transaction -- 2026-09-09
 
 The combined demo now bounds private-state preparation plus its API call to ten minutes for initial report submission and all seven existing-report transitions. Expiration releases the working UI while retaining the existing pending-submission/uncertain-transition marker. It never retries. A preparation result arriving after expiry cannot start the transition API call; an already started call's late result cannot clear the marker or apply a receipt through the finished action. Patch/closure error labels now say interrupted rather than implying a definitive transaction failure.

@@ -200,9 +200,13 @@ describe("browser network workflow with mocked wallet and finalized API results"
     expect(screen.getByText(/Guided local receipt/)).toBeInTheDocument();
   });
 
-  it("blocks retry and replacement after an uncertain contract submission", async () => {
+  it.each(["failure", "preparation timeout", "submission timeout"])("blocks initial report retry and replacement after %s", async (outcome) => {
     const user = userEvent.setup();
     const api = { contractAddress: "ab".repeat(32), usePrivateState: vi.fn().mockResolvedValue(undefined), submitReport: vi.fn().mockRejectedValue(new Error("Wallet response interrupted")) };
+    let finishLate!: (value: unknown) => void;
+    if (outcome === "preparation timeout") api.usePrivateState.mockImplementation(() => new Promise((resolve) => { finishLate = resolve; }));
+    if (outcome === "submission timeout") api.submitReport.mockImplementation(() => new Promise((resolve) => { finishLate = resolve; }));
+    const expectedSubmissions = outcome === "preparation timeout" ? 0 : 1;
     mocks.deploy.mockResolvedValue({ api, evidence: { circuit: "constructor", txId: "deploy-tx", blockHeight: "100" } });
     render(<App />);
     await user.click(screen.getByRole("button", { name: "Guided local" }));
@@ -211,13 +215,26 @@ describe("browser network workflow with mocked wallet and finalized API results"
     await screen.findByRole("heading", { name: "Acme Security Program" });
     await user.click(screen.getAllByRole("button", { name: /Submit/ })[0]!);
     await user.click(screen.getByRole("checkbox"));
-    await user.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
-    await screen.findByText("Wallet response interrupted");
+    if (outcome === "failure") {
+      await user.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
+      await screen.findByText("Wallet response interrupted");
+    } else {
+      vi.useFakeTimers();
+      fireEvent.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
+      await vi.waitFor(() => expect(api.usePrivateState).toHaveBeenCalledOnce());
+      if (outcome === "submission timeout") await vi.waitFor(() => expect(api.submitReport).toHaveBeenCalledOnce());
+      await act(async () => { await vi.advanceTimersByTimeAsync(DEMO_TRANSITION_TIMEOUT_MS); });
+      vi.useRealTimers();
+      expect(screen.getAllByText(/Stopped waiting for this transition/).length).toBeGreaterThan(0);
+      await act(async () => { finishLate({ circuit: "submitReport", txId: "late-submit", blockHeight: "101" }); });
+      expect(screen.queryByText("Your report is sealed")).not.toBeInTheDocument();
+      expect(screen.queryByText("late-submit")).not.toBeInTheDocument();
+    }
     expect(screen.queryByRole("button", { name: "Retry saved report upload" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Review report" }));
     expect(screen.getByText(/Its outcome needs reconciliation/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Report title")).not.toBeInTheDocument();
-    expect(api.submitReport).toHaveBeenCalledOnce();
+    expect(api.submitReport).toHaveBeenCalledTimes(expectedSubmissions);
     let downloaded: Blob | undefined;
     vi.stubGlobal("URL", class extends URL { static override createObjectURL = (blob: Blob) => { downloaded = blob; return "blob:pending-backup"; }; static override revokeObjectURL = vi.fn(); });
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
@@ -230,6 +247,10 @@ describe("browser network workflow with mocked wallet and finalized API results"
       const serialized = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsText(downloaded!); });
       const { snapshot } = await decryptRecovery(serialized, "Retain uncertain submission backup");
       expect(snapshot.pendingReport?.submissionStarted).toBe(true);
+      const uploaded = vi.mocked(fetch).mock.calls.find((call) => call[1]?.method === "PUT");
+      expect(snapshot.pendingReport?.report.envelope).toBe(uploaded?.[1]?.body);
+      expect(snapshot.pendingReport?.report.key).toHaveLength(64);
+      expect(snapshot.pendingReport?.report.salt).toHaveLength(64);
       expect(snapshot.report).toBeNull();
       expect(snapshot.history).toEqual([]);
       const programId = hexToBytes(snapshot.programId);
@@ -244,7 +265,8 @@ describe("browser network workflow with mocked wallet and finalized API results"
       await screen.findByRole("heading", { name: "Keep the prepared report" }, { timeout: 5000 });
       expect(screen.getByText(/Its outcome needs reconciliation/)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Retry saved report upload" })).not.toBeInTheDocument();
-      expect(api.submitReport).toHaveBeenCalledOnce();
+      expect(api.submitReport).toHaveBeenCalledTimes(expectedSubmissions);
+      expect(vi.mocked(fetch).mock.calls.filter((call) => call[1]?.method === "PUT")).toHaveLength(1);
     } finally { click.mockRestore(); }
   }, 15_000);
 
