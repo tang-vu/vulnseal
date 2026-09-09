@@ -1,5 +1,16 @@
 # Validation report
 
+## Wallet-free recovery journal inspection — 2026-09-09
+
+| Check | Command / environment | Observed result |
+| --- | --- | --- |
+| Web checks | Web typecheck; full web test suite | Exit 0; 18 files / 67 tests passed |
+| Pending display cancellation | Inspector component test | Clearing while decryption is pending suppresses its late result and clears the password |
+| Affected production journeys | `VULNSEAL_CAPTURE_VISUALS=1 npm run test:e2e -- e2e/recovery-journal.spec.ts e2e/roles.spec.ts` | Exit 0; 6 passed in 56.6 seconds |
+| Final inspector browser checks | `VULNSEAL_CAPTURE_VISUALS=1 npm run test:e2e -- e2e/recovery-journal.spec.ts` | Exit 0; final production typecheck/build included; 2 passed in 41.7 seconds after layout placement and all-request assertions |
+
+The desktop/mobile checks use a synthetic deployed-role encrypted backup with a real-format public identifier and no injected Lace wallet. Wrong passwords reveal no journal; file and actual IndexedDB inspection create no network requests or role session; actor secrets are absent from visible text. Only the explicit status check makes a public indexer request (mocked as missing). Clearing removes its observation. The mobile screenshot in `docs/screenshots/*-offline-journal.png` was inspected. These checks do not establish native wallet recovery, authority correctness of a backup, or forensic memory erasure.
+
 ## Transaction observations and real identifier compatibility — 2026-09-09
 
 | Check | Command / environment | Observed result |

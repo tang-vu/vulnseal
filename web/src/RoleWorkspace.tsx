@@ -15,6 +15,7 @@ import { validateDisclosure, type Disclosure, type RecipientKeys } from "./hando
 import { ReportWizard } from "./App.js";
 import { AttachmentReview } from "./AttachmentFields.js";
 import { TransactionCheck } from "./TransactionCheck.js";
+import { RecoveryJournal } from "./RecoveryJournal.js";
 import { LocalRoleStorage } from "./LocalRoleStorage.js";
 
 const env = validateEnvironment(import.meta.env);
@@ -129,6 +130,7 @@ export function RoleWorkspace() {
             const joined = restored.contractAddress ? await joinRoleVault(restored, recordSubmission) : undefined;
             setVault(restored); setSaved(restored); setSession(joined?.session); setSnapshot(joined?.snapshot); setSelectedId(restored.reports[0]?.reportId ?? ""); setPassword("");
           })}><h2>Restore one role</h2><label>Single-role backup file<input type="file" accept=".json,application/json" required onChange={(event) => setFile(event.target.files?.[0])} /></label><label>Role restore password<input type="password" minLength={12} required value={password} onChange={(event) => setPassword(event.target.value)} /></label><button className="primary-button">Restore role workspace</button><p>Network restores check current authority and saved report bindings before installing the workspace.</p></form>
+          <RecoveryJournal />
         </> : <>
           <p className="public-value">Network: {vault.network} · Program: {vault.programId}</p>{vault.contractAddress && <p className="public-value">Contract: {vault.contractAddress}</p>}
           {!backedUp && <p className="operation-notice" role="status">Save an updated single-role backup before any transaction. Prepared reports and received disclosures are held in memory until backed up.</p>}
