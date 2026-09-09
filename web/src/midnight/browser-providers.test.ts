@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getNetworkId, setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { initializeBrowserProviders, WALLET_SETUP_TIMEOUT_MS } from "./browser-providers.js";
+import { initializeBrowserProviders, WALLET_SETUP_TIMEOUT_MS, WALLET_AUTHORIZATION_TIMEOUT_MS } from "./browser-providers.js";
 import { WALLET_SUBMISSION_TIMEOUT_MS } from "./submission.js";
 
 const wallet = () => {
@@ -18,6 +18,33 @@ const wallet = () => {
 
 describe("wallet network binding", () => {
   afterEach(() => { delete window.midnight; vi.useRealTimers(); });
+
+  it.each(["balance", "submit"])("bounds authorization before %s without resuming after a late response", async (operation) => {
+    vi.useFakeTimers();
+    const connected = wallet();
+    const checkpoint = vi.fn().mockResolvedValue(undefined);
+    const providers = await initializeBrowserProviders("preprod", checkpoint);
+    let authorize!: (status: { status: string; networkId: string }) => void;
+    connected.getConnectionStatus.mockImplementationOnce(() => new Promise((resolve) => { authorize = resolve; }));
+    const serialize = vi.fn(() => Uint8Array.of(1, 2, 3));
+    const transaction = { identifiers: () => ["12".repeat(32)], serialize };
+    const invoke = () => operation === "balance" ? providers.walletProvider.balanceTx(transaction as never) : providers.midnightProvider.submitTx(transaction as never);
+    const result = invoke().catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(WALLET_AUTHORIZATION_TIMEOUT_MS);
+    expect(await result).toMatchObject({ message: expect.stringContaining("Wallet authorization check timed out") });
+    authorize({ status: "connected", networkId: "preprod" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(serialize).not.toHaveBeenCalled();
+    expect(checkpoint).not.toHaveBeenCalled();
+    expect(connected.balanceUnsealedTransaction).not.toHaveBeenCalled();
+    expect(connected.submitTransaction).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+    // Only a new explicit invocation rechecks authorization.
+    connected.getConnectionStatus.mockResolvedValue({ status: "disconnected" });
+    await expect(invoke()).rejects.toThrow("authorization was not granted");
+    expect(connected.getConnectionStatus).toHaveBeenCalledTimes(3);
+    expect(vi.getTimerCount()).toBe(0);
+  });
 
   it.each(["connect", "status", "configuration", "addresses"])("bounds stalled %s setup and ignores late responses", async (stage) => {
     vi.useFakeTimers();

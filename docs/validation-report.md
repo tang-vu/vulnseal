@@ -1,5 +1,15 @@
 # Validation report
 
+## Bound transaction authorization checks — 2026-09-09
+
+The authorization reads before wallet balancing and before submission preparation now each have a two-minute deadline. Previously either could leave a role action pending indefinitely, outside the setup/submission deadlines. A late successful response cannot resume the timed-out caller: neither transaction serialization, identifier checkpoint, balancing nor broadcast is started by that continuation. The post-checkpoint authorization read remains inside `submitIdentifiedTransaction` and retains its existing unknown-outcome handling. Already-started wallet operations, proof generation and finality are outside this change.
+
+The focused provider/submission run passed **22 tests in 4.24 seconds**, including two stalled preflight checks with late resolution and a subsequent explicit authorization check. Web typechecking passed. The full web suite then passed **130 tests across 28 files in 54.45 seconds**. Connector deadline tests use mocks and do not establish native Lace compatibility.
+
+The complete ordinary Playwright suite passed **68 desktop/mobile cases in 3.6 minutes**, with two workers and no retries or test exclusions. This includes the newly added setup-timeout cases and the existing disclosure, recovery, storage, role and public replay journeys. The separate replication suite was not rerun in this increment.
+
+The final normal release build after browser testing exited successfully after a fresh compiler comparison at 11:28:45.768 UTC: **8 circuits, 62 files, 62,593,775 bytes**. Retained proving keys were not regenerated.
+
 ## Bound initial wallet setup — 2026-09-09
 
 Initial provider setup now has one two-minute deadline across discovery, connector authorization, status, configuration and shielded-address reads. Each await is followed by a cancellation check before another connector method can run. SDK network selection occurs only after the bounded setup resolves successfully. Timeout clears the caller's pending state, does not submit or retry, and warns that the extension may still own an outstanding connection prompt. It cannot cancel that prompt or cover later proving/balancing/finality.

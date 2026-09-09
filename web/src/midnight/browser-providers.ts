@@ -56,6 +56,17 @@ const assertConnection = async (connected: ConnectedAPI, networkId: string): Pro
 };
 
 export const WALLET_SETUP_TIMEOUT_MS = 120_000;
+export const WALLET_AUTHORIZATION_TIMEOUT_MS = 120_000;
+
+const assertConnectionBeforeTransaction = async (connected: ConnectedAPI, networkId: string): Promise<void> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error("Wallet authorization check timed out. This check did not submit a transaction.")), WALLET_AUTHORIZATION_TIMEOUT_MS);
+  });
+  try { await Promise.race([assertConnection(connected, networkId), timeout]); }
+  finally { clearTimeout(timer); }
+};
+
 const prepareConnection = async (networkId: string) => {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -109,7 +120,7 @@ export const initializeBrowserProviders = async (
         ttl?: Date,
       ): Promise<FinalizedTransaction> => {
         void ttl;
-        await assertConnection(connected, networkId);
+        await assertConnectionBeforeTransaction(connected, networkId);
         const balanced = await connected.balanceUnsealedTransaction(
           toHex(transaction.serialize()),
         );
@@ -123,7 +134,7 @@ export const initializeBrowserProviders = async (
     },
     midnightProvider: {
       submitTx: async (transaction: FinalizedTransaction): Promise<TransactionId> => {
-        await assertConnection(connected, networkId);
+        await assertConnectionBeforeTransaction(connected, networkId);
         return submitIdentifiedTransaction(transaction, async (serialized, signal) => {
           await assertConnection(connected, networkId);
           signal.throwIfAborted();
