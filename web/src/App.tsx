@@ -34,6 +34,7 @@ import { AttachmentEditor, AttachmentReview } from "./AttachmentFields.js";
 import { HandoffPanel } from "./HandoffPanel.js";
 import type { RecipientKeys } from "./handoff.js";
 import { parsePublicReceipt } from "./public-verification.js";
+import { demoTransitionWait } from "./demo-transition-wait.js";
 
 type Screen =
   | "home"
@@ -333,14 +334,13 @@ function App() {
       if (api !== undefined) {
         // Conservatively retain uncertainty even if private-state setup fails before the wallet call.
         setPendingPreparation({ ...prepared, submissionStarted: true });
-        await api.usePrivateState(
+        transaction = await demoTransitionWait(() => api.usePrivateState(
           createVulnSealPrivateState(researcherSecret, {
             programId: programBytes,
             canonicalDigest: encrypted.canonicalReportDigest,
             salt,
           }),
-        );
-        transaction = await api.submitReport(encrypted.ciphertextDigest);
+        ), () => api.submitReport(encrypted.ciphertextDigest));
       }
       setSealed(encrypted);
       setReportSalt(salt);
@@ -397,15 +397,16 @@ function App() {
     setOperation({ state: "working", label: kind === "triage" ? "Opening triage" : kind === "accept" ? "Accepting report" : "Rejecting report", detail: api ? "Proving vendor authorization and awaiting finality." : "Updating the clearly labeled guided local workflow." });
     try {
       if (kind !== "triage" && !rationale.trim()) throw new Error("Enter a private decision rationale");
+      const rationaleDigest = kind === "triage" ? undefined : await sha256(utf8(rationale.trim()));
       let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
         setUncertainTransition(kind === "triage" ? "beginTriage" : kind === "accept" ? "acceptReport" : "rejectReport");
-        await api.usePrivateState(createVulnSealPrivateState(vendorSecret));
-        transaction = kind === "triage"
-          ? await api.beginTriage(reportId)
-          : kind === "accept"
-            ? await api.acceptReport(reportId, BigInt(severity), await sha256(utf8(rationale.trim())))
-            : await api.rejectReport(reportId, await sha256(utf8(rationale.trim())));
+        transaction = await demoTransitionWait(
+          () => api.usePrivateState(createVulnSealPrivateState(vendorSecret)),
+          () => kind === "triage" ? api.beginTriage(reportId)
+            : kind === "accept" ? api.acceptReport(reportId, BigInt(severity), rationaleDigest!)
+              : api.rejectReport(reportId, rationaleDigest!),
+        );
         setUncertainTransition(null);
       }
       if (kind === "accept") setAcceptedSeverity(severity);
@@ -426,13 +427,12 @@ function App() {
       let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
         setUncertainTransition("anchorPatch");
-        await api.usePrivateState(
+        transaction = await demoTransitionWait(() => api.usePrivateState(
           createVulnSealPrivateState(vendorSecret, undefined, {
             reportId,
             patchDigest,
           }),
-        );
-        transaction = await api.anchorPatch(reportId);
+        ), () => api.anchorPatch(reportId));
         setUncertainTransition(null);
       }
       setPatchCommitment(api ? undefined : patchDigest);
@@ -442,7 +442,7 @@ function App() {
       if (api) await refreshCommitments("PATCH_READY");
       setOperation({ state: "idle" });
     } catch (error) {
-      setOperation({ state: "error", label: "Patch anchoring failed", detail: error instanceof Error ? error.message : "Unknown patch error" });
+      setOperation({ state: "error", label: "Patch anchoring interrupted", detail: error instanceof Error ? error.message : "Unknown patch error" });
     } finally { busy.current = false; }
   };
 
@@ -456,7 +456,7 @@ function App() {
       let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
         setUncertainTransition("submitRetest");
-        await api.usePrivateState(
+        transaction = await demoTransitionWait(() => api.usePrivateState(
           createVulnSealPrivateState(
             researcherSecret,
             {
@@ -471,8 +471,7 @@ function App() {
               evidenceDigest,
             },
           ),
-        );
-        transaction = await api.submitRetest(reportId, passed);
+        ), () => api.submitRetest(reportId, passed));
         setUncertainTransition(null);
       }
       setRetestCommitment(api ? undefined : evidenceDigest);
@@ -493,8 +492,10 @@ function App() {
       let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
         setUncertainTransition("authorizePayout");
-        await api.usePrivateState(createVulnSealPrivateState(vendorSecret));
-        transaction = await api.authorizePayout(reportId, BigInt(acceptedSeverity));
+        transaction = await demoTransitionWait(
+          () => api.usePrivateState(createVulnSealPrivateState(vendorSecret)),
+          () => api.authorizePayout(reportId, BigInt(acceptedSeverity)),
+        );
         setUncertainTransition(null);
       }
       recordTransition("PAYOUT_AUTHORIZED", transaction);
@@ -513,15 +514,17 @@ function App() {
       let transaction: TransactionEvidence | undefined;
       if (api) {
         setUncertainTransition("closeReport");
-        await api.usePrivateState(createVulnSealPrivateState(vendorSecret));
-        transaction = await api.closeReport(reportId);
+        transaction = await demoTransitionWait(
+          () => api.usePrivateState(createVulnSealPrivateState(vendorSecret)),
+          () => api.closeReport(reportId),
+        );
         setUncertainTransition(null);
       }
       recordTransition("CLOSED", transaction);
       setOperation({ state: "idle" });
       changeScreen("verify", "verifier");
     } catch (error) {
-      setOperation({ state: "error", label: "Closure failed", detail: error instanceof Error ? error.message : "Unable to close report" });
+      setOperation({ state: "error", label: "Closure interrupted", detail: error instanceof Error ? error.message : "Unable to close report" });
     } finally { busy.current = false; }
   };
 

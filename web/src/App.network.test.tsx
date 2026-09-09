@@ -7,6 +7,7 @@ import { pureCircuits } from "@vulnseal/contract";
 import { recoveryFixture } from "./test/recovery-fixture.js";
 import { decryptRecovery, encryptRecovery } from "./recovery.js";
 import { programConstructor } from "./program.js";
+import { DEMO_TRANSITION_TIMEOUT_MS } from "./demo-transition-wait.js";
 
 const mocks = vi.hoisted(() => ({ connect: vi.fn(), deploy: vi.fn(), join: vi.fn() }));
 vi.mock("./midnight/browser-providers.js", () => ({ initializeBrowserProviders: mocks.connect }));
@@ -27,7 +28,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
       return new Response(store.get(url), { status: 200 });
     }));
   });
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+  afterEach(() => { vi.useRealTimers(); cleanup(); vi.unstubAllGlobals(); });
 
   it("warns before leaving a pending deployment and releases the guard after failure", async () => {
     const user = userEvent.setup();
@@ -52,7 +53,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     expect(leaving()).toBe(false);
   });
 
-  it("keeps failed transition uncertainty across encrypted export and ledger-checked restore", async () => {
+  it.each(["failure", "timeout"])("keeps transition %s uncertainty across encrypted export and ledger-checked restore", async (outcome) => {
     const user = userEvent.setup();
     const { snapshot, sealed } = await recoveryFixture();
     const source = { ...snapshot, mode: "midnight" as const, network: "preprod", contractAddress: "ab".repeat(32) };
@@ -61,6 +62,8 @@ describe("browser network workflow with mocked wallet and finalized API results"
     const record = { commitment: reportId, ciphertextDigest: sealed.ciphertextDigest, researcherKey: pureCircuits.deriveResearcherKey(programId, reportId, hexToBytes(snapshot.researcherSecret)), status: 0, severity: 0n, patchCommitment: new Uint8Array(32), retestCommitment: new Uint8Array(32), payoutReceipt: new Uint8Array(32) };
     const ledger = { ...await programConstructor(programId, snapshot.policy), ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(snapshot.vendorSecret)), reports: { member: () => true, lookup: () => record } };
     const api = { contractAddress: source.contractAddress, readPublicState: vi.fn().mockResolvedValue({ ledger }), usePrivateState: vi.fn().mockResolvedValue(undefined), beginTriage: vi.fn().mockRejectedValue(new Error("Finality connection lost")) };
+    let confirmLate!: (value: unknown) => void;
+    if (outcome === "timeout") api.beginTriage.mockImplementation(() => new Promise((resolve) => { confirmLate = resolve; }));
     mocks.join.mockResolvedValue(api);
     const restore = async (serialized: string) => {
       await user.click(screen.getByRole("button", { name: "Private recovery" }));
@@ -74,7 +77,16 @@ describe("browser network workflow with mocked wallet and finalized API results"
     render(<App />);
     await restore(await encryptRecovery(source, password));
     await user.click(screen.getByRole("button", { name: /Continue as vendor/ }));
-    await user.click(await screen.findByRole("button", { name: "Begin authorized triage" }));
+    const triage = await screen.findByRole("button", { name: "Begin authorized triage" });
+    if (outcome === "timeout") {
+      vi.useFakeTimers();
+      fireEvent.click(triage);
+      await act(async () => { await vi.advanceTimersByTimeAsync(DEMO_TRANSITION_TIMEOUT_MS); });
+      vi.useRealTimers();
+      expect(screen.getAllByText(/Stopped waiting for this transition/).length).toBeGreaterThan(0);
+      await act(async () => { confirmLate({ circuit: "beginTriage" }); });
+      expect(screen.getAllByText(/Stopped waiting for this transition/).length).toBeGreaterThan(0);
+    } else await user.click(triage);
     await screen.findByText("Transaction outcome unknown: beginTriage");
     expect(screen.getByRole("button", { name: "Begin authorized triage" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Begin authorized triage" }));

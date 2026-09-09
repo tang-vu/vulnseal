@@ -1,5 +1,15 @@
 # Validation report
 
+## Preserve demo backup access after a stalled report transaction -- 2026-09-09
+
+The combined demo now bounds private-state preparation plus its API call to ten minutes for initial report submission and all seven existing-report transitions. Expiration releases the working UI while retaining the existing pending-submission/uncertain-transition marker. It never retries. A preparation result arriving after expiry cannot start the transition API call; an already started call's late result cannot clear the marker or apply a receipt through the finished action. Patch/closure error labels now say interrupted rather than implying a definitive transaction failure.
+
+Three focused helper tests cover late preparation, late confirmation, timely success and preparation failure with timer cleanup. The final App/network/helper run passed **18 tests across three files in 26.62 seconds**, and web typechecking passed. The timeout UI case advances a fake timer, supplies a late mocked confirmation, exports and decrypts the actual encrypted recovery file, remounts and restores against a mocked verified ledger, and confirms transaction/reset blocking persists. The first run failed because an error-text selector matched two UI locations; correcting the selector produced the successful run. The SDK and wallet are mocked; no real ten-minute chain wait or native Lace call was performed.
+
+The normal release build passed after fresh source comparison at **15:35:38.288 UTC**. After the final two error-label edits, the web typecheck/build and artifact manifest check passed again: **8 circuits, 62 files, 62,646,045 bytes**. Contract source and proving keys are unchanged. This release has not been rebuilt into the hosting image or deployed, and full browser suites were not repeated for this increment.
+
+This closes indefinite asynchronous waiting for demo report calls, not SDK cancellation or durable journaling. Background SDK work may still finalize, timer execution can be delayed by synchronous/browser scheduling, and tab loss before export remains unsafe. Deployment, wallet connection/restore, post-finality reads, durable identifiers and semantic reconciliation are separate work. See [the recovery design](adr/0006-encrypted-browser-recovery.md#bounded-waits-in-the-combined-demo).
+
 ## Alert on unavailable storage while metrics remain reachable -- 2026-09-09
 
 Each enabled `/metrics` scrape now invokes the same coalesced quota and write/read probe as `/readyz`. The new fixed-name gauge `vulnseal_storage_ready` is 1 on success and 0 on failure; the scrape remains HTTP 200 on a completed failed probe. This closes the gap where `up=1` hid a full or unavailable store until another request generated an error. Filesystem details are not exposed. Scrapes now perform probe I/O; slow storage can cause scrape timeouts, and quota readiness checks only one byte of headroom, not every possible upload size.

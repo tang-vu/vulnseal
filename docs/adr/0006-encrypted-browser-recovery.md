@@ -34,7 +34,13 @@ Recovery payload v4 adds a required `uncertainTransition` field: null, or one of
 
 The combined demo sets the marker before private-state setup for triage, acceptance/rejection, patch, retest, payout authorization and closure. Only a successful API result clears it, before any follow-up public read. An API/private-state error therefore blocks further transactions and the report-reset action; it does not label the transaction as failed. The UI keeps a visible explanation, private backup access after the call returns, and a leave warning. Export preserves the marker; joining and checking the ledger during import does not clear it. There is no manual unlock or automatic retry because observing current report state alone does not reconcile a particular attempt.
 
-This is conservative explicit-snapshot recovery, not a durable pre-wallet journal. Even an error before broadcast retains uncertainty. A tab crash before export, a never-returning call, an older backup, initial deployment recovery, transaction identifiers and safe reconciliation remain separate gaps. Do not interpret a null/missing legacy marker as proof that there is no pending transaction.
+This is conservative explicit-snapshot recovery, not a durable pre-wallet journal. Even an error before broadcast retains uncertainty. A tab crash before export, an older backup, initial deployment recovery, transaction identifiers and safe reconciliation remain separate gaps. Do not interpret a null/missing legacy marker as proof that there is no pending transaction.
+
+## Bounded waits in the combined demo
+
+Initial report submission and the seven existing-report transitions stop waiting after ten minutes across private-state preparation and the API transition call. Expiry releases the working UI so encrypted backup export is available, retains the existing uncertainty/submission marker and does not retry. If preparation resolves after expiry, the transition API is never called. If an already started API call resolves late, its result cannot clear the marker or update the report/receipt through this finished action.
+
+This timer bounds the asynchronous application wait, not SDK cancellation or chain finality. Already started SDK work can continue; synchronous browser work can delay timer execution. The demo still has no durable pre-wallet journal or transaction identifier for these attempts. Initial program deployment, connection/restore and post-finality read waits are outside this helper. The separate role workspace retains its identifier-based deadline and journal design.
 
 ## Operational limits
 
