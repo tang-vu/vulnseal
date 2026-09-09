@@ -6,8 +6,20 @@ import { decryptRoleVault, encryptRoleVault } from "./role-recovery.js";
 import { recoveryFixture } from "./test/recovery-fixture.js";
 const mocks = vi.hoisted(() => ({ join: vi.fn() }));
 vi.mock("./role-network.js", () => ({ joinRoleVault: mocks.join }));
+vi.mock("./role-storage.js", () => ({
+  listStoredRoles: vi.fn(async () => []),
+  readStoredRole: vi.fn(), deleteStoredRole: vi.fn(),
+  writeStoredRole: vi.fn(async (id, label, encrypted, revision) => ({ id, label, encrypted, revision: (revision ?? 0) + 1, updatedAt: new Date().toISOString() })),
+}));
 import { RoleWorkspace } from "./RoleWorkspace.js";
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
+const enableJournal = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.type(screen.getByLabelText("Browser copy password"), "Workspace journal password");
+  await user.type(screen.getByLabelText("Confirm browser copy password"), "Workspace journal password");
+  await user.click(screen.getByRole("button", { name: "Enable encrypted browser autosave" }));
+  await screen.findByRole("button", { name: "Stop browser autosave" });
+};
 
 const restore = async (role: "researcher" | "vendor", status: number) => {
   const { snapshot } = await recoveryFixture();
@@ -25,6 +37,7 @@ const restore = async (role: "researcher" | "vendor", status: number) => {
   await user.type(screen.getByLabelText("Role restore password"), "Role workspace test password");
   fireEvent.submit(screen.getByRole("button", { name: "Restore role workspace" }).closest("form")!);
   await screen.findByRole("heading", { name: `${role === "researcher" ? "Researcher" : "Vendor"} workspace` });
+  await enableJournal(user);
   return { user, session, vault, publicState };
 };
 
@@ -75,6 +88,7 @@ describe("independent role workspace", () => {
     expect(saved.reports).toHaveLength(2);
     expect(new Set(saved.reports.map((entry) => entry.reportId)).size).toBe(2);
     expect(saved.actorSecret).toBe(mocks.join.mock.calls[0]![0].actorSecret);
+    await enableJournal(user);
     await user.click(screen.getByRole("button", { name: "Reports" }));
     await user.click(screen.getByRole("button", { name: "Submit prepared report" }));
     await screen.findByText(/Finalized submitReport: prepared-submit/);

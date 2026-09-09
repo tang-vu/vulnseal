@@ -34,6 +34,9 @@ export function RoleWorkspace() {
   const [saved, setSaved] = useState<RoleVault>();
   const currentVault = useRef(vault); currentVault.current = vault;
   const persistJournal = useRef<((value: RoleVault) => Promise<void>) | undefined>(undefined);
+  const requireJournal = () => {
+    if (!persistJournal.current) throw new Error("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
+  };
   const recordSubmission = async (transactionId: string) => {
     const current = currentVault.current, persist = persistJournal.current;
     if (!current || !persist) throw new Error("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
@@ -79,6 +82,7 @@ export function RoleWorkspace() {
     setSnapshot(current);
   };
   const write = (input: RoleCommand | (() => Promise<RoleCommand>)) => run(async () => {
+    requireJournal();
     if (!session || !backedUp || !snapshot) throw new Error("Save the current role backup and refresh ledger state before submitting");
     const command = typeof input === "function" ? await input() : input;
     setSnapshot(undefined); setReceipt(undefined);
@@ -143,6 +147,7 @@ export function RoleWorkspace() {
             const data = new FormData(event.currentTarget); form(event, async () => {
               const policy = readProgramForm(data);
               if (!backedUp) throw new Error("Save the vendor identity backup before deployment");
+              requireJournal();
               const providers = await initializeBrowserProviders(vault.network, recordSubmission);
               const deployed = await VulnSealApi.deploy(providers, createVulnSealPrivateState(hexToBytes(vault.actorSecret)), await programConstructor(hexToBytes(vault.programId), policy));
               const updated = { ...currentVault.current!, contractAddress: deployed.api.contractAddress }; setVault(updated); setReceipt(deployed.evidence);
@@ -159,6 +164,7 @@ export function RoleWorkspace() {
               <fieldset className="workflow-controls" disabled={!backedUp || !snapshot}>
                 {vault.role === "researcher" && !record && <button className="primary-button" onClick={() => run(async () => {
                   if (!session || !backedUp || !snapshot) throw new Error("Save a backup and refresh before submitting");
+                  requireJournal();
                   const opened = await validateDisclosure(chosen); const canonical = await sealPreimage(chosen);
                   setSnapshot(undefined); setReceipt(undefined); const result = await session.execute({ kind: "submitReport", report: canonical, ciphertextDigest: hexToBytes(opened.ciphertextDigest) }); setReceipt(result); await load({ id: hexToBytes(chosen.reportId), status: "COMMITTED" });
                 })}>Submit prepared report</button>}

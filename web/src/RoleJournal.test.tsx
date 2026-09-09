@@ -37,6 +37,7 @@ it("blocks unjournaled submission, saves before an uncertain result, and restore
   await screen.findByRole("heading", { name: "Vendor workspace" });
   await user.click(screen.getByRole("button", { name: "Begin triage" }));
   await screen.findByText(/Enable encrypted browser autosave before submitting/);
+  expect(session.execute).not.toHaveBeenCalled();
   expect(broadcast).not.toHaveBeenCalled();
   await user.click(screen.getByRole("button", { name: "Refresh ledger" }));
   await user.type(screen.getByLabelText("Browser copy password"), password);

@@ -45,6 +45,12 @@ test("standalone vendor identity backup survives a closed tab and gates real dep
   await expect(restored.getByText(`Network: preprod · Program: ${vault.programId}`, { exact: true })).toBeVisible();
   await expect(restored.getByRole("button", { name: "Prepare report" })).toHaveCount(0);
   await restored.getByRole("button", { name: "Connect Lace and deploy program" }).click();
+  await expect(restored.getByRole("alert")).toHaveText("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
+  await restored.getByLabel("Browser copy password", { exact: true }).fill("Deployment journal password");
+  await restored.getByLabel("Confirm browser copy password").fill("Deployment journal password");
+  await restored.getByRole("button", { name: "Enable encrypted browser autosave" }).click();
+  await expect(restored.getByRole("button", { name: "Stop browser autosave" })).toBeVisible();
+  await restored.getByRole("button", { name: "Connect Lace and deploy program" }).click();
   await expect(restored.getByRole("alert")).toHaveText("Compatible Midnight Lace wallet not found");
   await expect(restored.getByText(/Finalized constructor/)).toHaveCount(0);
   if (process.env.VULNSEAL_CAPTURE_VISUALS === "1") {

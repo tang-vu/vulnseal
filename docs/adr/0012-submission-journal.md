@@ -10,7 +10,7 @@ The role workspace passes a submission checkpoint into its deployment and joined
 
 Missing autosave, quota errors, stale revisions, malformed identifiers, duplicate identifiers or journal-capacity errors prevent the connector submission call. The checkpoint never persists serialized transactions, witnesses, proof inputs or connector error objects. The vault already supplies the network and program context. The pre-deployment journal remains recoverable with the vendor identity even when the deployment address has not yet been returned. When deployment succeeds, the address update preserves the newly recorded entries.
 
-This is enabled for the independent role workspace. The combined demo's legacy network mode does not register this checkpoint. A role file alone still supports restoration and reading, but real role submissions require active encrypted browser autosave. The check happens at the submission boundary; proving/balancing may already have occurred when autosave is unavailable.
+This is enabled for the independent role workspace. The combined demo's legacy network mode does not register this checkpoint. A role file alone still supports restoration and reading, but real role submissions require active encrypted browser autosave. The workspace checks for an active writer before calling the transaction API and, for deployment, before connecting the wallet. Missing autosave therefore fails before proof work. Persistence is still awaited at the submission boundary because storage can fail or conflict after the initial check.
 
 ## Backup compatibility
 

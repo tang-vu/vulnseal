@@ -1,5 +1,11 @@
 # Validation report
 
+## Early journal preflight — 2026-09-09
+
+The role workspace now rejects missing browser autosave before deployment wallet initialization or report transaction API calls. The later durable checkpoint remains in place for storage failures arising during proof/balancing. File recovery and read-only operations remain available without autosave.
+
+The final workspace/journal component run passed 2 files / 4 tests, including an assertion that missing autosave invokes no `session.execute`. The production role browser suite passed 4 cases in 52.8 seconds with its typecheck/build: a restored file-only vendor receives the autosave instruction first, then reaches the actual missing-Lace error only after enabling autosave. No wallet was injected and no transaction submitted. The first-use role guide now includes autosave explicitly.
+
 ## Wallet-free recovery journal inspection — 2026-09-09
 
 | Check | Command / environment | Observed result |
