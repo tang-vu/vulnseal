@@ -1,5 +1,13 @@
 # Validation report
 
+## Bound wallet balancing — 2026-09-09
+
+Wallet balancing now has a five-minute response deadline after its authorization check. The installed connector API returns a transaction ready for submission and exposes no cancellation parameter for this operation. The installed SDK awaits `balanceTx` before calling `submitTx`; returning a timeout rejection therefore stops that continuation. Late balance responses are not decoded or forwarded. The extension may still finish or display its own request; the error instructs the user to review it before another attempt. No automatic retry was added, and proving/finality remain outside this deadline.
+
+The final focused provider/submission run passed **26 tests in 4.23 seconds**. Four new cases cover timely return, immediate rejection, timeout followed by late success and timeout followed by late rejection. The timeout cases model the SDK's balance-then-submit chain and assert no late response reads, no submission checkpoint, no broadcast, no retry and no retained timer. Timely decoding is mocked and checks the returned bytes/modes; it is not cryptographic or native Lace validation. Its initial assertion incorrectly required `Uint8Array` equality while the runtime returns a `Buffer`; comparing byte contents corrected the test without changing production code. Web typechecking passed before that assertion-only correction; the release build below rechecks the final source.
+
+The full 130-test web and 68-case browser runs from the preceding increment predate these four new unit cases; they were not rerun for this increment. The final normal release build, including web typechecking, exited successfully: **8 circuits, 62 files, 62,595,134 bytes**. Its fresh compiler comparison at 11:32:10.252 UTC matched retained output without regenerating proving keys.
+
 ## Bound transaction authorization checks — 2026-09-09
 
 The authorization reads before wallet balancing and before submission preparation now each have a two-minute deadline. Previously either could leave a role action pending indefinitely, outside the setup/submission deadlines. A late successful response cannot resume the timed-out caller: neither transaction serialization, identifier checkpoint, balancing nor broadcast is started by that continuation. The post-checkpoint authorization read remains inside `submitIdentifiedTransaction` and retains its existing unknown-outcome handling. Already-started wallet operations, proof generation and finality are outside this change.

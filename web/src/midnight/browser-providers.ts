@@ -57,6 +57,18 @@ const assertConnection = async (connected: ConnectedAPI, networkId: string): Pro
 
 export const WALLET_SETUP_TIMEOUT_MS = 120_000;
 export const WALLET_AUTHORIZATION_TIMEOUT_MS = 120_000;
+export const WALLET_BALANCING_TIMEOUT_MS = 300_000;
+
+const balanceWithDeadline = async (connected: ConnectedAPI, serialized: string) => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error("Wallet balancing timed out. Lace may still show or complete its request; review it before starting another attempt. VulnSeal will not submit a late result.")), WALLET_BALANCING_TIMEOUT_MS);
+  });
+  // Only the race's winner is returned to the SDK submission pipeline. The
+  // connector has no cancellation parameter; a late result must stay unused.
+  try { return await Promise.race([connected.balanceUnsealedTransaction(serialized), timeout]); }
+  finally { clearTimeout(timer); }
+};
 
 const assertConnectionBeforeTransaction = async (connected: ConnectedAPI, networkId: string): Promise<void> => {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -121,7 +133,7 @@ export const initializeBrowserProviders = async (
       ): Promise<FinalizedTransaction> => {
         void ttl;
         await assertConnectionBeforeTransaction(connected, networkId);
-        const balanced = await connected.balanceUnsealedTransaction(
+        const balanced = await balanceWithDeadline(connected,
           toHex(transaction.serialize()),
         );
         return Transaction.deserialize<SignatureEnabled, Proof, Binding>(

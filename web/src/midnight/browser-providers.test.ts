@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getNetworkId, setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { initializeBrowserProviders, WALLET_SETUP_TIMEOUT_MS, WALLET_AUTHORIZATION_TIMEOUT_MS } from "./browser-providers.js";
+import { initializeBrowserProviders, WALLET_SETUP_TIMEOUT_MS, WALLET_AUTHORIZATION_TIMEOUT_MS, WALLET_BALANCING_TIMEOUT_MS } from "./browser-providers.js";
 import { WALLET_SUBMISSION_TIMEOUT_MS } from "./submission.js";
+import { Transaction } from "@midnight-ntwrk/midnight-js-protocol/ledger";
 
 const wallet = () => {
   const connected = {
@@ -18,6 +19,66 @@ const wallet = () => {
 
 describe("wallet network binding", () => {
   afterEach(() => { delete window.midnight; vi.useRealTimers(); });
+
+  it("returns a timely balanced transaction to the SDK and clears its deadline", async () => {
+    vi.useFakeTimers();
+    const connected = wallet();
+    const providers = await initializeBrowserProviders("preprod");
+    const finalized = { identifiers: () => ["12".repeat(32)] };
+    const deserialize = vi.spyOn(Transaction, "deserialize").mockReturnValue(finalized as never);
+    try {
+      connected.balanceUnsealedTransaction.mockResolvedValueOnce({ tx: "040506" });
+      expect(await providers.walletProvider.balanceTx({ serialize: () => Uint8Array.of(1, 2, 3) } as never)).toBe(finalized);
+      expect(connected.balanceUnsealedTransaction).toHaveBeenCalledExactlyOnceWith("010203");
+      expect(deserialize).toHaveBeenCalledOnce();
+      expect(deserialize.mock.calls[0]!.slice(0, 3)).toEqual(["signature", "proof", "binding"]);
+      expect(Array.from(deserialize.mock.calls[0]![3])).toEqual([4, 5, 6]);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally { deserialize.mockRestore(); }
+  });
+
+  it.each(["resolve", "reject"])("stops the submission pipeline when balancing times out and later %ss", async (outcome) => {
+    vi.useFakeTimers();
+    const connected = wallet();
+    const checkpoint = vi.fn().mockResolvedValue(undefined);
+    const providers = await initializeBrowserProviders("preprod", checkpoint);
+    let finish!: (value: { tx: string }) => void;
+    let fail!: (error: Error) => void;
+    connected.balanceUnsealedTransaction.mockImplementationOnce(() => new Promise((resolve, reject) => { finish = resolve; fail = reject; }));
+    const transaction = { serialize: () => Uint8Array.of(1, 2, 3) };
+    // Match the SDK's balance-then-submit order, including the downstream call.
+    const result = providers.walletProvider.balanceTx(transaction as never)
+      .then((balanced) => providers.midnightProvider.submitTx(balanced))
+      .catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(WALLET_BALANCING_TIMEOUT_MS - 1);
+    expect(connected.balanceUnsealedTransaction).toHaveBeenCalledExactlyOnceWith("010203");
+    let settled = false;
+    void result.then(() => { settled = true; });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await result).toMatchObject({ message: expect.stringContaining("Wallet balancing timed out") });
+    const readTx = vi.fn(() => "invalid-late-transaction");
+    if (outcome === "resolve") finish({ get tx() { return readTx(); } });
+    else fail(new Error("Late wallet rejection"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(readTx).not.toHaveBeenCalled();
+    expect(checkpoint).not.toHaveBeenCalled();
+    expect(connected.submitTransaction).not.toHaveBeenCalled();
+    expect(connected.balanceUnsealedTransaction).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("preserves a prompt wallet balancing error and clears its deadline", async () => {
+    vi.useFakeTimers();
+    const connected = wallet();
+    const providers = await initializeBrowserProviders("preprod");
+    const error = new Error("User declined balancing");
+    connected.balanceUnsealedTransaction.mockRejectedValueOnce(error);
+    await expect(providers.walletProvider.balanceTx({ serialize: () => Uint8Array.of(1) } as never)).rejects.toBe(error);
+    expect(connected.submitTransaction).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
 
   it.each(["balance", "submit"])("bounds authorization before %s without resuming after a late response", async (operation) => {
     vi.useFakeTimers();
