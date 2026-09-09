@@ -1,5 +1,13 @@
 # Validation report
 
+## Compare saved retest notes and explicit choice — 2026-09-09
+
+Report replay returns public retest commitment and Pass/Fail alongside the patch commitment. The unlocked role journal compares the explicit v9 choice and a Compact persistent hash of report ID, replayed patch, exact saved note text and saved choice against those fields. Missing older choices are never inferred, and malformed/foreign evidence cannot produce a match. Private notes and choice remain outside worker messages. The patch input is replayed public evidence, not a separately retained intended patch; complete intended-argument reconciliation and safe retry remain open.
+
+All **7 focused tests passed in 4.39 seconds**, including generated-circuit simulator executions for both Pass and Fail, changed text/choice/patch, invalid inputs, component discrepancies and worker-message privacy. All **4 desktop/mobile replay cases passed in 45.8 seconds**, confirming the production worker's historical commitment matches the original runner's synthetic `retest:preprod-request-now-rejected` text and Pass choice. Web typechecking passed. The full web suite then passed **147 tests across 32 files in 56.52 seconds**. No native wallet call, new on-chain transaction or full 70-case browser run was performed.
+
+The final normal release build exited successfully: **8 circuits, 62 files, 62,616,549 bytes**, with a fresh compiler comparison at 11:50:34.627 UTC. Contract source and retained proving keys were unchanged.
+
 ## Preserve explicit retest choice in encrypted recovery — 2026-09-09
 
 Role-vault v9 adds nullable `retestPassed` per submission attempt. New retest commands capture the boolean from the actual command, attach it with immutable attempt notes, and persist the encrypted journal before wallet broadcast. Migration keeps older choices null, rejects non-boolean values or choices attached to other circuits, and prevents replacing an existing choice. Notes, attachment drafts, subsequent attempts and finalized receipts preserve v9. The unlocked journal distinguishes saved intent from verified outcome; the wallet-free projection omits it. Versions 1–8 remain accepted; old releases do not support v9. Retest commitment comparison remains open.
