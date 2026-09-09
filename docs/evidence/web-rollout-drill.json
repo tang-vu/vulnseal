@@ -1,23 +1,24 @@
 {
-  "capturedAt": "2026-09-09T13:36:13.493Z",
+  "capturedAt": "2026-09-09T16:02:25.492Z",
   "imageA": "sha256:d36e2fb7188e115ca249f3a810d7ee7f62c50c004e1b52dd8552d3a4d0e8610c",
-  "imageB": "sha256:2d1c667338370e102513493d8c0ebed7953ea484a619cbcc86781f7cf4a29d3a",
+  "imageB": "sha256:c84079a90438bf739e0e07ad99283aad547bac06f77922202426aa5f0fa6b5b9",
   "ingressImage": "sha256:4f2aae8330960fcc7213ce4e3ed06c84852cc3ed15c5e2bb6c0b1f33130dc6b9",
   "changedScripts": 6,
   "first": {
-    "origin": "http://127.0.0.1:32785/releases/before",
+    "origin": "http://127.0.0.1:32815/releases/before",
     "files": 62,
     "requests": 63,
     "bytes": 62535774
   },
   "second": {
-    "origin": "http://127.0.0.1:32785/releases/after",
+    "origin": "http://127.0.0.1:32815/releases/after",
     "files": 62,
     "requests": 63,
-    "bytes": 62638761
+    "bytes": 62648273
   },
   "promotedAndRolledBack": true,
   "oldTabLoadedRetainedRoleChunk": true,
+  "newTabLoadedRetainedRoleChunkAfterRollback": true,
   "backendsPreserved": true,
   "publicDeployment": false,
   "walletUsed": false

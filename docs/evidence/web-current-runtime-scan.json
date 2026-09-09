@@ -1,10 +1,10 @@
 {
-  "recordedAt": "2026-09-09T14:30:29.825729+00:00",
-  "imageId": "sha256:fdc958efa3bee5ab237103a1fbbdb2a38608d541478b9a6e8b54e18310b8c518",
+  "recordedAt": "2026-09-09T16:00:54.244394+00:00",
+  "imageId": "sha256:c84079a90438bf739e0e07ad99283aad547bac06f77922202426aa5f0fa6b5b9",
   "command": "sh scripts/scan-container.sh vulnseal-web:local",
   "scannerImage": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
   "scannerExitCode": 1,
-  "rawLogSha256": "277e3a43ca6dd9ad636c96a619d6610a904a5d5f07a9a21f7f88caa8199182c6",
+  "rawLogSha256": "1183c60271ff4acdc675adee4d3598a4403838596ae1f077595564bfe700d273",
   "findings": [
     {
       "id": "GO-2026-5932",
@@ -19,5 +19,6 @@
     "The strict all-severity scan gate did not pass.",
     "Prior package-absence analysis is scoped to its recorded build graph; this scan retains the advisory without suppression.",
     "No public deployment, penetration test or host scan."
-  ]
+  ],
+  "imageConfigId": "sha256:bd828e89b51398c27cc17b21ad1a8f552b373584ffc7e98f3a67f00dc8da4cb8"
 }

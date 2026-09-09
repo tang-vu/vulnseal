@@ -88,12 +88,21 @@ try {
     await expect(newPage.getByRole("link", { name: "Open role workspace" })).toBeVisible({ timeout: 30_000 });
     assert.equal(newPage.url(), `${origin}/releases/after/`);
     await activate("before");
+    stage = "open retained new role chunk after rollback";
+    const newPopup = newPage.waitForEvent("popup");
+    await newPage.getByRole("link", { name: "Open role workspace" }).click();
+    const retainedNewRole = await newPopup;
+    await expect(retainedNewRole.getByRole("heading", { name: "Inspect recovery journal without a wallet" })).toBeVisible({ timeout: 30_000 });
+    assert.equal(retainedNewRole.url(), `${origin}/releases/after/#roles`);
+    const newChunk = manifestB.files.find((file) => /assets\/RoleWorkspace-.*\.js$/.test(file.path));
+    assert.ok(newChunk, "Expected a new role-workspace chunk");
+    assert.ok(requests.includes(`${origin}/releases/after/${newChunk.path}`), "New workspace must retain its chunk after rollback");
     stage = "verify both retained artifacts after rollback";
     assert.equal(newPage.url(), `${origin}/releases/after/`);
     await checkWebHost({ origin: `${origin}/releases/before/`, manifest: manifestA });
     await checkWebHost({ origin: `${origin}/releases/after/`, manifest: manifestB });
     assert.deepEqual([docker(...args, "ps", "-q", "release-a"), docker(...args, "ps", "-q", "release-b")], beforeIds, "Promotion must not replace either retained backend");
-    const result = { capturedAt: new Date().toISOString(), imageA, imageB, ingressImage: JSON.parse(docker("inspect", ingressId()))[0].Image, changedScripts: changedScripts.length, first, second, promotedAndRolledBack: true, oldTabLoadedRetainedRoleChunk: true, backendsPreserved: true, publicDeployment: false, walletUsed: false };
+    const result = { capturedAt: new Date().toISOString(), imageA, imageB, ingressImage: JSON.parse(docker("inspect", ingressId()))[0].Image, changedScripts: changedScripts.length, first, second, promotedAndRolledBack: true, oldTabLoadedRetainedRoleChunk: true, newTabLoadedRetainedRoleChunkAfterRollback: true, backendsPreserved: true, publicDeployment: false, walletUsed: false };
     if (process.argv.includes("--write-evidence")) await writeFile("docs/evidence/web-rollout-drill.json", JSON.stringify(result, null, 2) + "\n");
     process.stdout.write(JSON.stringify(result) + "\n");
   } finally { await browser.close(); }

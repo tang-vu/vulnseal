@@ -1,5 +1,15 @@
 # Validation report
 
+## Verify current hosting image and retention in both rollout directions -- 2026-09-09
+
+The normal release from the consolidated baseline was rebuilt into `vulnseal-web:local`, exact image **sha256:c84079a90438bf739e0e07ad99283aad547bac06f77922202426aa5f0fa6b5b9**. The image's artifact gate and Caddy configuration validation passed. Docker reused the pinned Caddy compilation; build metadata warned that Git revision information could not be captured, so no signed or embedded Git-provenance claim is made.
+
+The complete container drill passed at **15:59:57.011 UTC**, then exited **0** after cleanup: **62 files, 63 HTTP requests, 62,648,273 served bytes** including the extra root request; MIME/cache/security headers, missing-file 404s, non-root/read-only execution, desktop/mobile captured-state lookup and graceful restart all passed. [Current container evidence](evidence/web-container-drill.json) identifies the exact image. The same image's all-severity security scan returned **exit 1**, retaining one UNKNOWN **GO-2026-5932** module finding and no low/medium/high/critical findings. It was not suppressed; [scan evidence](evidence/web-current-runtime-scan.json) records the updated image and raw-log hash.
+
+The rollout drill now also opens B's retained lazy role-workspace chunk from an existing B page after rollback to A. Previously it checked only A's lazy load after promotion to B. The expanded drill passed at **16:02:25.492 UTC**, then exited **0** after cleanup: both old and new pages loaded their respective retained workspaces, six script artifacts differed, both complete inventories were rechecked after rollback, and backend identities/serving origin stayed fixed. [Rollout evidence](evidence/web-rollout-drill.json) binds current B to historical A and the existing ingress image.
+
+The operator guide now distinguishes the historical A fixture from current B; this is serving-continuity evidence, not cross-version schema migration or security clearance of A. No public deployment, live indexer/wallet call, new proving keys or remote CI execution occurred. Current host/rollout evidence does not resolve remaining security findings or the broader readiness requirements.
+
 ## Consolidated validation after bounded reads and recovery waits -- 2026-09-09
 
 At application revision **55c7784**, `npm run validate` completed with **exit 0**: all six workspace builds/typechecks and **288 tests across 52 files** passed. Counts are shared 13, contract 25, API 32, cipherstore 21, integration 9 and web 188. The separate compiler/release/environment commands passed **16 tool tests** (5/8/3). The ordinary Chrome desktop/Pixel 7 suite passed **76 cases in 4.3 minutes** with two CI workers and no automatic retries.
