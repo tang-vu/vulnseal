@@ -71,7 +71,7 @@ export const initializeBrowserProviders = async (
   const addresses = await connected.getShieldedAddresses();
   setNetworkId(networkId);
   const zkConfigProvider = new FetchZkConfigProvider<VulnSealCircuitKeys>(
-    window.location.origin,
+    new URL(".", window.location.href).href,
     window.fetch.bind(window),
   );
   return {

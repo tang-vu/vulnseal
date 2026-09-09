@@ -56,7 +56,7 @@ export async function checkWebRelease({ workspace = root, distribution = path.jo
   const byPath = new Map(files.map((entry) => [entry.path, entry]));
   if (!byPath.has("index.html")) throw new Error("Missing release index.html");
   const html = await readFile(path.join(distribution, "index.html"), "utf8");
-  const entrypoints = [...html.matchAll(/(?:src|href)=["']\/?(assets\/[^"']+)["']/g)].map((match) => match[1]);
+  const entrypoints = [...html.matchAll(/(?:src|href)=["'](?:\.\/|\/)?(assets\/[^"']+)["']/g)].map((match) => match[1]);
   if (!entrypoints.some((entry) => entry.endsWith(".js"))) throw new Error("Missing browser script entrypoint");
   for (const entry of entrypoints) if (!byPath.has(entry)) throw new Error(`Missing HTML entrypoint: ${entry}`);
   for (const entry of files.filter((entry) => /^assets\/.*\.(js|css)$/.test(entry.path))) {

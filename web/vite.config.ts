@@ -5,6 +5,7 @@ import { fileURLToPath, URL } from "node:url";
 import wasm from "vite-plugin-wasm";
 
 export default defineConfig({
+  base: "./",
   cacheDir: "./.vite",
   plugins: [react(), wasm()],
   worker: {

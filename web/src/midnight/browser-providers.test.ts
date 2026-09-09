@@ -26,6 +26,20 @@ describe("wallet network binding", () => {
     expect(getNetworkId()).toBe("preprod");
   });
 
+  it("fetches proving material from the current release directory", async () => {
+    const previous = window.location.href;
+    const fetcher = vi.spyOn(window, "fetch").mockImplementation(async () => new Response(new Uint8Array([1, 2, 3])));
+    try {
+      window.history.replaceState(null, "", "/releases/test-v1/index.html#roles");
+      wallet();
+      const providers = await initializeBrowserProviders("preprod");
+      await providers.zkConfigProvider.getProverKey("submitReport");
+      await providers.zkConfigProvider.getVerifierKey("submitReport");
+      await providers.zkConfigProvider.getZKIR("submitReport");
+      expect(fetcher.mock.calls.map(([url]) => String(url))).toEqual(["keys/submitReport.prover", "keys/submitReport.verifier", "zkir/submitReport.bzkir"].map((file) => `${window.location.origin}/releases/test-v1/${file}`));
+    } finally { fetcher.mockRestore(); window.history.replaceState(null, "", previous); }
+  });
+
   it("rejects a different connection network before reading configuration", async () => {
     const connected = wallet();
     connected.getConnectionStatus.mockResolvedValue({ status: "connected", networkId: "preview" });

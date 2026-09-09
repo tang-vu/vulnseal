@@ -1,5 +1,17 @@
 # Validation report
 
+## Release directory routing — 2026-09-09
+
+The production build now emits relative asset URLs. The browser proving provider resolves resources beside the current index document, and demo/role links preserve that release directory. The HTTP release checker accepts a trailing-slash subdirectory base URL while retaining HTTPS/loopback, redirect, byte/hash and MIME requirements. Four release-tooling tests passed, including actual nested HTTP request paths and relative HTML entrypoints; seven browser-provider tests passed, including verifier/prover/ZKIR requests under a release prefix.
+
+The new browser test uses a real local HTTP proxy that strips `/releases/test-v1/` before forwarding to the production preview. It loads captured public state through the SDK/WASM, starts the emitted worker at the nested path, checks its response to invalid input and follows the role-workspace link in a new tab. The first focused run passed eight existing cases but failed both new cases because the test changed only the fragment in the existing page; workspace selection happens on initial load. Following the real new-tab link corrected that harness assumption without changing routing semantics or relaxing assertions.
+
+The subsequent complete `CI=true npm run test:e2e` run passed **all 64 desktop/mobile cases in 3.5 minutes**, with two workers and no exclusions or retries. This consolidates root-path journeys, v8 private-note recovery and both nested-release cases. The nested worker test establishes loading/initialization and input rejection; full captured report replay remains covered by the root-path worker cases.
+
+The final `release:build` passed all six workspace builds and the local packaging gate; the subsequent read-only manifest check passed for eight circuits, 62 files and 62,534,360 bytes. No fresh compiler run, container rebuild or hosted artifact verification is claimed in this increment.
+
+This enables mounting a release at an immutable directory URL; it does not retain old images, configure public ingress, prove a multi-version rollout or establish backup-schema compatibility across releases. [The hosting guide](web-hosting.md#mount-a-release-below-a-stable-path) describes the remaining operator work. Prefixes on one origin still share storage and wallet authorization. No native wallet or public deployment is involved in these tests.
+
 ## Private notes retained per submission attempt — 2026-09-09
 
 Role-vault v8 adds an exact-schema, report-bound private working-note/tier snapshot to journal entries. Report submissions capture it before the existing encrypted checkpoint; checkpoint failure still prevents the wallet call. Legacy attempts migrate to null snapshots, and normal draft/note/attachment/receipt edits preserve the captured context. The wallet-free inspector explicitly strips private notes from its React projection. The unlocked workspace displays snapshots in collapsed sections labelled as local working context rather than verified arguments.

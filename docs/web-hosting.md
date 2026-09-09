@@ -23,6 +23,22 @@ For a public deployment, configure a TLS reverse proxy or managed HTTPS ingress 
 
 Deploy a complete versioned image rather than modifying individual served files. Retain the previous image digest for rollback, but account for open tabs: an old tab may still request old chunks after an upgrade. This single-image setup does not retain old build assets or prove mixed-version compatibility. Arrange release drain/asset retention and test upgrade recovery for your host. Never clear users' browser storage to perform an upgrade. Compiler provenance and actual public deployment remain separate from local image evidence.
 
+## Mount a release below a stable path
+
+The web build now uses relative asset URLs. Its proving-key provider resolves `keys/` and `zkir/` beside the loaded index document, and demo/role links retain that directory. A complete release can therefore be served at `/releases/v1/` or at the origin root. Always use a trailing slash for a directory URL, or the explicit `index.html` URL; browsers resolve relative paths against that directory. Do not redirect an old release path to newly compiled keys or a different release.
+
+For a host-installed Caddy ingress, the following route illustrates mounting a retained release container on localhost port 8081. Add it inside the existing HTTPS site configuration; substitute the actual release path and backend. Caddy's [handle_path](https://caddyserver.com/docs/caddyfile/directives/handle_path) strips the prefix before [reverse_proxy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy) forwards the request to the container's root:
+
+```caddyfile
+handle_path /releases/v1/* {
+    reverse_proxy 127.0.0.1:8081
+}
+```
+
+Run `npm run release:check-host -- https://your-deployment.example/releases/v1/` with the matching local artifact. Check each retained release separately. To keep old tabs functional, retain each path's complete image and route for the required lifetime while publishing a new path for new sessions. The default single-container Compose file does not automate multi-release retention, traffic switching or expiry. The local browser test verifies one mounted artifact through a real prefix-stripping HTTP proxy; it does not establish an operational multi-version rollout.
+
+Release paths on the same origin share browser storage and wallet authorization. A path is not a security boundary or a separate identity store. Concurrent revisions retain the existing storage conflict rules; older code may not understand newer backup schemas. Test upgrade/rollback compatibility and export encrypted backups before adopting a retention policy. Removing a release still breaks its remaining tabs even though its asset URLs are relative.
+
 ## Repeat the disposable container drill
 
 ```text

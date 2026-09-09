@@ -151,7 +151,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
     setVault(updated); setSnapshot(latest); setSelectedId(value.reportId);
   });
   return <div className="app-shell role-workspace">
-    <header className="topbar"><strong>VulnSeal · Role workspace</strong><a href="/" target="_blank" rel="noreferrer noopener">Open demo / public verifier</a></header>
+    <header className="topbar"><strong>VulnSeal · Role workspace</strong><a href="./" target="_blank" rel="noreferrer noopener">Open demo / public verifier</a></header>
     <main id="main-content" className="page narrow-page"><h1 ref={heading} tabIndex={-1}>{vault ? `${vault.role === "vendor" ? "Vendor" : "Researcher"} workspace` : "Work with your own authority"}</h1>
       <p>Each workspace holds one contract actor secret. Use a separate browser profile for the other participant. Transactions require Lace and the selected Midnight network; this workspace has no simulated transaction mode.</p>
       {working && <p role="status">Working… A network operation may wait for Lace, proof generation and finality.</p>}

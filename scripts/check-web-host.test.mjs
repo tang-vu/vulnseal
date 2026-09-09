@@ -39,7 +39,9 @@ test("origin homepage must serve the same index document", async (t) => {
   const body = Buffer.from("<!doctype html><title>release</title>");
   const manifest = { files: [{ path: "index.html", bytes: body.length, sha256: createHash("sha256").update(body).digest("hex") }] };
   let wrongRoot = false;
+  const paths = [];
   const server = createServer((request, response) => {
+    paths.push(request.url);
     response.setHeader("Content-Type", "text/html");
     response.end(wrongRoot && request.url === "/" ? "wrong homepage" : body);
   });
@@ -47,12 +49,16 @@ test("origin homepage must serve the same index document", async (t) => {
   t.after(async () => { server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)); });
   const origin = `http://127.0.0.1:${server.address().port}`;
   assert.equal((await checkWebHost({ origin, manifest })).requests, 2);
+  paths.length = 0;
+  assert.equal((await checkWebHost({ origin: `${origin}/releases/v1/`, manifest })).requests, 2);
+  assert.deepEqual(paths, ["/releases/v1/index.html", "/releases/v1/"]);
   wrongRoot = true;
   await assert.rejects(checkWebHost({ origin, manifest }), /failed for \/: Response differs/);
 });
 
 test("host target must be an explicit origin with secure transport outside loopback", () => {
   assert.equal(hostingOrigin("https://example.test/"), "https://example.test");
+  assert.equal(hostingOrigin("https://example.test/releases/v1/"), "https://example.test/releases/v1");
   assert.equal(hostingOrigin("http://[::1]:4173"), "http://[::1]:4173");
   for (const origin of ["http://example.test", "https://a:b@example.test", "https://example.test/sub", "https://example.test/?token=secret", "https://example.test/#fragment", "file:///tmp"]) assert.throws(() => hostingOrigin(origin));
 });

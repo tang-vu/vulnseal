@@ -13,7 +13,7 @@ test("release gate binds required prover assets to generated inventory and rejec
   for (const directory of ["assets", "keys", "zkir"]) await mkdir(path.join(dist, directory), { recursive: true });
   await writeFile(path.join(workspace, "contract/src/vulnseal.compact"), "synthetic compiler fixture");
   await writeFile(path.join(managed, "compiler/contract-info.json"), JSON.stringify({ "compiler-version": "fixture", circuits: [{ name: "submitReport", proof: true }, { name: "pureHelper", proof: false }] }));
-  await writeFile(path.join(dist, "index.html"), '<script type="module" src="/assets/main.js"></script>');
+  await writeFile(path.join(dist, "index.html"), '<script type="module" src="./assets/main.js"></script>');
   await writeFile(path.join(dist, "assets/main.js"), "export {};");
   await writeFile(path.join(dist, "assets/main.js"), 'import("./missing-worker.js");');
   await assert.rejects(checkWebRelease({ workspace }), /Missing static asset reference/);

@@ -7,10 +7,10 @@ import { checkWebRelease } from "./check-web-release.mjs";
 export function hostingOrigin(value) {
   const url = new URL(value);
   const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  if ((url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) || url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
-    throw new Error("Supply an HTTPS origin, or a loopback HTTP origin, without credentials, path, query or fragment");
+  if ((url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) || url.username || url.password || !/^\/(?:[A-Za-z0-9_-][A-Za-z0-9_.-]*\/)*$/.test(url.pathname) || url.search || url.hash) {
+    throw new Error("Supply an HTTPS or loopback HTTP base URL, with a trailing slash for a subdirectory and no credentials, query or fragment");
   }
-  return url.origin;
+  return url.href.replace(/\/$/, "");
 }
 
 /** Read-only comparison against a trusted local inventory, never an inventory from the host. */
@@ -60,7 +60,7 @@ export async function checkWebHost({ origin, manifest, timeoutMs = 30_000 }) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    if (process.argv.length !== 3) throw new Error("Usage: check-web-host.mjs <origin>");
+    if (process.argv.length !== 3) throw new Error("Usage: check-web-host.mjs <base-url>");
     const origin = hostingOrigin(process.argv[2]);
     const manifest = await checkWebRelease();
     process.stdout.write(JSON.stringify(await checkWebHost({ origin, manifest })) + "\n");
