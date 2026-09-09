@@ -1,5 +1,7 @@
 # Use independent browser roles
 
+The submission journal retains at most 200 attempts. Its current count is shown in the workspace. At capacity, new contract actions stop before command preparation or wallet/proof work; the final checkpoint also enforces the limit. Existing reports, read-only checks and encrypted export remain available. No old entries are automatically removed, and journal archival/pruning is not implemented; keep the full backup.
+
 Wallet setup has a two-minute overall deadline covering connector discovery, authorization status, configuration and shielded-address reads. If it expires, the form becomes available again and ignores late setup results. Lace may still display or complete its own connection prompt; review that prompt before trying again. Setup does not submit a transaction. This deadline does not cover later proof generation, balancing or chain finality.
 
 Before wallet balancing and before submission preparation, authorization is checked again with a separate two-minute deadline. A timed-out check does not proceed when a late response arrives. The later authorization check after the transaction identifier is saved remains inside the existing submission deadline; failures there retain the identifier for reconciliation. These limits do not cancel an already started wallet operation or establish that another attempt is safe.

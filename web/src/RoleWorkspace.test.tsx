@@ -24,14 +24,14 @@ const enableJournal = async (user: ReturnType<typeof userEvent.setup>) => {
 };
 
 const roleTransactionId = "cd".repeat(32);
-const restore = async (role: "researcher" | "vendor", status: number) => {
+const restore = async (role: "researcher" | "vendor", status: number, journalCount = 0) => {
   const { snapshot } = await recoveryFixture();
   const vault = { version: 1 as const, role, network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, actorSecret: role === "vendor" ? snapshot.vendorSecret : snapshot.researcherSecret, reports: [{ network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: snapshot.report!.id, envelope: snapshot.report!.envelope, key: snapshot.report!.key, salt: snapshot.report!.salt }] };
   const record = { status, patchCommitment: new Uint8Array(32).fill(7) };
   const publicState = { ledger: { reports: { member: () => true, lookup: () => record } } };
   const session = { execute: vi.fn(async (_command: unknown) => { await mocks.join.mock.calls.at(-1)![1](roleTransactionId); record.status = role === "researcher" ? 5 : 1; return { circuit: role === "researcher" ? "submitRetest" : "beginTriage", txId: roleTransactionId, blockHeight: "900" }; }), readPublicState: vi.fn().mockResolvedValue(publicState) };
   mocks.join.mockResolvedValue({ session, snapshot: publicState });
-  const serialized = await encryptRoleVault(vault, "Role workspace test password");
+  const serialized = await encryptRoleVault(journalCount ? { ...vault, version: 2, submissionAttempts: Array.from({ length: journalCount }, (_, i) => ({ transactionId: (i + 1).toString(16).padStart(64, "0"), recordedAt: "2026-09-09T00:00:00.000Z" })) } : vault, "Role workspace test password");
   render(<RoleWorkspace />);
   const file = new File([serialized], "role.json", { type: "application/json" });
   Object.defineProperty(file, "text", { value: async () => serialized });
@@ -45,6 +45,17 @@ const restore = async (role: "researcher" | "vendor", status: number) => {
 };
 
 describe("independent role workspace", () => {
+  it("rejects a full journal before starting a contract call while retaining recovery access", async () => {
+    const { user, session } = await restore("vendor", 0, 200);
+    await user.click(screen.getByRole("button", { name: "Begin triage" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("journal is full (200 attempts)");
+    expect(session.execute).not.toHaveBeenCalled();
+    expect(session.readPublicState).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Save role backup" }));
+    expect(screen.getByText("Submission journal: 200 of 200 attempts retained.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Download single-role backup" })).toBeEnabled();
+    expect(screen.getAllByText(/Operation and report were not recorded/)).toHaveLength(200);
+  }, 15_000);
   it.each([{ passed: true, saveFails: false }, { passed: false, saveFails: false }, { passed: false, saveFails: true }])("waits for encrypted retest context before continuing: $passed / storage failure $saveFails", async ({ passed, saveFails }) => {
     const { user, session, vault } = await restore("researcher", 4);
     const text = "  Retest evidence\nExact whitespace  ";

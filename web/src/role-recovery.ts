@@ -12,6 +12,10 @@ export type ReportNotes = { readonly reportId: string; readonly text: string; re
 export type RoleVault = { readonly version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10; readonly role: ActorRole; readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly actorSecret: string; readonly reports: readonly Disclosure[]; readonly submissionAttempts?: readonly SubmissionAttempt[]; readonly draft?: VulnerabilityReport | null; readonly attachmentDraft?: AttachmentDraft | null; readonly reportNotes?: readonly ReportNotes[] };
 export type ProgramInvitation = { readonly format: "vulnseal-program-invitation"; readonly version: 1; readonly network: string; readonly contractAddress: string; readonly programId: string };
 export const MAX_ROLE_BACKUP_BYTES = 32 * 1024 * 1024;
+export const MAX_SUBMISSION_ATTEMPTS = 200;
+export const assertSubmissionCapacity = (vault: RoleVault): void => {
+  if ((vault.submissionAttempts?.length ?? 0) >= MAX_SUBMISSION_ATTEMPTS) throw new Error("This workspace's submission journal is full (200 attempts). Keep an encrypted backup. New transactions are disabled; existing reports and journal checks remain available.");
+};
 const buffer = (value: Uint8Array) => Uint8Array.from(value).buffer;
 const aad = buffer(utf8("vulnseal:single-role-backup:v1"));
 const object = (value: unknown, keys: readonly string[]): Record<string, unknown> => {
@@ -37,10 +41,13 @@ const validateIntent = (input: unknown, role: unknown): SubmissionIntent => {
   return { circuit: value.circuit as RoleCommand["kind"], reportId: hex(value.reportId) };
 };
 /** Legacy entries retain unknown intent; never infer an operation from current ledger state. */
-export const withSubmissionAttempt = (vault: RoleVault, transactionId: string, intent: SubmissionIntent, recordedAt = new Date().toISOString()): Promise<RoleVault> => validateRoleVault({
+export const withSubmissionAttempt = async (vault: RoleVault, transactionId: string, intent: SubmissionIntent, recordedAt = new Date().toISOString()): Promise<RoleVault> => {
+  assertSubmissionCapacity(vault);
+  return validateRoleVault({
   ...vault, version: vault.version >= 6 ? vault.version : 5, draft: vault.draft ?? null, reportNotes: vault.reportNotes ?? [],
   submissionAttempts: [...(vault.submissionAttempts ?? []).map((entry) => ({ ...entry, intent: entry.intent ?? null })), { transactionId, recordedAt, intent, ...(vault.version >= 6 ? { finalization: null } : {}), ...(vault.version >= 8 ? { notes: null } : {}), ...(vault.version >= 9 ? { retestPassed: null } : {}), ...(vault.version === 10 ? { retestPatchCommitment: null } : {}) }],
-});
+  });
+};
 const timestamp = (value: unknown): string => {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString() !== value) throw new Error("Invalid finalization timestamp");
   return value;
@@ -138,7 +145,7 @@ export const validateRoleVault = async (input: unknown): Promise<RoleVault> => {
   if ((value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== 7 && value.version !== 8 && value.version !== 9 && value.version !== 10) || !["vendor", "researcher"].includes(String(value.role)) || !Array.isArray(value.reports) || value.reports.length > 100) throw new Error("Invalid role backup");
   const attempts: SubmissionAttempt[] = [];
   if (journaled) {
-    if (!Array.isArray(value.submissionAttempts) || value.submissionAttempts.length > 200) throw new Error("Invalid submission journal");
+    if (!Array.isArray(value.submissionAttempts) || value.submissionAttempts.length > MAX_SUBMISSION_ATTEMPTS) throw new Error("Invalid submission journal");
     const ids = new Set<string>();
     for (const item of value.submissionAttempts) {
       const entry = object(item, ["transactionId", "recordedAt", ...(contextual ? ["intent"] : []), ...(receipted ? ["finalization"] : []), ...(historicalNotes ? ["notes"] : []), ...(retestIntent ? ["retestPassed"] : []), ...(retestPatch ? ["retestPatchCommitment"] : [])]);

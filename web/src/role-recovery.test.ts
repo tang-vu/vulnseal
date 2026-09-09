@@ -4,6 +4,17 @@ import { decryptRoleVault, encryptRoleVault, parseInvitation, validateRoleVault,
 import { recoveryFixture } from "./test/recovery-fixture.js";
 import { withSubmissionNotes, withRetestChoice } from "./role-recovery.js";
 
+it("allows the final journal slot and rejects the next attempt without changing history", async () => {
+  const original = await roleFixture("vendor");
+  const entries = Array.from({ length: 199 }, (_, i) => ({ transactionId: (i + 1).toString(16).padStart(64, "0"), recordedAt: "2026-09-09T00:00:00.000Z" }));
+  const full = await withSubmissionAttempt({ ...original, version: 2, submissionAttempts: entries }, "cd".repeat(32), { circuit: "beginTriage", reportId: original.reports[0]!.reportId });
+  expect(full.submissionAttempts).toHaveLength(200);
+  expect(entries).toHaveLength(199);
+  await expect(withSubmissionAttempt(full, "ef".repeat(32), { circuit: "beginTriage", reportId: original.reports[0]!.reportId })).rejects.toThrow("journal is full");
+  expect(full.submissionAttempts).toHaveLength(200);
+  expect((await validateRoleVault(full)).submissionAttempts).toEqual(full.submissionAttempts);
+});
+
 it("retains the selected retest patch in v10 without inventing legacy patches", async () => {
   const original = await roleFixture(), reportId = original.reports[0]!.reportId, txId = "12".repeat(32), patch = "cd".repeat(32);
   let vault = await withSubmissionAttempt(original, txId, { circuit: "submitRetest", reportId });

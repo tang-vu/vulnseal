@@ -11,7 +11,7 @@ import { createVulnSealPrivateState, pureCircuits } from "@vulnseal/contract";
 import { bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, randomBytes, sealReport, sha256, utf8, validateEnvironment, type VulnerabilityReport } from "@vulnseal/shared";
 import { initializeBrowserProviders } from "./midnight/browser-providers.js";
 import { defaultProgram, programConstructor, readProgramForm } from "./program.js";
-import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, parseInvitation, validateRoleVault, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withSubmissionNotes, withRetestChoice, withFinalizedSubmission, type ReportNotes, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
+import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, MAX_SUBMISSION_ATTEMPTS, assertSubmissionCapacity, parseInvitation, validateRoleVault, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withSubmissionNotes, withRetestChoice, withFinalizedSubmission, type ReportNotes, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
 import { joinRoleVault } from "./role-network.js";
 import { HandoffPanel } from "./HandoffPanel.js";
 import { validateDisclosure, type Disclosure, type RecipientKeys } from "./handoff.js";
@@ -59,6 +59,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const submissionNotes = useRef<ReportNotes | null>(null);
   const submissionIntent = useRef<SubmissionIntent | undefined>(undefined);
   const requireJournal = () => {
+    if (currentVault.current) assertSubmissionCapacity(currentVault.current);
     if (!persistJournal.current) throw new Error("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
   };
   const duringSubmission = async <T,>(intent: SubmissionIntent, action: () => Promise<T>, notes: ReportNotes | null = null, passed: boolean | null = null, patch?: string): Promise<T> => {
@@ -217,6 +218,8 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
       })} />
       {vault && <section className="form-panel"><h2>Submission journal</h2>
         <p>Real role submissions require encrypted browser autosave. The transaction identifier is saved before calling the wallet. A recorded attempt is not proof of broadcast, success or finality; check the wallet or indexer before retrying after an interruption.</p>
+        <p>Submission journal: {vault.submissionAttempts?.length ?? 0} of {MAX_SUBMISSION_ATTEMPTS} attempts retained.</p>
+        {(vault.submissionAttempts?.length ?? 0) >= MAX_SUBMISSION_ATTEMPTS && <p>The submission journal is full. Keep an encrypted backup. New transactions cannot start; existing reports and journal checks remain available. No history is removed automatically.</p>}
         {vault.submissionAttempts?.length ? <ul>{vault.submissionAttempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt} · outcome requires reconciliation<SubmissionIntentView entry={entry} includePrivateNotes /><TransactionCheck network={vault.network} transactionId={entry.transactionId} contractAddress={vault.contractAddress} circuit={entry.intent?.circuit} />{vault.contractAddress && entry.intent?.reportId && <ReportEffectCheck network={vault.network} transactionId={entry.transactionId} contractAddress={vault.contractAddress} programId={vault.programId} reportId={entry.intent.reportId} circuit={entry.intent.circuit} savedNotes={entry.notes} savedRetestPassed={entry.retestPassed} savedRetestPatch={entry.retestPatchCommitment} savedEnvelope={vault.reports.find((report) => report.reportId === entry.intent?.reportId)?.envelope} />}</li>)}</ul> : <p>No recorded submission attempts.</p>}
       </section>}
       <fieldset className="workflow-controls" disabled={working}>

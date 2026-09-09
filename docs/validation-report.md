@@ -1,5 +1,11 @@
 # Validation report
 
+## Reject journal capacity before transaction preparation — 2026-09-09
+
+The existing 200-attempt schema limit is now checked by workspace transaction preflight, before constructing the command or entering the SDK, and again when appending an attempt. Previously a full journal could reach proof/wallet preparation before its checkpoint failed. The journal displays usage and retains all history at capacity; read-only inspection and backup export remain available. No archival/pruning or automatic deletion was added, and no backup format changed.
+
+Both new boundary/workspace cases passed in **12.31 seconds** (28 other cases excluded by the explicit filter). They verify acceptance of slot 200, rejection of slot 201 without mutation, no contract call or ledger read from a blocked action, retention of 200 old entries and available backup export. The first workspace run found duplicate live alerts; the persistent capacity explanation is now ordinary text while action failure retains its alert. The final normal release build, including web typechecking, exited successfully: **8 circuits, 62 files, 62,623,152 bytes**, after a fresh compiler comparison at 12:14:51.875 UTC. Full suites and native wallet execution were not rerun in this increment.
+
 ## Inspect native wallet extension availability — 2026-09-09
 
 A read-only recheck of the three currently reachable Chrome/Edge debugging contexts opened an owned `chrome://extensions/` tab in each. The browser extension API was available in all three; its inventory, including disabled and terminated entries, contained no extension whose name matched Lace or Midnight. Only matching extension metadata was projected; unrelated tabs and extension contents were not inspected. Owned tabs were closed and CDP connections disconnected. No installation, authorization, address request, wallet unlocking, signing or broadcast was performed. This narrows the earlier empty-connector finding for those specific profiles; it does not prove that another profile has no wallet.
