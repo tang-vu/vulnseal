@@ -3,13 +3,15 @@ import { pureCircuits, type Ledger } from "@vulnseal/contract";
 import { base64UrlToBytes, bytesToBase64Url, bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, openReport, parseCiphertextEnvelope, randomBytes, sha256, utf8, type ReportStatusName, type SealedReport, type VulnerabilityReport } from "@vulnseal/shared";
 import { programConstructor, readProgramForm, type ProgramPolicy } from "./program.js";
 
+import { validateAttachmentDraft, type AttachmentDraft } from "./attachment-draft.js";
 export const MAX_RECOVERY_BYTES = 20 * 1024 * 1024;
 const iterations = 600_000;
 const aad = utf8("vulnseal:browser-recovery:v1");
 const buffer = (value: Uint8Array): ArrayBuffer => Uint8Array.from(value).buffer;
 
 export type RecoverySnapshot = {
-  readonly version: 1;
+  readonly version: 1 | 2;
+  readonly attachmentDraft?: AttachmentDraft | null;
   readonly mode: "guided-local" | "midnight";
   readonly network: string;
   readonly contractAddress: string | null;
@@ -70,7 +72,7 @@ const validateDraft = (input: unknown): VulnerabilityReport => {
 /** Validate decrypted input before allowing it to replace any live session. */
 export const validateRecovery = async (input: unknown): Promise<{ snapshot: RecoverySnapshot; sealed: SealedReport | undefined }> => {
   const value = object(input);
-  if (value.version !== 1 || !["guided-local", "midnight"].includes(String(value.mode))) throw new Error("Unsupported recovery version or mode");
+  if ((value.version !== 1 && value.version !== 2) || !["guided-local", "midnight"].includes(String(value.mode))) throw new Error("Unsupported recovery version or mode");
   if (!["undeployed", "local", "preview", "preprod", "mainnet"].includes(String(value.network))) throw new Error("Unsupported recovery network");
   const mode = value.mode as RecoverySnapshot["mode"];
   const contractAddress = optionalHex(value.contractAddress);
@@ -108,7 +110,7 @@ export const validateRecovery = async (input: unknown): Promise<{ snapshot: Reco
     if ((mode === "guided-local" && history[0] !== "COMMITTED") || history.at(-1) !== status) throw new Error("Recovery history does not match its report");
   } else if (history.length !== 0 || status !== "COMMITTED") throw new Error("Recovery history has no report");
   const snapshot: RecoverySnapshot = {
-    version: 1, mode, network: String(value.network), contractAddress, programId, policy, vendorSecret, researcherSecret, draft, report, status, history,
+    version: value.version, ...(value.version === 2 ? { attachmentDraft: value.attachmentDraft === null ? null : validateAttachmentDraft(value.attachmentDraft) } : {}), mode, network: String(value.network), contractAddress, programId, policy, vendorSecret, researcherSecret, draft, report, status, history,
     patch: optionalHex(value.patch), retest: optionalHex(value.retest), payout: optionalHex(value.payout), severity: Number(value.severity),
     rationale: text(value.rationale, "rationale"), patchReference: text(value.patchReference, "patch reference"), retestNotes: text(value.retestNotes, "retest notes"),
   };

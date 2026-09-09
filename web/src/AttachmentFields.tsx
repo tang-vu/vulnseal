@@ -2,13 +2,21 @@
 import { useEffect, useRef, useState } from "react";
 import type { AttachmentDigest } from "@vulnseal/shared";
 import { attachmentMetadata, hashAttachment, MAX_ATTACHMENTS } from "./attachments.js";
+import { emptyAttachmentDraft, validateAttachmentDraft, type AttachmentDraft } from "./attachment-draft.js";
 
-export function AttachmentEditor({ attachments, onChange, onPending }: {
+export function AttachmentEditor({ attachments, onChange, onPending, draft, onDraftChange }: {
   readonly attachments: readonly AttachmentDigest[];
   readonly onChange: (value: readonly AttachmentDigest[]) => void;
   readonly onPending: (value: boolean) => void;
+  readonly draft?: AttachmentDraft | undefined;
+  readonly onDraftChange?: ((value: AttachmentDraft) => void) | undefined;
 }) {
-  const [fields, setFields] = useState({ filename: "", mediaType: "", size: "", digest: "" });
+  const [localFields, setLocalFields] = useState(emptyAttachmentDraft);
+  const fields = draft ?? localFields;
+  const setFields = (next: AttachmentDraft) => {
+    try { const value = validateAttachmentDraft(next); if (onDraftChange) onDraftChange(value); else setLocalFields(value); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Invalid attachment draft"); }
+  };
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const generation = useRef(0);
@@ -43,7 +51,7 @@ export function AttachmentEditor({ attachments, onChange, onPending }: {
         catch (cause) { setError(cause instanceof Error ? cause.message : "Invalid attachment"); }
       }}>Add attachment metadata</button><button type="button" className="secondary-button" onClick={clear}>Clear attachment fields</button></div>
     </details>
-    {dirty && <p role="status">Add this metadata or clear its fields before sealing. Unadded fields are not saved in a backup.</p>}
+    {dirty && <p role="status">Add this metadata or clear its fields before sealing. {onDraftChange ? "These pending fields are part of the private draft; save its encrypted backup before leaving." : "Unadded fields are not saved in a backup."}</p>}
     {error && <p className="inline-error" role="alert">{error}</p>}
     <p>{attachments.length} attachment entry(s)</p>
     {attachments.map((item, index) => <article className="attachment-entry" key={`${index}:${item.sha256}`}>

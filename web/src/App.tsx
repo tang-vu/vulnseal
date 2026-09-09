@@ -28,6 +28,7 @@ import { defaultProgram, readProgramForm, programConstructor, severityLabel, typ
 import { encryptRecovery, decryptRecovery, verifyRecoveryLedger, type RecoverySnapshot } from "./recovery.js";
 import { RecoveryPanel } from "./RecoveryPanel.js";
 import { PublicLookup } from "./PublicLookup.js";
+import { emptyAttachmentDraft, type AttachmentDraft } from "./attachment-draft.js";
 import { AttachmentEditor, AttachmentReview } from "./AttachmentFields.js";
 import { HandoffPanel } from "./HandoffPanel.js";
 import type { RecipientKeys } from "./handoff.js";
@@ -151,6 +152,7 @@ function App() {
   const [acceptedSeverity, setAcceptedSeverity] = useState(3);
   const [rationale, setRationale] = useState("Authorization is missing after organization lookup. Reproduced in the test tenant.");
   const [report, setReport] = useState<VulnerabilityReport>(initialReport);
+  const [attachmentDraft, setAttachmentDraft] = useState<AttachmentDraft>(emptyAttachmentDraft);
   const [sealed, setSealed] = useState<SealedReport>();
   const [vendorReport, setVendorReport] = useState<VulnerabilityReport>();
   const [usingLocalCiphertext, setUsingLocalCiphertext] = useState(false);
@@ -522,7 +524,7 @@ function App() {
     try {
       const encode = (value?: Uint8Array) => value ? bytesToHex(value) : null;
       const snapshot: RecoverySnapshot = {
-        version: 1, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
+        version: 2, attachmentDraft, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
         programId: bytesToHex(programBytes), policy: programPolicy, vendorSecret: bytesToHex(vendorSecret), researcherSecret: bytesToHex(researcherSecret), draft: report,
         report: sealed && reportSalt && reportId ? { envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt), id: bytesToHex(reportId) } : null,
         status, history: events.map((event) => event.status), patch: encode(patchCommitment), retest: encode(retestCommitment), payout: encode(payoutReceipt),
@@ -565,7 +567,7 @@ function App() {
       if (snapshot.mode === "midnight") setActiveNetwork(snapshot.network as typeof activeNetwork);
       setProgramCreated(true); setProgramBytes(hexToBytes(snapshot.programId)); setProgramPolicy(snapshot.policy);
       setVendorSecret(hexToBytes(snapshot.vendorSecret)); setResearcherSecret(hexToBytes(snapshot.researcherSecret));
-      setReport(snapshot.draft); setSealed(restoredSeal); setVendorReport(undefined);
+      setReport(snapshot.draft); setAttachmentDraft(snapshot.attachmentDraft ?? emptyAttachmentDraft); setSealed(restoredSeal); setVendorReport(undefined);
       setReportSalt(snapshot.report ? hexToBytes(snapshot.report.salt) : undefined); setReportId(snapshot.report ? hexToBytes(snapshot.report.id) : undefined);
       setStatus(restoredStatus);
       setPatchCommitment(current ? nonzero(current.patchCommitment) : decode(snapshot.patch));
@@ -590,7 +592,7 @@ function App() {
       case "create":
         return <CreateProgram mode={runtimeMode} connected={providers !== undefined} operation={operation} onConnect={() => void connectWallet()} onSubmit={(event) => void createProgram(event)} />;
       case "submit":
-        return <ReportWizard report={report} onChange={setReport} onSeal={() => void submitSealedReport()} />;
+        return <ReportWizard attachmentDraft={attachmentDraft} onAttachmentDraftChange={setAttachmentDraft} report={report} onChange={setReport} onSeal={() => void submitSealedReport()} />;
       case "seal":
         return <SealProgress operation={operation} onRetry={() => void submitSealedReport()} onBack={() => changeScreen("submit")} />;
       case "receipt":
@@ -776,8 +778,9 @@ function CreateProgram({ mode, connected, operation, onConnect, onSubmit }: { re
   );
 }
 
-export function ReportWizard({ report, onChange, onSeal, preserveDraftLines = false }: { readonly report: VulnerabilityReport; readonly onChange: (report: VulnerabilityReport) => void; readonly onSeal: () => void; readonly preserveDraftLines?: boolean }) {
-  const [attachmentPending, setAttachmentPending] = useState(false);
+export function ReportWizard({ report, onChange, onSeal, preserveDraftLines = false, attachmentDraft, onAttachmentDraftChange }: { readonly attachmentDraft?: AttachmentDraft; readonly onAttachmentDraftChange?: (value: AttachmentDraft) => void; readonly report: VulnerabilityReport; readonly onChange: (report: VulnerabilityReport) => void; readonly onSeal: () => void; readonly preserveDraftLines?: boolean }) {
+  const [attachmentWorkingOrDirty, setAttachmentPending] = useState(false);
+  const attachmentPending = attachmentWorkingOrDirty || Object.values(attachmentDraft ?? {}).some(Boolean);
   const [reproductionText, setReproductionText] = useState(() => report.reproductionSteps.join("\n"));
   const update = <K extends keyof VulnerabilityReport>(key: K, value: VulnerabilityReport[K]): void => onChange({ ...report, [key]: value });
   return (
@@ -793,7 +796,7 @@ export function ReportWizard({ report, onChange, onSeal, preserveDraftLines = fa
         <label>Impact<textarea rows={3} value={report.impact} onChange={(event) => update("impact", event.target.value)} required /></label>
         <label>Suggested remediation<textarea rows={3} value={report.suggestedRemediation} onChange={(event) => update("suggestedRemediation", event.target.value)} /></label>
         <label>Private researcher contact<input type="email" value={report.researcherContact} onChange={(event) => update("researcherContact", event.target.value)} /><small>Encrypted with the report; never added to public ledger state.</small></label>
-        <AttachmentEditor attachments={report.attachments} onChange={(value) => update("attachments", value)} onPending={setAttachmentPending} />
+        <AttachmentEditor draft={attachmentDraft} onDraftChange={onAttachmentDraftChange} attachments={report.attachments} onChange={(value) => update("attachments", value)} onPending={setAttachmentPending} />
         <label className="check-row"><input type="checkbox" required /><span>I confirm this test was authorized and the report excludes live secrets.</span></label>
         <div className="form-actions"><span>Next: local AES-256-GCM encryption and Compact commitment.</span><button className="primary-button" disabled={attachmentPending}>Encrypt &amp; seal <span aria-hidden="true">→</span></button></div>
       </form>

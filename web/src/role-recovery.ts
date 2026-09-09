@@ -4,11 +4,12 @@ import type { TransactionEvidence } from "@vulnseal/api/types";
 import { base64UrlToBytes, bytesToBase64Url, randomBytes, utf8, type VulnerabilityReport } from "@vulnseal/shared";
 import { validateDisclosure, type Disclosure } from "./handoff.js";
 
+import { validateAttachmentDraft, type AttachmentDraft } from "./attachment-draft.js";
 export type SubmissionIntent = { readonly circuit: "constructor"; readonly reportId: null } | { readonly circuit: RoleCommand["kind"]; readonly reportId: string };
 export type SavedFinalization = { readonly blockHeight: string; readonly recordedAt: string };
 export type SubmissionAttempt = { readonly transactionId: string; readonly recordedAt: string; readonly intent?: SubmissionIntent | null; readonly finalization?: SavedFinalization | null };
 export type ReportNotes = { readonly reportId: string; readonly text: string; readonly tier: string };
-export type RoleVault = { readonly version: 1 | 2 | 3 | 4 | 5 | 6; readonly role: ActorRole; readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly actorSecret: string; readonly reports: readonly Disclosure[]; readonly submissionAttempts?: readonly SubmissionAttempt[]; readonly draft?: VulnerabilityReport | null; readonly reportNotes?: readonly ReportNotes[] };
+export type RoleVault = { readonly version: 1 | 2 | 3 | 4 | 5 | 6 | 7; readonly role: ActorRole; readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly actorSecret: string; readonly reports: readonly Disclosure[]; readonly submissionAttempts?: readonly SubmissionAttempt[]; readonly draft?: VulnerabilityReport | null; readonly attachmentDraft?: AttachmentDraft | null; readonly reportNotes?: readonly ReportNotes[] };
 export type ProgramInvitation = { readonly format: "vulnseal-program-invitation"; readonly version: 1; readonly network: string; readonly contractAddress: string; readonly programId: string };
 export const MAX_ROLE_BACKUP_BYTES = 32 * 1024 * 1024;
 const buffer = (value: Uint8Array) => Uint8Array.from(value).buffer;
@@ -37,8 +38,8 @@ const validateIntent = (input: unknown, role: unknown): SubmissionIntent => {
 };
 /** Legacy entries retain unknown intent; never infer an operation from current ledger state. */
 export const withSubmissionAttempt = (vault: RoleVault, transactionId: string, intent: SubmissionIntent, recordedAt = new Date().toISOString()): Promise<RoleVault> => validateRoleVault({
-  ...vault, version: vault.version === 6 ? 6 : 5, draft: vault.draft ?? null, reportNotes: vault.reportNotes ?? [],
-  submissionAttempts: [...(vault.submissionAttempts ?? []).map((entry) => ({ ...entry, intent: entry.intent ?? null })), { transactionId, recordedAt, intent, ...(vault.version === 6 ? { finalization: null } : {}) }],
+  ...vault, version: vault.version >= 6 ? vault.version : 5, draft: vault.draft ?? null, reportNotes: vault.reportNotes ?? [],
+  submissionAttempts: [...(vault.submissionAttempts ?? []).map((entry) => ({ ...entry, intent: entry.intent ?? null })), { transactionId, recordedAt, intent, ...(vault.version >= 6 ? { finalization: null } : {}) }],
 });
 const timestamp = (value: unknown): string => {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString() !== value) throw new Error("Invalid finalization timestamp");
@@ -55,7 +56,7 @@ export const withFinalizedSubmission = async (vault: RoleVault, evidence: Transa
   if (!entry?.intent || entry.intent.circuit !== evidence.circuit) throw new Error("Finalized receipt does not match a recorded submission intent");
   const finalization = validateFinalization({ blockHeight: evidence.blockHeight, recordedAt });
   if (entry.finalization && entry.finalization.blockHeight !== finalization.blockHeight) throw new Error("Finalized receipt conflicts with the saved receipt");
-  return validateRoleVault({ ...vault, version: 6, draft: vault.draft ?? null, reportNotes: vault.reportNotes ?? [], submissionAttempts: vault.submissionAttempts!.map((item) => ({ ...item, intent: item.intent ?? null, finalization: item.transactionId === evidence.txId ? item.finalization ?? finalization : item.finalization ?? null })) });
+  return validateRoleVault({ ...vault, version: vault.version === 7 ? 7 : 6, draft: vault.draft ?? null, reportNotes: vault.reportNotes ?? [], submissionAttempts: vault.submissionAttempts!.map((item) => ({ ...item, intent: item.intent ?? null, finalization: item.transactionId === evidence.txId ? item.finalization ?? finalization : item.finalization ?? null })) });
 };
 /** Incomplete authoring text is preserved exactly, without sealed-report normalization. */
 const validateDraft = (input: unknown): VulnerabilityReport => {
@@ -78,6 +79,10 @@ const validateDraft = (input: unknown): VulnerabilityReport => {
   return draft;
 };
 export const withRoleDraft = (vault: RoleVault, draft: VulnerabilityReport | null): RoleVault => ({ ...vault, version: vault.version >= 4 ? vault.version : 3, submissionAttempts: vault.submissionAttempts ?? [], draft });
+export const withAttachmentDraft = (vault: RoleVault, input: AttachmentDraft): RoleVault => {
+  if (vault.role !== "researcher") throw new Error("Only researcher workspaces can hold an attachment draft");
+  return { ...vault, version: 7, draft: vault.draft ?? null, reportNotes: vault.reportNotes ?? [], attachmentDraft: validateAttachmentDraft(input), submissionAttempts: (vault.submissionAttempts ?? []).map((entry) => ({ ...entry, intent: entry.intent ?? null, finalization: entry.finalization ?? null })) };
+};
 const validateReportNotes = (input: unknown): ReportNotes => {
   const value = object(input, ["reportId", "text", "tier"]);
   if (typeof value.text !== "string" || utf8(value.text).length > 64 * 1024) throw new Error("Report notes must be text of at most 64 KiB");
@@ -97,13 +102,14 @@ export const parseInvitation = (serialized: string): ProgramInvitation => {
 };
 export const validateRoleVault = async (input: unknown): Promise<RoleVault> => {
   const version = (input as { version?: unknown } | null)?.version;
-  const receipted = version === 6;
+  const pendingAttachment = version === 7;
+  const receipted = version === 6 || pendingAttachment;
   const contextual = version === 5 || receipted;
   const noted = version === 4 || contextual;
   const drafted = version === 3 || noted;
   const journaled = version === 2 || drafted;
-  const value = object(input, ["version", "role", "network", "contractAddress", "programId", "actorSecret", "reports", ...(journaled ? ["submissionAttempts"] : []), ...(drafted ? ["draft"] : []), ...(noted ? ["reportNotes"] : [])]);
-  if ((value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4 && value.version !== 5 && value.version !== 6) || !["vendor", "researcher"].includes(String(value.role)) || !Array.isArray(value.reports) || value.reports.length > 100) throw new Error("Invalid role backup");
+  const value = object(input, ["version", "role", "network", "contractAddress", "programId", "actorSecret", "reports", ...(journaled ? ["submissionAttempts"] : []), ...(drafted ? ["draft"] : []), ...(noted ? ["reportNotes"] : []), ...(pendingAttachment ? ["attachmentDraft"] : [])]);
+  if ((value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== 7) || !["vendor", "researcher"].includes(String(value.role)) || !Array.isArray(value.reports) || value.reports.length > 100) throw new Error("Invalid role backup");
   const attempts: SubmissionAttempt[] = [];
   if (journaled) {
     if (!Array.isArray(value.submissionAttempts) || value.submissionAttempts.length > 200) throw new Error("Invalid submission journal");
@@ -142,7 +148,8 @@ export const validateRoleVault = async (input: unknown): Promise<RoleVault> => {
   for (const entry of attempts) {
     if (entry.intent?.reportId && !ids.has(entry.intent.reportId)) throw new Error("Submission intent must name a saved report");
   }
-  return { ...result, reports, ...(noted ? { reportNotes } : {}) };
+  if (pendingAttachment && value.attachmentDraft !== null && value.role !== "researcher") throw new Error("Only researcher workspaces can hold an attachment draft");
+  return { ...result, reports, ...(noted ? { reportNotes } : {}), ...(pendingAttachment ? { attachmentDraft: value.attachmentDraft === null ? null : validateAttachmentDraft(value.attachmentDraft) } : {}) };
 };
 const passwordKey = async (password: string, salt: Uint8Array, usage: KeyUsage) => {
   if (password.length < 12 || utf8(password).length > 1024) throw new Error("Use a role backup password of at least 12 characters (at most 1024 UTF-8 bytes)");

@@ -8,11 +8,12 @@ import { createVulnSealPrivateState, pureCircuits } from "@vulnseal/contract";
 import { bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, randomBytes, sealReport, sha256, utf8, validateEnvironment, type VulnerabilityReport } from "@vulnseal/shared";
 import { initializeBrowserProviders } from "./midnight/browser-providers.js";
 import { defaultProgram, programConstructor, readProgramForm } from "./program.js";
-import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, parseInvitation, validateRoleVault, withRoleDraft, withReportNotes, withSubmissionAttempt, withFinalizedSubmission, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
+import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, parseInvitation, validateRoleVault, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withFinalizedSubmission, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
 import { joinRoleVault } from "./role-network.js";
 import { HandoffPanel } from "./HandoffPanel.js";
 import { validateDisclosure, type Disclosure, type RecipientKeys } from "./handoff.js";
 import { ReportWizard } from "./App.js";
+import { emptyAttachmentDraft } from "./attachment-draft.js";
 import { AttachmentReview } from "./AttachmentFields.js";
 import { SubmissionIntentView } from "./SubmissionIntentView.js";
 import { ReportEffectCheck } from "./ReportEffectCheck.js";
@@ -250,7 +251,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
               </fieldset>
             </>}
           </section>}
-          {tab === "prepare" && vault.role === "researcher" && <><p>Draft edits are included in encrypted role backups and browser autosave when enabled. Wait for the saved confirmation before closing. Preparing uploads encrypted ciphertext; a later Midnight submission requires a verified connection.</p><ReportWizard preserveDraftLines report={draft} onChange={(next) => setVault(withRoleDraft(vault, next))} onSeal={() => run(async () => {
+          {tab === "prepare" && vault.role === "researcher" && <><p>Draft edits are included in encrypted role backups and browser autosave when enabled. Wait for the saved confirmation before closing. Preparing uploads encrypted ciphertext; a later Midnight submission requires a verified connection.</p><ReportWizard preserveDraftLines attachmentDraft={vault.attachmentDraft ?? emptyAttachmentDraft} onAttachmentDraftChange={(next) => setVault((current) => current ? withAttachmentDraft(current, next) : current)} report={draft} onChange={(next) => setVault((current) => current ? withRoleDraft(current, next) : current)} onSeal={() => run(async () => {
             const encrypted = await sealReport({ ...draft, reproductionSteps: draft.reproductionSteps.filter((step) => step.trim().length > 0) }, vault.programId); const salt = randomBytes(32);
             const id = bytesToHex(pureCircuits.deriveReportCommitment(hexToBytes(vault.programId), Uint8Array.from(encrypted.canonicalReportDigest), salt));
             const prepared: Disclosure = { network: vault.network, contractAddress: vault.contractAddress, programId: vault.programId, reportId: id, envelope: encrypted.serializedEnvelope, key: bytesToHex(encrypted.key), salt: bytesToHex(salt) };

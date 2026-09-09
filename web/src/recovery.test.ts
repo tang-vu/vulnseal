@@ -9,6 +9,15 @@ import { recoveryFixture, recoveryDraft as draft } from "./test/recovery-fixture
 const password = "test-only recovery password";
 
 describe("encrypted browser recovery", () => {
+  it("round-trips bounded unfinished attachment fields in v2 without interpreting them as sealed metadata", async () => {
+    const { snapshot } = await recoveryFixture();
+    const updated = { ...snapshot, version: 2 as const, attachmentDraft: { filename: "  draft.bin  ", mediaType: "", size: "not known", digest: "abc" } };
+    const encrypted = await encryptRecovery(updated, password);
+    expect(encrypted).not.toContain("draft.bin");
+    expect((await decryptRecovery(encrypted, password)).snapshot).toEqual(updated);
+    await expect(validateRecovery({ ...updated, attachmentDraft: { ...updated.attachmentDraft, size: 3 } })).rejects.toThrow("must be text");
+    await expect(validateRecovery({ ...updated, attachmentDraft: { ...updated.attachmentDraft, digest: "x".repeat(4097) } })).rejects.toThrow("4 KiB");
+  });
   it("round-trips ownership material without plaintext or identifiers in the outer file", async () => {
     const { snapshot } = await recoveryFixture();
     const encrypted = await encryptRecovery(snapshot, password);

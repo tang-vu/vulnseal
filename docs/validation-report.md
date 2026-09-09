@@ -1,5 +1,15 @@
 # Validation report
 
+## Pending attachment input recovery — 2026-09-09
+
+The full `CI=true npm run test:e2e` run passed **all 62 desktop/mobile cases in 3.4 minutes**, with two workers and no exclusions or retries. This includes the updated attachment recovery journeys and all prior startup, role, receipt, storage and workflow cases.
+
+The attachment editor's four unfinished text fields now live with the parent draft and survive view changes. Role-vault v7 and demo recovery v2 retain bounded, exact pending input separately from sealed attachment metadata; older backups remain readable. Role autosave includes these changes, later receipts/notes/submission checkpoints preserve v7, and functional updates keep attachment addition plus field clearing from overwriting each other. A restored pending field blocks sealing immediately until the user adds or clears it. Original file bytes and hashing progress remain outside backups.
+
+The production web build/typecheck passed. All **22 web test files / 93 tests** passed in 53.95 seconds, including new strict-input, encryption and v7 receipt-preservation cases. The focused browser run passed all **four desktop/mobile cases in 1.1 minutes**: unfinished role fields survive IndexedDB, downloaded-file and isolated-context recovery, then can be completed/added; the demo restores its pending fields, clears them, seals and verifies the original attachment as vendor. No wallet is used by these tests. The first typecheck identified an exact-optional-property mismatch in the controlled editor props; its types were corrected before the successful build.
+
+See [ADR-0019](adr/0019-pending-attachment-drafts.md) for schema and recovery limits. The preceding complete root validation remains the 160-test run for the finalization checkpoint change; this section does not claim a new root test total.
+
 ## Encrypted SDK finalization checkpoints — 2026-09-09
 
 `npm run validate` passed all six workspace builds and typechecks, then **33 test files / 160 tests**: shared 12, contract 13, API 21, ciphertext service 14, integration 9 and web 91. The complete web suite passed in 52.38 seconds, including the expanded role-action crypto/checkpoint cases. This consolidates the shared replay, worker, recovery and finalization changes together.

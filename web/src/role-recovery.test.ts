@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { decryptRoleVault, encryptRoleVault, parseInvitation, validateRoleVault, withRoleDraft, withReportNotes, withSubmissionAttempt, withFinalizedSubmission, type RoleVault } from "./role-recovery.js";
+import { decryptRoleVault, encryptRoleVault, parseInvitation, validateRoleVault, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withFinalizedSubmission, type RoleVault } from "./role-recovery.js";
 import { recoveryFixture } from "./test/recovery-fixture.js";
 
 export const roleFixture = async (role: "researcher" | "vendor" = "researcher"): Promise<RoleVault> => {
@@ -8,6 +8,24 @@ export const roleFixture = async (role: "researcher" | "vendor" = "researcher"):
   return { version: 1, role, network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, actorSecret: role === "researcher" ? snapshot.researcherSecret : snapshot.vendorSecret, reports: [{ network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: snapshot.report!.id, envelope: snapshot.report!.envelope, key: snapshot.report!.key, salt: snapshot.report!.salt }] };
 };
 describe("single-role encrypted recovery", () => {
+  it("preserves incomplete attachment input with receipts and notes through v7 edits and encryption", async () => {
+    const original = await roleFixture(), reportId = original.reports[0]!.reportId;
+    const pending = { filename: "  proof.txt  ", mediaType: "", size: "unknown", digest: "abcd" };
+    const attempted = await withSubmissionAttempt(original, "ab".repeat(32), { circuit: "submitReport", reportId });
+    let vault = withAttachmentDraft(await withFinalizedSubmission(attempted, { circuit: "submitReport", txId: "ab".repeat(32), blockHeight: "900" }), pending);
+    vault = withRoleDraft(withReportNotes(vault, { reportId, tier: "3", text: "Retained notes" }), null);
+    vault = await withSubmissionAttempt(vault, "cd".repeat(32), { circuit: "submitRetest", reportId });
+    vault = await withFinalizedSubmission(vault, { circuit: "submitRetest", txId: "cd".repeat(32), blockHeight: "901" });
+    expect(vault.version).toBe(7);
+    expect(vault.attachmentDraft).toEqual(pending);
+    expect(vault.submissionAttempts!.map((item) => item.finalization?.blockHeight)).toEqual(["900", "901"]);
+    const encrypted = await encryptRoleVault(vault, "Pending attachment recovery password");
+    expect(encrypted).not.toContain(pending.filename);
+    expect(await decryptRoleVault(encrypted, "Pending attachment recovery password")).toEqual(vault);
+    await expect(validateRoleVault({ ...vault, attachmentDraft: { ...pending, filename: "x".repeat(4097) } })).rejects.toThrow("4 KiB");
+    await expect(validateRoleVault({ ...vault, attachmentDraft: { ...pending, bytes: "forbidden" } })).rejects.toThrow("Invalid attachment draft");
+    expect(() => withAttachmentDraft({ ...original, role: "vendor" }, pending)).toThrow("Only researcher");
+  });
   it("retains SDK finalization through migration, edits and encrypted recovery without inventing legacy receipts", async () => {
     const original = await roleFixture("vendor"), txId = "cd".repeat(33);
     const legacy = { transactionId: "ab".repeat(32), recordedAt: "2026-09-09T04:00:00.000Z" };

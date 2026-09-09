@@ -32,6 +32,8 @@ test("attachment metadata survives draft recovery, encryption and vendor file ve
   await expect(page.getByText("2 attachment entry(s)", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Remove manual-proof.bin" }).click();
   await expect(page.getByText("1 attachment entry(s)", { exact: true })).toBeVisible();
+  await page.getByLabel("Attachment filename", { exact: true }).fill("pending private filename");
+  await page.getByLabel("Attachment size in bytes", { exact: true }).fill("unfinished size");
   await page.getByRole("button", { name: "Private recovery" }).click();
   await page.getByLabel("Backup password", { exact: true }).fill("Attachment draft backup password");
   await page.getByLabel("Confirm backup password").fill("Attachment draft backup password");
@@ -49,6 +51,11 @@ test("attachment metadata survives draft recovery, encryption and vendor file ve
   await restored.getByRole("button", { name: "Restore encrypted backup" }).click();
   await expect(restored.getByText(digest, { exact: true })).toBeVisible();
   await expect(restored.getByLabel("Reproduction steps")).toHaveValue("First synthetic step\nSecond synthetic step");
+  await restored.getByText("Enter an existing digest", { exact: true }).click();
+  await expect(restored.getByLabel("Attachment filename", { exact: true })).toHaveValue("pending private filename");
+  await expect(restored.getByLabel("Attachment size in bytes", { exact: true })).toHaveValue("unfinished size");
+  await expect(restored.getByRole("button", { name: /Encrypt & seal/ })).toBeDisabled();
+  await restored.getByRole("button", { name: "Clear attachment fields" }).click();
   await restored.getByRole("checkbox").check();
   const uploadPromise = restored.waitForRequest((request) => request.method() === "PUT" && request.url().includes("/v1/blobs/"));
   await restored.getByRole("button", { name: /Encrypt & seal/ }).click();
