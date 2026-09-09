@@ -3,11 +3,12 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { decryptRoleVault, encryptRoleVault, type RoleVault } from "./role-recovery.js";
 import { listStoredRoles, readStoredRole, writeStoredRole, type StoredRoleLabel } from "./role-storage.js";
 import { RoleAutosave } from "./role-autosave.js";
+import { RoleCopyCatalog } from "./RoleCopyCatalog.js";
 
 export function LocalRoleStorage({ vault, disabled, onRestore, onSaved }: {
   readonly vault: RoleVault | undefined; readonly disabled: boolean;
   readonly onRestore: (vault: RoleVault) => Promise<void>;
-  readonly onSaved: (vault: RoleVault) => void;
+  readonly onSaved: (vault: RoleVault | undefined) => void;
 }) {
   const [rows, setRows] = useState<StoredRoleLabel[]>([]);
   const [selected, setSelected] = useState("");
@@ -21,6 +22,7 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved }: {
   const [error, setError] = useState("");
   const activeWriter = useRef<RoleAutosave | undefined>(undefined);
   const saved = useRef<RoleVault | undefined>(undefined);
+  const savedCopyId = useRef<string | undefined>(undefined);
   const latest = useRef({ vault, onRestore, onSaved }); latest.current = { vault, onRestore, onSaved };
   const mounted = useRef(true), busy = useRef(false);
   useEffect(() => {
@@ -59,6 +61,7 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved }: {
           if (!mounted.current) return;
           const row = await writeStoredRole(crypto.randomUUID(), label, encrypted, null);
           if (!mounted.current) return;
+          savedCopyId.current = row.id;
           bind(new RoleAutosave(row, password), captured); latest.current.onSaved(captured); setPassword(""); setConfirmation("");
           setMessage(`Saved encrypted browser copy · revision ${row.revision} · ${row.updatedAt}`);
         })}>
@@ -73,6 +76,7 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved }: {
           if (latest.current.vault) throw new Error("A workspace is already open. Restore in a fresh tab.");
           await latest.current.onRestore(restored);
           if (!mounted.current) return;
+          savedCopyId.current = row.id;
           bind(new RoleAutosave(row, password), restored); setPassword("");
           setMessage(`Opened encrypted browser copy · revision ${row.revision}`);
         })}>
@@ -82,5 +86,14 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved }: {
           <button type="button" className="secondary-button" onClick={() => void listStoredRoles().then(setRows).catch((cause) => setError(cause instanceof Error ? cause.message : "Could not refresh browser copies"))}>Refresh browser copies</button>
         </form>}
     </fieldset>
+    {writer && <p>Stop browser autosave before managing saved copies in this tab.</p>}
+    <RoleCopyCatalog disabled={disabled || working || pending > 0 || writer !== undefined} onDeleted={(id) => {
+      setRows((values) => values.filter((entry) => entry.id !== id));
+      if (selected === id) setSelected("");
+      if (savedCopyId.current === id) {
+        savedCopyId.current = undefined; saved.current = undefined; latest.current.onSaved(undefined);
+        setMessage("The browser copy for this workspace was deleted. Save the open workspace again before submitting a transaction.");
+      }
+    }} />
   </section>;
 }

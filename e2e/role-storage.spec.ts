@@ -63,4 +63,62 @@ test("IndexedDB revision comparison rejects concurrent and plaintext overwrites 
   }, id);
   expect(final.rejected).toBe(true); expect(final.row.revision).toBe(2); expect(final.row.encrypted).toBe(encrypted);
   expect(final.labels[0]).not.toHaveProperty("encrypted");
+  const deletion = await page.evaluate(async ({ id, encrypted }) => {
+    const storage = (window as unknown as { __roleStorageTest: typeof Storage }).__roleStorageTest;
+    let staleDelete = "", staleWrite = "";
+    try { await storage.deleteStoredRole(id, 1); } catch (error) { staleDelete = String(error); }
+    const retained = await storage.readStoredRole(id);
+    await storage.deleteStoredRole(id, 2);
+    try { await storage.writeStoredRole(id, "Stale tab", encrypted, 2); } catch (error) { staleWrite = String(error); }
+    return { staleDelete, retained: retained.revision, staleWrite, rows: await storage.listStoredRoles() };
+  }, { id, encrypted });
+  expect(deletion.staleDelete).toContain("changed in another tab");
+  expect(deletion.retained).toBe(2);
+  expect(deletion.staleWrite).toContain("changed in another tab");
+  expect(deletion.rows).toEqual([]);
+});
+
+test("catalog exports an encrypted copy before confirmed deletion and restores it in a separate browser context", async ({ page, browser }, testInfo) => {
+  await page.goto("/#roles");
+  await page.getByRole("button", { name: "Prepare vendor identity" }).click();
+  await page.getByLabel("Browser copy label").fill("Recovery drill");
+  await page.getByLabel("Browser copy password", { exact: true }).fill("Catalog export recovery password");
+  await page.getByLabel("Confirm browser copy password").fill("Catalog export recovery password");
+  await page.getByRole("button", { name: "Enable encrypted browser autosave" }).click();
+  await expect(page.getByText(/Saved encrypted browser copy · revision 1/)).toBeVisible();
+  await page.getByText("Manage saved browser copies", { exact: true }).click();
+  await expect(page.getByRole("button", { name: "Load saved-copy catalog" })).toBeDisabled();
+  await page.getByRole("button", { name: "Stop browser autosave" }).click();
+  await page.getByRole("button", { name: "Load saved-copy catalog" }).click();
+  await expect(page.getByText("Found 1 encrypted browser copies.")).toBeVisible();
+  await page.getByLabel("Browser copy to manage").selectOption({ index: 1 });
+  await expect(page.getByRole("button", { name: "Delete selected browser copy" })).toBeDisabled();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download selected encrypted copy" }).click();
+  const path = testInfo.outputPath("catalog-backup.json");
+  await (await downloadPromise).saveAs(path);
+  const serialized = await readFile(path, "utf8");
+  const vault = await decryptRoleVault(serialized, "Catalog export recovery password");
+  expect(serialized).not.toContain(vault.actorSecret);
+  if (process.env.VULNSEAL_CAPTURE_VISUALS === "1") {
+    await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); window.scrollTo({ top: 0, behavior: "instant" }); });
+    await page.screenshot({ path: `docs/screenshots/${testInfo.project.name}-copy-catalog.png`, fullPage: true });
+  }
+  await page.getByRole("checkbox", { name: /I understand deleting this copy/ }).check();
+  await page.getByRole("button", { name: "Delete selected browser copy" }).click();
+  await expect(page.getByText(/Deleted browser copy Recovery drill, revision 1/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Vendor workspace" })).toBeVisible();
+  await page.getByRole("button", { name: "Reports", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Connect Lace and deploy program" })).toBeDisabled();
+  await page.getByRole("button", { name: "Load saved-copy catalog" }).click();
+  await expect(page.getByText("No saved browser copies on this device.")).toBeVisible();
+  const isolated = await browser.newContext();
+  try {
+    const restored = await isolated.newPage(); await restored.goto(new URL("/#roles", page.url()).href);
+    await restored.getByLabel("Single-role backup file").setInputFiles(path);
+    await restored.getByLabel("Role restore password").fill("Catalog export recovery password");
+    await restored.getByRole("button", { name: "Restore role workspace" }).click();
+    await expect(restored.getByRole("heading", { name: "Vendor workspace" })).toBeVisible();
+    await expect(restored.getByText(`Network: preprod · Program: ${vault.programId}`, { exact: true })).toBeVisible();
+  } finally { await isolated.close(); }
 });

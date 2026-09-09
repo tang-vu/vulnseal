@@ -70,3 +70,23 @@ export const writeStoredRole = async (id: string, labelText: string, encrypted: 
     tx.onabort = tx.onerror = () => { db.close(); reject(failure ?? tx.error ?? new Error("Encrypted browser storage write failed")); };
   });
 };
+
+/** Delete only the revision the user reviewed; an active stale writer cannot recreate it. */
+export const deleteStoredRole = async (id: string, expectedRevision: number): Promise<void> => {
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) throw new Error("Invalid browser-copy revision");
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite", { durability: "strict" });
+    const store = tx.objectStore(storeName), request = store.get(id);
+    let failure: unknown;
+    request.onsuccess = () => {
+      try {
+        if (!request.result) throw new Error("Encrypted browser copy was already removed. Refresh the catalog.");
+        if (metadata(request.result).revision !== expectedRevision) throw new Error("This browser copy changed in another tab. Refresh the catalog and review the latest revision before deleting.");
+        store.delete(id);
+      } catch (error) { failure = error; tx.abort(); }
+    };
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onabort = tx.onerror = () => { db.close(); reject(failure ?? tx.error ?? new Error("Could not delete encrypted browser copy")); };
+  });
+};

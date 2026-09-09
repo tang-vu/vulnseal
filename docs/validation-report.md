@@ -1,5 +1,18 @@
 # Validation report
 
+## Browser-copy lifecycle validation — 2026-09-09
+
+| Check | Command / environment | Observed result |
+| --- | --- | --- |
+| Web checks | `npm run typecheck -w @vulnseal/web`; `npm run test:run -w @vulnseal/web` | Exit 0; 14 files / 52 tests; typecheck rerun after final save-gate change |
+| Full production browser suite | `npm run test:e2e` | Exit 0; 28 passed in 1.3 minutes, before final deletion save-gate refinement |
+| Final storage lifecycle checks | `VULNSEAL_CAPTURE_VISUALS=1 npm run test:e2e -- e2e/role-storage.spec.ts` | Exit 0; production web rebuilt; 6 passed in 41.5 seconds across desktop Chrome and Pixel 7 |
+| Recovery drill | Production UI, real IndexedDB and downloaded encrypted file | Autosave stopped before management; deletion disabled without acknowledgment; encrypted file exported; selected copy deleted; live workspace retained but transaction backup gate reset; file restored in a separate browser context with matching program identity |
+| Concurrent deletion safety | Repository storage module against real two-tab IndexedDB | Stale revision cannot delete a newer row; correct revision deletes it; an old writer cannot recreate the removed row |
+| Visuals and hygiene | Mobile catalog screenshot inspected; `git diff --check`; conventional download name checked against `.gitignore` | No whitespace errors; encrypted device-export filename ignored; catalog screenshot in `docs/screenshots/*-copy-catalog.png` |
+
+These checks establish file portability between isolated browser contexts on this machine, not a physical cross-device or native Lace ceremony. The catalog does not decrypt exports or guarantee forensic erasure after deletion. Active writers in other tabs discover removal on their next save. Pending-transaction recovery and quota management remain open.
+
 ## Encrypted browser autosave validation — 2026-09-09
 
 | Check | Command / environment | Observed result |
