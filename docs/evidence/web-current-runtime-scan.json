@@ -1,0 +1,23 @@
+{
+  "recordedAt": "2026-09-09T14:30:29.825729+00:00",
+  "imageId": "sha256:fdc958efa3bee5ab237103a1fbbdb2a38608d541478b9a6e8b54e18310b8c518",
+  "command": "sh scripts/scan-container.sh vulnseal-web:local",
+  "scannerImage": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+  "scannerExitCode": 1,
+  "rawLogSha256": "277e3a43ca6dd9ad636c96a619d6610a904a5d5f07a9a21f7f88caa8199182c6",
+  "findings": [
+    {
+      "id": "GO-2026-5932",
+      "package": "golang.org/x/crypto",
+      "installedVersion": "v0.56.0",
+      "severity": "UNKNOWN",
+      "fixedVersion": null
+    }
+  ],
+  "priorPackageAssessment": "caddy-go-remediation.json",
+  "limits": [
+    "The strict all-severity scan gate did not pass.",
+    "Prior package-absence analysis is scoped to its recorded build graph; this scan retains the advisory without suppression.",
+    "No public deployment, penetration test or host scan."
+  ]
+}

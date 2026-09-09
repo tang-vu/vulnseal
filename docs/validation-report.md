@@ -1,5 +1,15 @@
 # Validation report
 
+## Verify the current demo recovery release in its hosting image -- 2026-09-09
+
+The web artifact from code revision **`13eeba4`** passed read-only verification and was rebuilt into image **`sha256:fdc958efa3bee5ab237103a1fbbdb2a38608d541478b9a6e8b54e18310b8c518`**. The Docker packaging gate checked **8 circuits, 62 files, 62,643,770 bytes** and Caddy configuration validation passed. The previously tested pinned Go runtime build was reused from cache.
+
+The full container drill passed at **14:29:42.487 UTC**, then exited successfully after cleanup. It compared **63 HTTP requests and 62,645,049 bytes**, including the extra root-page request; checked MIME/cache/security headers and missing-file 404s; verified non-root/read-only execution, desktop/mobile captured-state lookup and graceful restart. A follow-up Docker listing found no retained web-test containers. [Container evidence](evidence/web-container-drill.json) now identifies this current artifact.
+
+The exact `scan-container.sh vulnseal-web:local` command returned **exit 1**, retaining one UNKNOWN module finding, **GO-2026-5932** against `golang.org/x/crypto v0.56.0`; no low/medium/high/critical finding was reported. The advisory concerns the unmaintained OpenPGP package. It was not suppressed. [Scan evidence](evidence/web-current-runtime-scan.json) records the image, scanner pin, raw-log hash and failed gate. Earlier package-absence analysis remains in `caddy-go-remediation.json`; the current all-severity gate is not reported as passed.
+
+No application source, release bytes or proving keys changed in this verification increment. This refreshes local hosting evidence only; native Lace, public hosting/TLS, remote CI, rollout of this exact new release and external audit remain separate work.
+
 ## Reflect demo transaction blocks in its controls -- 2026-09-09
 
 Triage, accept/reject, patch, retest, authorization and closure buttons now use native disabled controls whenever the combined demo retains an uncertain transition or requires a post-finality public refresh. The existing handler guards remain in place. Navigation, report reading and backup access remain available after operations finish. Successful public refresh re-enables the relevant controls; restoring an uncertainty marker keeps them disabled.
