@@ -84,7 +84,7 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved, onPersis
     {error && <p className="operation-notice error" role="status">{error}{vault && " Your open workspace is retained; download a file backup before closing."}</p>}
     {scheduled && <p role="status">Draft or workspace changes are waiting to be encrypted. Keep this tab open until saved.</p>}
     <fieldset className="workflow-controls" disabled={disabled || working || pending > 0 || scheduled}>
-      {writer ? <><p>Autosave is active for role identity, deployment address, prepared/received reports and the current report draft. Transition notes and receiving keys are not included.</p><button className="secondary-button" onClick={() => { writer.stop(); activeWriter.current = undefined; setWriter(undefined); setMessage("Autosave stopped. The encrypted browser copy remains stored."); }}>Stop browser autosave</button></> : vault ?
+      {writer ? <><p>Autosave is active for role identity, deployment address, prepared/received reports, the current report draft and working notes for each report. Receiving keys are not included.</p><button className="secondary-button" onClick={() => { writer.stop(); activeWriter.current = undefined; setWriter(undefined); setMessage("Autosave stopped. The encrypted browser copy remains stored."); }}>Stop browser autosave</button></> : vault ?
         <form onSubmit={(event) => void run(event, async () => {
           if (password !== confirmation) throw new Error("Browser-copy passwords do not match");
           const captured = vault; const encrypted = await encryptRoleVault(captured, password);

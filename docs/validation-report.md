@@ -1,5 +1,15 @@
 # Validation report
 
+## Private working notes per report — 2026-09-09
+
+Role payload v4 retains editable text and tier selection for each saved report, while preserving older backups, drafts and submission journals. Switching reports no longer clears the shared text field. Offline workspaces now expose saved report contents and their notes; contract actions still require a verified session/current snapshot and saved vault. See [ADR-0015](adr/0015-private-report-notes.md).
+
+The web typecheck passed. The initial full web suite passed 71 of 72 cases; the existing leave-warning case exceeded its 5-second test budget after adding encrypted note persistence. That case now has a 15-second overall budget, with assertion timeouts unchanged, and the affected `RoleWorkspace.test.tsx` rerun passed all 5 cases. Other checks in the full run covered v4 encrypted round-trip, duplicate/foreign/oversized/extra-field note rejection, journal checkpoints retaining v4 notes, and draft updates preserving the note collection.
+
+`npm run test:e2e -- e2e/role-notes.spec.ts e2e/role-drafts.spec.ts e2e/role-storage.spec.ts` rebuilt/typechecked the production app and passed all 12 desktop/mobile Chrome cases in 1.2 minutes. The new case opens two synthetic saved reports offline, reads their private contents, edits distinct notes and tiers, switches back without losing text, authenticates the downloaded encrypted file and reopens the notes from real IndexedDB in a fresh tab. Existing draft and storage recovery cases passed alongside it.
+
+Working notes are latest editable values, not an append-only history or proof of the rationale used by a past transaction. This increment does not establish native Lace operation, physical device recovery or a complete private audit trail.
+
 ## Encrypted role drafts and offline recovery — 2026-09-09
 
 Role payload v3 includes one incomplete researcher draft and retains the submission journal. Legacy v1/v2 files still validate. Drafts preserve blank reproduction lines and whitespace; sealed reports retain canonical validation. File exports and opt-in encrypted browser copies carry the same draft. Explicit offline restore opens local material without Lace and requires a later verified connection before contract actions. See [ADR-0014](adr/0014-encrypted-role-drafts.md).

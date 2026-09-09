@@ -4,7 +4,8 @@ import { base64UrlToBytes, bytesToBase64Url, randomBytes, utf8, type Vulnerabili
 import { validateDisclosure, type Disclosure } from "./handoff.js";
 
 export type SubmissionAttempt = { readonly transactionId: string; readonly recordedAt: string };
-export type RoleVault = { readonly version: 1 | 2 | 3; readonly role: ActorRole; readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly actorSecret: string; readonly reports: readonly Disclosure[]; readonly submissionAttempts?: readonly SubmissionAttempt[]; readonly draft?: VulnerabilityReport | null };
+export type ReportNotes = { readonly reportId: string; readonly text: string; readonly tier: string };
+export type RoleVault = { readonly version: 1 | 2 | 3 | 4; readonly role: ActorRole; readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly actorSecret: string; readonly reports: readonly Disclosure[]; readonly submissionAttempts?: readonly SubmissionAttempt[]; readonly draft?: VulnerabilityReport | null; readonly reportNotes?: readonly ReportNotes[] };
 export type ProgramInvitation = { readonly format: "vulnseal-program-invitation"; readonly version: 1; readonly network: string; readonly contractAddress: string; readonly programId: string };
 export const MAX_ROLE_BACKUP_BYTES = 32 * 1024 * 1024;
 const buffer = (value: Uint8Array) => Uint8Array.from(value).buffer;
@@ -41,7 +42,18 @@ const validateDraft = (input: unknown): VulnerabilityReport => {
   if (utf8(JSON.stringify(draft)).length > 2 * 1024 * 1024) throw new Error("Role draft is too large");
   return draft;
 };
-export const withRoleDraft = (vault: RoleVault, draft: VulnerabilityReport | null): RoleVault => ({ ...vault, version: 3, submissionAttempts: vault.submissionAttempts ?? [], draft });
+export const withRoleDraft = (vault: RoleVault, draft: VulnerabilityReport | null): RoleVault => ({ ...vault, version: vault.version === 4 ? 4 : 3, submissionAttempts: vault.submissionAttempts ?? [], draft });
+const validateReportNotes = (input: unknown): ReportNotes => {
+  const value = object(input, ["reportId", "text", "tier"]);
+  if (typeof value.text !== "string" || utf8(value.text).length > 64 * 1024) throw new Error("Report notes must be text of at most 64 KiB");
+  if (typeof value.tier !== "string" || !["1", "2", "3", "4"].includes(value.tier)) throw new Error("Invalid report notes tier");
+  return { reportId: hex(value.reportId), text: value.text, tier: value.tier };
+};
+export const withReportNotes = (vault: RoleVault, input: ReportNotes): RoleVault => {
+  const note = validateReportNotes(input);
+  if (!vault.reports.some((report) => report.reportId === note.reportId)) throw new Error("Report notes must name a saved report");
+  return { ...vault, version: 4, draft: vault.draft ?? null, submissionAttempts: vault.submissionAttempts ?? [], reportNotes: [...(vault.reportNotes ?? []).filter((entry) => entry.reportId !== note.reportId), note] };
+};
 export const parseInvitation = (serialized: string): ProgramInvitation => {
   if (utf8(serialized).length > 4096) throw new Error("Program invitation is too large");
   const value = object(JSON.parse(serialized), ["format", "version", "network", "contractAddress", "programId"]);
@@ -50,9 +62,10 @@ export const parseInvitation = (serialized: string): ProgramInvitation => {
 };
 export const validateRoleVault = async (input: unknown): Promise<RoleVault> => {
   const version = (input as { version?: unknown } | null)?.version;
-  const journaled = version === 2 || version === 3;
-  const value = object(input, ["version", "role", "network", "contractAddress", "programId", "actorSecret", "reports", ...(journaled ? ["submissionAttempts"] : []), ...(version === 3 ? ["draft"] : [])]);
-  if ((value.version !== 1 && value.version !== 2 && value.version !== 3) || !["vendor", "researcher"].includes(String(value.role)) || !Array.isArray(value.reports) || value.reports.length > 100) throw new Error("Invalid role backup");
+  const drafted = version === 3 || version === 4;
+  const journaled = version === 2 || drafted;
+  const value = object(input, ["version", "role", "network", "contractAddress", "programId", "actorSecret", "reports", ...(journaled ? ["submissionAttempts"] : []), ...(drafted ? ["draft"] : []), ...(version === 4 ? ["reportNotes"] : [])]);
+  if ((value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4) || !["vendor", "researcher"].includes(String(value.role)) || !Array.isArray(value.reports) || value.reports.length > 100) throw new Error("Invalid role backup");
   const attempts: SubmissionAttempt[] = [];
   if (journaled) {
     if (!Array.isArray(value.submissionAttempts) || value.submissionAttempts.length > 200) throw new Error("Invalid submission journal");
@@ -65,8 +78,8 @@ export const validateRoleVault = async (input: unknown): Promise<RoleVault> => {
       ids.add(transactionId); attempts.push({ transactionId, recordedAt: entry.recordedAt });
     }
   }
-  if (version === 3 && value.draft !== null && value.role !== "researcher") throw new Error("Only researcher workspaces can hold an authoring draft");
-  const result: RoleVault = { version: value.version, role: value.role as ActorRole, network: network(value.network), contractAddress: value.contractAddress === null ? null : hex(value.contractAddress), programId: hex(value.programId), actorSecret: hex(value.actorSecret), reports: [], ...(journaled ? { submissionAttempts: attempts } : {}), ...(version === 3 ? { draft: value.draft === null ? null : validateDraft(value.draft) } : {}) };
+  if (drafted && value.draft !== null && value.role !== "researcher") throw new Error("Only researcher workspaces can hold an authoring draft");
+  const result: RoleVault = { version: value.version, role: value.role as ActorRole, network: network(value.network), contractAddress: value.contractAddress === null ? null : hex(value.contractAddress), programId: hex(value.programId), actorSecret: hex(value.actorSecret), reports: [], ...(journaled ? { submissionAttempts: attempts } : {}), ...(drafted ? { draft: value.draft === null ? null : validateDraft(value.draft) } : {}) };
   const reports: Disclosure[] = [];
   if (result.contractAddress === null && result.role !== "vendor") throw new Error("A researcher role backup must name a deployed program");
   const ids = new Set<string>();
@@ -76,7 +89,17 @@ export const validateRoleVault = async (input: unknown): Promise<RoleVault> => {
     ids.add(disclosure.reportId); reports.push(disclosure);
   }
   if (result.contractAddress === null && reports.length > 0) throw new Error("Role backup reports require a deployed program");
-  return { ...result, reports };
+  const reportNotes: ReportNotes[] = [];
+  if (version === 4) {
+    if (!Array.isArray(value.reportNotes) || value.reportNotes.length > 100) throw new Error("Invalid report notes");
+    const seen = new Set<string>();
+    for (const input of value.reportNotes) {
+      const note = validateReportNotes(input);
+      if (!ids.has(note.reportId) || seen.has(note.reportId)) throw new Error("Report notes must name one unique saved report");
+      seen.add(note.reportId); reportNotes.push(note);
+    }
+  }
+  return { ...result, reports, ...(version === 4 ? { reportNotes } : {}) };
 };
 const passwordKey = async (password: string, salt: Uint8Array, usage: KeyUsage) => {
   if (password.length < 12 || utf8(password).length > 1024) throw new Error("Use a role backup password of at least 12 characters (at most 1024 UTF-8 bytes)");

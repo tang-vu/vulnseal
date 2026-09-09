@@ -8,7 +8,7 @@ import { createVulnSealPrivateState, pureCircuits } from "@vulnseal/contract";
 import { bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, randomBytes, sealReport, sha256, utf8, validateEnvironment, type VulnerabilityReport } from "@vulnseal/shared";
 import { initializeBrowserProviders } from "./midnight/browser-providers.js";
 import { defaultProgram, programConstructor, readProgramForm } from "./program.js";
-import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, parseInvitation, validateRoleVault, withRoleDraft, type RoleVault } from "./role-recovery.js";
+import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, parseInvitation, validateRoleVault, withRoleDraft, withReportNotes, type RoleVault } from "./role-recovery.js";
 import { joinRoleVault } from "./role-network.js";
 import { HandoffPanel } from "./HandoffPanel.js";
 import { validateDisclosure, type Disclosure, type RecipientKeys } from "./handoff.js";
@@ -41,7 +41,7 @@ export function RoleWorkspace() {
     const current = currentVault.current, persist = persistJournal.current;
     if (!current || !persist) throw new Error("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
     if (current.submissionAttempts?.some((entry) => entry.transactionId === transactionId)) throw new Error("This transaction is already recorded. Reconcile its identifier before trying again.");
-    const updated = await validateRoleVault({ ...current, version: current.version === 3 ? 3 : 2, submissionAttempts: [...(current.submissionAttempts ?? []), { transactionId, recordedAt: new Date().toISOString() }] });
+    const updated = await validateRoleVault({ ...current, version: current.version >= 3 ? current.version : 2, submissionAttempts: [...(current.submissionAttempts ?? []), { transactionId, recordedAt: new Date().toISOString() }] });
     await persist(updated);
     currentVault.current = updated; setVault(updated); setSaved(updated);
   };
@@ -58,8 +58,6 @@ export function RoleWorkspace() {
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [address, setAddress] = useState("");
-  const [detail, setDetail] = useState("");
-  const [tier, setTier] = useState("3");
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -76,8 +74,14 @@ export function RoleWorkspace() {
   const record = snapshot && chosen && snapshot.ledger.reports.member(hexToBytes(chosen.reportId)) ? snapshot.ledger.reports.lookup(hexToBytes(chosen.reportId)) : undefined;
   const status = record ? contractStatusName(record.status) : undefined;
   const backedUp = vault !== undefined && saved === vault;
-  const hasPrivateEdits = detail.length > 0;
-  const warnBeforeLeaving = working || (vault !== undefined && !backedUp) || hasPrivateEdits || keys !== undefined;
+  const notes = vault?.reportNotes?.find((entry) => entry.reportId === selectedId);
+  const detail = notes?.text ?? "", tier = notes?.tier ?? "3";
+  const updateNotes = (text: string, selectedTier: string) => {
+    if (!vault || !chosen) return;
+    try { setVault(withReportNotes(vault, { reportId: chosen.reportId, text, tier: selectedTier })); setError(""); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not update private notes"); }
+  };
+  const warnBeforeLeaving = working || (vault !== undefined && !backedUp) || keys !== undefined;
   useEffect(() => {
     if (!warnBeforeLeaving) return;
     const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -121,7 +125,6 @@ export function RoleWorkspace() {
       {working && <p role="status">Working… A network operation may wait for Lace, proof generation and finality.</p>}
       {error && <p role="alert" className="operation-notice error">{error}</p>}
       {message && <p role="status" className="operation-notice">{message}</p>}
-      {hasPrivateEdits && <p className="operation-notice">Decision, patch or retest notes are only in this tab. Role backups and browser autosave do not include these notes. Retain them before leaving.</p>}
       {keys && <p className="operation-notice">Receiving keys are held in this tab. Keep their separate encrypted key backup before leaving; the role backup does not include them.</p>}
       {receipt && <p className="operation-notice public-value">Finalized {receipt.circuit}: {receipt.txId} at block {receipt.blockHeight}. A failed follow-up read does not erase this transaction.</p>}
       {!vault && <label><input type="checkbox" checked={offlineRestore} onChange={(event) => setOfflineRestore(event.target.checked)} />Restore backups without connecting Lace</label>}
@@ -153,12 +156,12 @@ export function RoleWorkspace() {
         </> : <>
           <p className="public-value">Network: {vault.network} · Program: {vault.programId}</p>{vault.contractAddress && <p className="public-value">Contract: {vault.contractAddress}</p>}
           {vault.contractAddress && !session && <p className="operation-notice">Offline workspace: contract authority and current ledger state have not been checked. Connect Lace and verify the program before submitting transactions.</p>}
-          {!backedUp && <p className="operation-notice" role="status">Save an updated single-role backup before any transaction. Draft edits, prepared reports and received disclosures are held in memory until backed up.</p>}
+          {!backedUp && <p className="operation-notice" role="status">Save an updated single-role backup before any transaction. Draft edits, report notes, prepared reports and received disclosures are held in memory until backed up.</p>}
           <div className="button-row workspace-tabs"><button className="secondary-button" onClick={() => setTab("reports")}>Reports</button>{vault.role === "researcher" && <button className="secondary-button" onClick={() => setTab("prepare")}>Prepare report</button>}<button className="secondary-button" onClick={() => setTab("exchange")}>Disclosure exchange</button><button className="secondary-button" onClick={() => setTab("backup")}>Save role backup</button></div>
           {tab === "backup" && <form className="form-panel" onSubmit={(event) => form(event, async () => {
             if (password !== confirmation) throw new Error("Role backup passwords do not match");
             const encrypted = await encryptRoleVault(vault, password); download(encrypted, `vulnseal-role-${vault.role}-backup.json`); setSaved(vault); setPassword(""); setConfirmation(""); setMessage("Role backup downloaded. Confirm the file is saved; keep the file and password private.");
-          })}><h2>Save {vault.role} authority</h2><p>This file contains this role's actor secret, prepared/received reports, submission journal and current report draft. Decision, patch and retest notes are not included. Retain the separate receiving-key backup.</p><label>Role backup password<input type="password" autoComplete="new-password" minLength={12} required value={password} onChange={(event) => setPassword(event.target.value)} /></label><label>Confirm role backup password<input type="password" autoComplete="new-password" minLength={12} required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label><button className="primary-button">Download single-role backup</button></form>}
+          })}><h2>Save {vault.role} authority</h2><p>This file contains this role's actor secret, prepared/received reports, submission journal, current report draft and working notes for each saved report. Notes are editable working copies, not transaction history. Retain the separate receiving-key backup.</p><label>Role backup password<input type="password" autoComplete="new-password" minLength={12} required value={password} onChange={(event) => setPassword(event.target.value)} /></label><label>Confirm role backup password<input type="password" autoComplete="new-password" minLength={12} required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label><button className="primary-button">Download single-role backup</button></form>}
           {!vault.contractAddress && vault.role === "vendor" && tab === "reports" && <form className="form-panel" onSubmit={(event) => {
             const data = new FormData(event.currentTarget); form(event, async () => {
               const policy = readProgramForm(data);
@@ -174,17 +177,19 @@ export function RoleWorkspace() {
             const updated = await validateRoleVault({ ...vault, contractAddress: vault.contractAddress ?? address.trim().toLowerCase() });
             const joined = await joinRoleVault(updated, recordSubmission); setVault(updated); setSession(joined.session); setSnapshot(joined.snapshot);
           })}><h2>Reconnect an existing program</h2><p>For a pre-deployment backup, enter the address from your finalized deployment receipt. The vendor key must match.</p>{!vault.contractAddress && <label>Existing contract address<input value={address} required onChange={(event) => setAddress(event.target.value)} /></label>}<button className="secondary-button">Connect Lace and verify program</button></form>}
-          {session && tab === "reports" && <section className="form-panel"><h2>Program reports</h2><button className="secondary-button" onClick={() => run(load)}>Refresh ledger</button>{vault.role === "vendor" && <button className="secondary-button" onClick={() => download(JSON.stringify({ format: "vulnseal-program-invitation", version: 1, network: vault.network, contractAddress: vault.contractAddress, programId: vault.programId }), "vulnseal-program-invitation.json")}>Download public program invitation</button>}
-            <label>Workspace report<select value={selectedId} onChange={(event) => { setSelectedId(event.target.value); setDetail(""); setReceipt(undefined); }}><option value="">Choose a saved report</option>{vault.reports.map((entry) => <option value={entry.reportId} key={entry.reportId}>{entry.reportId}</option>)}</select></label>
+          {vault.contractAddress && tab === "reports" && <section className="form-panel"><h2>Program reports</h2>{session && <button className="secondary-button" onClick={() => run(load)}>Refresh ledger</button>}{session && vault.role === "vendor" && <button className="secondary-button" onClick={() => download(JSON.stringify({ format: "vulnseal-program-invitation", version: 1, network: vault.network, contractAddress: vault.contractAddress, programId: vault.programId }), "vulnseal-program-invitation.json")}>Download public program invitation</button>}
+            <label>Workspace report<select value={selectedId} onChange={(event) => { setSelectedId(event.target.value); setReceipt(undefined); }}><option value="">Choose a saved report</option>{vault.reports.map((entry) => <option value={entry.reportId} key={entry.reportId}>{entry.reportId}</option>)}</select></label>
             {chosen && <><p className="public-value">Report: {chosen.reportId}</p><SelectedRoleReport key={chosen.reportId} disclosure={chosen} /><p>{snapshot ? status ?? "Prepared locally; absent from the current ledger snapshot" : "Refresh ledger state before continuing. A prior transaction may still require reconciliation."}</p>
-              <fieldset className="workflow-controls" disabled={!backedUp || !snapshot}>
-                {vault.role === "researcher" && !record && <button className="primary-button" onClick={() => run(async () => {
+              <p>Working notes and the selected tier are saved privately per report in encrypted backups and browser autosave. They are editable, not verified transaction history. Only an explicit transaction publishes its corresponding digest or tier.</p>
+              <label>Private decision, patch reference or retest notes<textarea value={detail} onChange={(event) => updateNotes(event.target.value, tier)} /></label><label>Public severity / reward tier<select value={tier} onChange={(event) => updateNotes(detail, event.target.value)}><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+              <fieldset className="workflow-controls" disabled={!backedUp || !snapshot || !session}>
+                {session && vault.role === "researcher" && !record && <button className="primary-button" onClick={() => run(async () => {
                   if (!session || !backedUp || !snapshot) throw new Error("Save a backup and refresh before submitting");
                   requireJournal();
                   const opened = await validateDisclosure(chosen); const canonical = await sealPreimage(chosen);
                   setSnapshot(undefined); setReceipt(undefined); const result = await session.execute({ kind: "submitReport", report: canonical, ciphertextDigest: hexToBytes(opened.ciphertextDigest) }); setReceipt(result); await load({ id: hexToBytes(chosen.reportId), status: "COMMITTED" });
                 })}>Submit prepared report</button>}
-                {record && <><label>Private decision, patch reference or retest notes<textarea value={detail} onChange={(event) => setDetail(event.target.value)} /></label><label>Public severity / reward tier<select value={tier} onChange={(event) => setTier(event.target.value)}><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+                {record && session && <>
                   <div className="button-row workspace-tabs">
                     {vault.role === "vendor" && status === "COMMITTED" && <button className="primary-button" onClick={() => write({ kind: "beginTriage", reportId: hexToBytes(chosen.reportId) })}>Begin triage</button>}
                     {vault.role === "vendor" && status === "TRIAGED" && (["acceptReport", "rejectReport"] as const).map((kind) => <button key={kind} className="primary-button" disabled={!detail.trim()} onClick={() => write(async () => { const decisionDigest = await sha256(utf8(detail)); return kind === "acceptReport" ? { kind, reportId: hexToBytes(chosen.reportId), severity: BigInt(tier), decisionDigest } : { kind, reportId: hexToBytes(chosen.reportId), decisionDigest }; })}>{kind === "acceptReport" ? "Accept report" : "Reject report"}</button>)}

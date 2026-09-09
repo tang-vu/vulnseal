@@ -23,7 +23,7 @@ test("incomplete role drafts survive encrypted browser and file recovery without
   const steps = "first step\n\n  unfinished step  \n";
   await page.getByLabel("Report title").fill(title);
   await page.getByLabel(/^Reproduction steps/).fill(steps);
-  await expect(page.getByText(/Draft edits, prepared reports and received disclosures are held in memory/)).toHaveCount(0);
+  await expect(page.getByText(/Draft edits, report notes, prepared reports and received disclosures are held in memory/)).toHaveCount(0);
   const rows = await page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => { const request = indexedDB.open("vulnseal-encrypted-roles", 1); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
     try { return await new Promise<{ id: string; encrypted: string }[]>((resolve, reject) => { const request = db.transaction("roles", "readonly").objectStore("roles").getAll(); request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); }); } finally { db.close(); }

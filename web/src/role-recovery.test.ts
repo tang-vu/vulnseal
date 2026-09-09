@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { decryptRoleVault, encryptRoleVault, parseInvitation, validateRoleVault, withRoleDraft, type RoleVault } from "./role-recovery.js";
+import { decryptRoleVault, encryptRoleVault, parseInvitation, validateRoleVault, withRoleDraft, withReportNotes, type RoleVault } from "./role-recovery.js";
 import { recoveryFixture } from "./test/recovery-fixture.js";
 
 export const roleFixture = async (role: "researcher" | "vendor" = "researcher"): Promise<RoleVault> => {
@@ -8,6 +8,22 @@ export const roleFixture = async (role: "researcher" | "vendor" = "researcher"):
   return { version: 1, role, network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, actorSecret: role === "researcher" ? snapshot.researcherSecret : snapshot.vendorSecret, reports: [{ network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: snapshot.report!.id, envelope: snapshot.report!.envelope, key: snapshot.report!.key, salt: snapshot.report!.salt }] };
 };
 describe("single-role encrypted recovery", () => {
+  it("encrypts report-bound working notes without losing draft/journal fields or accepting foreign notes", async () => {
+    const original = await roleFixture("vendor");
+    const note = { reportId: original.reports[0]!.reportId, text: "Private decision\n\n  unfinished patch notes  ", tier: "4" };
+    const vault = withReportNotes(original, note);
+    const encrypted = await encryptRoleVault(vault, "Private report notes password");
+    expect(encrypted).not.toContain(note.text);
+    expect(await decryptRoleVault(encrypted, "Private report notes password")).toEqual(vault);
+    expect((await validateRoleVault(withRoleDraft(vault, null))).reportNotes).toEqual([note]);
+    expect(withReportNotes(vault, { ...note, text: "Updated" }).reportNotes).toHaveLength(1);
+    await expect(validateRoleVault({ ...vault, version: 3 })).rejects.toThrow("Unsupported role document");
+    await expect(validateRoleVault({ ...vault, reportNotes: [note, note] })).rejects.toThrow("unique saved report");
+    await expect(validateRoleVault({ ...vault, reportNotes: [{ ...note, reportId: "ff".repeat(32) }] })).rejects.toThrow("unique saved report");
+    await expect(validateRoleVault({ ...vault, reportNotes: [{ ...note, text: "x".repeat(65537) }] })).rejects.toThrow("64 KiB");
+    await expect(validateRoleVault({ ...vault, reportNotes: [{ ...note, tier: "5" }] })).rejects.toThrow("tier");
+    await expect(validateRoleVault({ ...vault, reportNotes: [{ ...note, status: "FINALIZED" }] })).rejects.toThrow("Unsupported role document");
+  });
   it("preserves incomplete private drafts and journals in v3 while rejecting malformed or misplaced drafts", async () => {
     const original = await roleFixture();
     const draft = { schemaVersion: 1 as const, title: "  Private unfinished title  ", summary: "", affectedAsset: "", weakness: "", impact: "", suggestedRemediation: "", researcherContact: "incomplete@", reproductionSteps: ["first line", "", "  unfinished  ", ""], attachments: [{ filename: "private.bin", mediaType: "application/octet-stream", size: 12, sha256: "ab".repeat(32) }] };

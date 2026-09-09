@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
-import { decryptRoleVault, encryptRoleVault } from "./role-recovery.js";
+import { decryptRoleVault, encryptRoleVault, withReportNotes } from "./role-recovery.js";
 import { recoveryFixture } from "./test/recovery-fixture.js";
 import type { StoredRole } from "./role-storage.js";
 const mocks = vi.hoisted(() => ({ join: vi.fn(), list: vi.fn(), read: vi.fn(), write: vi.fn() }));
@@ -23,11 +23,15 @@ it("blocks unjournaled submission, saves before an uncertain result, and restore
   const state = { ledger: { reports: { member: () => true, lookup: () => ({ status: 0 }) } } };
   const session = { readPublicState: vi.fn().mockResolvedValue(state), execute: vi.fn(async () => {
     await checkpoint(txId);
-    expect((await decryptRoleVault(row!.encrypted, password)).submissionAttempts?.[0]?.transactionId).toBe(txId);
+    const durable = await decryptRoleVault(row!.encrypted, password);
+    expect(durable.submissionAttempts?.[0]?.transactionId).toBe(txId);
+    expect(durable.version).toBe(4);
+    expect(durable.reportNotes?.[0]?.text).toBe("Retain these private working notes");
     broadcast(); throw new Error("Finality response lost after submission");
   }) };
   mocks.join.mockImplementation(async (_vault, beforeSubmit) => { checkpoint = beforeSubmit; return { session, snapshot: state }; });
-  const serialized = await encryptRoleVault(vault, password);
+  const withNotes = withReportNotes(vault, { reportId: vault.reports[0]!.reportId, text: "Retain these private working notes", tier: "4" });
+  const serialized = await encryptRoleVault(withNotes, password);
   const file = new File([serialized], "role.json", { type: "application/json" });
   Object.defineProperty(file, "text", { value: async () => serialized });
   const user = userEvent.setup(); const view = render(<RoleWorkspace />);
@@ -48,7 +52,7 @@ it("blocks unjournaled submission, saves before an uncertain result, and restore
   await user.click(screen.getByRole("button", { name: "Begin triage" }));
   await screen.findByRole("alert");
   expect(broadcast).not.toHaveBeenCalled();
-  expect((await decryptRoleVault(row!.encrypted, password)).submissionAttempts).toBeUndefined();
+  expect((await decryptRoleVault(row!.encrypted, password)).submissionAttempts).toEqual([]);
   await user.click(screen.getByRole("button", { name: "Refresh ledger" }));
   await user.type(screen.getByLabelText("Browser copy password"), password);
   await user.type(screen.getByLabelText("Confirm browser copy password"), password);

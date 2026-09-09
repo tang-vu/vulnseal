@@ -19,3 +19,5 @@ File exports include the same draft. Restore normally checks the deployed progra
 ## Limits
 
 Only the last confirmed encrypted save survives termination. Edits during the debounce, encryption or write can be lost; this does not make browser shutdown reliable. Receiving keys, decision/patch/retest notes, uncommitted attachment-editor fields, original attachment bytes and the authoring acknowledgment checkbox are outside this draft. One current researcher draft is retained per workspace; multiple prepared reports remain supported. Physical device recovery, quota management and complete private history remain separate requirements.
+
+Payload v4 subsequently adds per-report working notes separately from the draft; see [ADR-0015](0015-private-report-notes.md). It does not add complete private decision history.

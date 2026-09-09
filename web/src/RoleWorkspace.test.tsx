@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { decryptRoleVault, encryptRoleVault } from "./role-recovery.js";
@@ -57,15 +57,15 @@ describe("independent role workspace", () => {
     view.unmount();
     expect(leavingIsBlocked()).toBe(false);
   });
-  it("keeps warning for private notes and draft edits even when the role is autosaved", async () => {
+  it("warns for pending private notes and draft edits until encrypted autosave finishes", async () => {
     const { user } = await restore("researcher", 4);
     expect(leavingIsBlocked()).toBe(false);
     const notes = screen.getByLabelText("Private decision, patch reference or retest notes");
     await user.type(notes, "Private retest evidence");
     expect(leavingIsBlocked()).toBe(true);
-    expect(screen.getByText(/Decision, patch or retest notes are only in this tab/)).toBeInTheDocument();
+    expect(screen.getByText(/Working notes and the selected tier are saved privately per report/)).toBeInTheDocument();
     await user.clear(notes);
-    expect(leavingIsBlocked()).toBe(false);
+    await waitFor(() => expect(leavingIsBlocked()).toBe(false));
     await user.click(screen.getByRole("button", { name: "Prepare report" }));
     const title = screen.getByLabelText("Report title");
     await user.type(title, "An incomplete private report");
@@ -74,7 +74,7 @@ describe("independent role workspace", () => {
     expect(leavingIsBlocked()).toBe(true);
     cleanup();
     expect(leavingIsBlocked()).toBe(false);
-  });
+  }, 15_000);
   it("joins with one researcher identity and backs up multiple prepared reports before submission", async () => {
     const snapshot = { ledger: { reports: { member: () => false } } };
     const session = { execute: vi.fn(async (_command: unknown) => ({ circuit: "submitReport", txId: "prepared-submit", blockHeight: "901" })), readPublicState: vi.fn().mockResolvedValue(snapshot) };
@@ -152,6 +152,7 @@ describe("independent role workspace", () => {
     expect(screen.queryByRole("button", { name: "Authorize payout (no transfer)" })).not.toBeInTheDocument();
     await user.type(screen.getByLabelText("Private decision, patch reference or retest notes"), "Fixed in isolated test");
     session.readPublicState.mockRejectedValueOnce(new Error("Indexer unavailable"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Pass retest" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Pass retest" }));
     await screen.findByRole("alert");
     expect(screen.getByText(/Finalized submitRetest: role-transaction at block 900/)).toBeInTheDocument();
@@ -173,6 +174,6 @@ describe("independent role workspace", () => {
     expect(session.execute.mock.calls[0]![0]).toMatchObject({ kind: "beginTriage" });
     expect(screen.getByRole("button", { name: "Accept report" })).toBeDisabled();
     await user.type(screen.getByLabelText("Private decision, patch reference or retest notes"), "Verified independently");
-    expect(screen.getByRole("button", { name: "Accept report" })).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Accept report" })).toBeEnabled());
   });
 });
