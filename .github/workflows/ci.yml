@@ -45,3 +45,9 @@ jobs:
 
       - name: Production dependency audit
         run: npm run audit:prod
+
+      - name: Install browser for desktop and mobile journeys
+        run: npx playwright install --with-deps chrome
+
+      - name: Test production UI against the ciphertext service
+        run: npm run test:e2e

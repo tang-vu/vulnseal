@@ -19,11 +19,16 @@ const normalize = (value: JsonValue): JsonValue => {
   if (Array.isArray(value)) return value.map((entry) => normalize(entry));
   if (value !== null && typeof value === "object") {
     const objectValue = value as Readonly<Record<string, JsonValue>>;
-    const sorted: Record<string, JsonValue> = {};
-    for (const key of Object.keys(objectValue).sort()) {
+    const sorted: Record<string, JsonValue> = Object.create(null) as Record<string, JsonValue>;
+    const keys = Object.keys(objectValue).map((key) => ({ key, normalized: key.normalize("NFC") }));
+    if (new Set(keys.map(({ normalized }) => normalized)).size !== keys.length) {
+      throw new Error("Canonical JSON rejects duplicate normalized keys");
+    }
+    keys.sort((a, b) => a.normalized < b.normalized ? -1 : a.normalized > b.normalized ? 1 : 0);
+    for (const { key, normalized } of keys) {
       const entry = objectValue[key];
       if (entry === undefined) throw new Error(`Undefined value at key: ${key}`);
-      sorted[key.normalize("NFC")] = normalize(entry);
+      sorted[normalized] = normalize(entry);
     }
     return sorted;
   }
@@ -35,6 +40,7 @@ export const canonicalizeJson = (value: JsonValue): string =>
   JSON.stringify(normalize(value));
 
 const requireText = (value: string, name: string): string => {
+  if (typeof value !== "string") throw new Error(`${name} must be text`);
   const normalized = value.normalize("NFC").trim();
   if (!normalized) throw new Error(`${name} is required`);
   return normalized;
@@ -47,12 +53,16 @@ export const canonicalizeReport = (report: VulnerabilityReport): string => {
   }
   const normalized = {
     affectedAsset: requireText(report.affectedAsset, "affectedAsset"),
-    attachments: report.attachments.map((attachment) => ({
+    attachments: report.attachments.map((attachment) => {
+      if (!Number.isSafeInteger(attachment.size) || attachment.size < 0) throw new Error("attachment.size must be a nonnegative safe integer");
+      if (typeof attachment.sha256 !== "string" || !/^[0-9a-fA-F]{64}$/.test(attachment.sha256.trim())) throw new Error("attachment.sha256 must be a SHA-256 hex digest");
+      return {
       filename: requireText(attachment.filename, "attachment.filename"),
       mediaType: requireText(attachment.mediaType, "attachment.mediaType"),
       sha256: requireText(attachment.sha256, "attachment.sha256").toLowerCase(),
       size: attachment.size,
-    })),
+      };
+    }),
     impact: requireText(report.impact, "impact"),
     reproductionSteps: report.reproductionSteps.map((step, index) =>
       requireText(step, `reproductionSteps[${index}]`),

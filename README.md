@@ -73,7 +73,7 @@ npm run compact:skip-zk
 npm run demo
 ```
 
-Open `http://127.0.0.1:5173`. Guided Local mode performs real canonicalization, SHA-256 commitment preparation, AES-GCM encryption, and ciphertext storage, while clearly labeling workflow transitions as a guided product demonstration. Connect a compatible Lace wallet to submit actual Midnight transactions from the browser.
+Open `http://127.0.0.1:5173`. Guided Local mode performs real canonicalization, SHA-256 commitment preparation, AES-GCM encryption, and ciphertext storage, while clearly labeling workflow transitions as a guided product demonstration. For actual Midnight transactions, connect a compatible Lace wallet, create a network program, and then submit a new report. Connecting a wallet does not convert a guided report into a network report.
 
 ## Compile the Compact contract
 
@@ -99,7 +99,7 @@ npm run test:e2e
 npm run audit:prod
 ```
 
-The Playwright configuration uses installed Chrome and exercises the complete guided journey at desktop and Pixel 7 viewports. Optional visual captures:
+The Playwright configuration builds and serves the production UI with installed Chrome, then exercises the complete guided journey, rejection/closure, failed-retest recovery, and custom program policies at desktop and Pixel 7 viewports. CI installs Chrome and runs these same journeys. Optional visual captures:
 
 ```powershell
 $env:VULNSEAL_CAPTURE_VISUALS='1'; npm run test:e2e
@@ -177,6 +177,8 @@ The production-ready narration is in [demo-script.md](docs/demo-script.md).
 - Preprod can reset and is not mainnet; the recorded deployment is test-network evidence, not a production-security or permanence guarantee.
 
 Read [SECURITY.md](SECURITY.md), [threat-model.md](docs/threat-model.md), and [claims-evidence.md](docs/claims-evidence.md) before treating VulnSeal as more than experimental software.
+
+The current completion audit and remaining end-to-end work are tracked in [readiness-audit.md](docs/readiness-audit.md). Browser role secrets are randomly generated per tab, but durable recovery and cross-user key exchange are still incomplete; keep the experimental session open while using it.
 
 ## Wave status
 

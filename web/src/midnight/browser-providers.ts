@@ -4,6 +4,7 @@ import type { ConnectedAPI, InitialAPI } from "@midnight-ntwrk/dapp-connector-ap
 import { FetchZkConfigProvider } from "@midnight-ntwrk/midnight-js-fetch-zk-config-provider";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
+import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { fromHex, toHex } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
 import {
   Binding,
@@ -46,10 +47,15 @@ const waitForWallet = async (timeoutMs = 1_500): Promise<InitialAPI> => {
   throw new Error("Compatible Midnight Lace wallet not found");
 };
 
-const connect = async (networkId: string): Promise<ConnectedAPI> => {
-  const connected = await (await waitForWallet()).connect(networkId);
+const assertConnection = async (connected: ConnectedAPI, networkId: string): Promise<void> => {
   const status = await connected.getConnectionStatus();
   if (status.status !== "connected") throw new Error("Wallet authorization was not granted");
+  if (status.networkId !== networkId) throw new Error("Wallet is connected to a different Midnight network");
+};
+
+const connect = async (networkId: string): Promise<ConnectedAPI> => {
+  const connected = await (await waitForWallet()).connect(networkId);
+  await assertConnection(connected, networkId);
   return connected;
 };
 
@@ -59,7 +65,9 @@ export const initializeBrowserProviders = async (
   const connected = await connect(networkId);
   const config = await connected.getConfiguration();
   if (!config.proverServerUri) throw new Error("Wallet has no proof-server configuration");
+  if (config.networkId !== networkId) throw new Error("Wallet configuration does not match the requested Midnight network");
   const addresses = await connected.getShieldedAddresses();
+  setNetworkId(networkId);
   const zkConfigProvider = new FetchZkConfigProvider<VulnSealCircuitKeys>(
     window.location.origin,
     window.fetch.bind(window),
@@ -84,6 +92,7 @@ export const initializeBrowserProviders = async (
         ttl?: Date,
       ): Promise<FinalizedTransaction> => {
         void ttl;
+        await assertConnection(connected, networkId);
         const balanced = await connected.balanceUnsealedTransaction(
           toHex(transaction.serialize()),
         );
@@ -97,6 +106,7 @@ export const initializeBrowserProviders = async (
     },
     midnightProvider: {
       submitTx: async (transaction: FinalizedTransaction): Promise<TransactionId> => {
+        await assertConnection(connected, networkId);
         await connected.submitTransaction(toHex(transaction.serialize()));
         const identifier = transaction.identifiers()[0];
         if (identifier === undefined) throw new Error("Submitted transaction has no identifier");

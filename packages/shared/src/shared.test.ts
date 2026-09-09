@@ -6,6 +6,7 @@ import {
   contractStatusName,
   openReport,
   prepareCommitmentInputs,
+  parseCiphertextEnvelope,
   redactForLog,
   sealReport,
   validateContentDigest,
@@ -41,6 +42,18 @@ describe("privacy primitives", () => {
     expect(canonicalizeReport({ ...report })).toBe(canonicalizeReport(report));
   });
 
+  it("sorts normalized keys consistently without losing special object keys", () => {
+    expect(canonicalizeJson({ "e\u0301": 1, z: 2 })).toBe(canonicalizeJson({ "é": 1, z: 2 }));
+    expect(() => canonicalizeJson({ "e\u0301": 1, "é": 2 })).toThrow("duplicate normalized keys");
+    expect(canonicalizeJson(JSON.parse('{"__proto__":{"private":"retained"},"a":1}'))).toBe('{"__proto__":{"private":"retained"},"a":1}');
+  });
+
+  it("validates attachment digests and lengths before sealing", () => {
+    for (const attachment of [{ ...report.attachments[0]!, sha256: "not-a-digest" }, { ...report.attachments[0]!, size: -1 }, { ...report.attachments[0]!, size: 1.5 }]) {
+      expect(() => canonicalizeReport({ ...report, attachments: [attachment] })).toThrow(/attachment\./);
+    }
+  });
+
   it("validates Compact commitment input widths without imitating its hash", () => {
     const inputs = prepareCommitmentInputs({
       programId: new Uint8Array(32).fill(1),
@@ -73,6 +86,14 @@ describe("privacy primitives", () => {
     await expect(openReport(JSON.stringify(parsed), sealed.key)).rejects.toThrow(
       "Ciphertext authentication failed",
     );
+  });
+
+  it("rejects extra fields and malformed envelopes before decryption", async () => {
+    const sealed = await sealReport(report, "program-demo");
+    expect(() => parseCiphertextEnvelope(JSON.stringify({ ...sealed.envelope, title: "plaintext" }))).toThrow("malformed");
+    expect(() => parseCiphertextEnvelope(JSON.stringify({ ...sealed.envelope, ciphertext: "AA" }))).toThrow("authentication tag");
+    expect(() => parseCiphertextEnvelope(JSON.stringify({ ...sealed.envelope, aad: "private report title" }))).toThrow("public program identifier");
+    await expect(sealReport(report, "private report title")).rejects.toThrow("Invalid public program identifier");
   });
 
   it("detects content digest mismatches", async () => {

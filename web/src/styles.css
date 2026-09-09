@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap");
 
 :root {
   color-scheme: dark;
@@ -28,7 +27,7 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: auto; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--bg); }
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
@@ -342,7 +341,7 @@ input:focus, textarea:focus, select:focus { border-color: #536839; }
 
 @media (max-width: 700px) {
   .topbar { height: 62px; padding: 0 16px; }
-  .brand small, .persona-control, .network-button { display: none; }
+  .brand small, .persona-control { display: none; }
   .truth-banner { display: block; font-size: 9px; line-height: 1.5; }
   .truth-banner span { display: block; margin-bottom: 2px; }
   .page, .landing, .narrow-page { width: min(100% - 30px, 1180px); padding: 38px 0 92px; }
@@ -378,3 +377,13 @@ input:focus, textarea:focus, select:focus { border-color: #536839; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+.workflow-controls { min-width: 0; margin: 0; padding: 0; border: 0; }
+.session-actions { display: flex; justify-content: flex-end; padding: 8px 20px; }
+.audit-transaction { display: block; margin-top: 6px; overflow-wrap: anywhere; font-size: 9px; color: var(--muted); }
+.policy-text { white-space: pre-line; overflow-wrap: anywhere; }
+.hash-row { flex-wrap: wrap; }
+.hash-row > div { min-width: 0; flex: 1; }
+.hash-row code { overflow-wrap: anywhere; }
+.hash-row > [role="status"] { flex-basis: 100%; color: var(--warning); font-size: 11px; }
+button:disabled { cursor: wait; opacity: .55; }

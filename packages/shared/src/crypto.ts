@@ -62,6 +62,7 @@ export const parseCiphertextEnvelope = (serialized: string): CiphertextEnvelope 
   if (value === null || typeof value !== "object") throw new Error("Invalid ciphertext envelope");
   const candidate = value as Record<string, unknown>;
   if (
+    JSON.stringify(Object.keys(candidate).sort()) !== JSON.stringify(["aad", "algorithm", "ciphertext", "iv", "keyDerivation", "version"]) ||
     candidate.version !== 1 ||
     candidate.algorithm !== ENVELOPE_ALGORITHM ||
     candidate.keyDerivation !== "none-random-256-bit-key" ||
@@ -74,7 +75,12 @@ export const parseCiphertextEnvelope = (serialized: string): CiphertextEnvelope 
   if (base64UrlToBytes(candidate.iv).byteLength !== IV_LENGTH) {
     throw new Error("AES-GCM IV must be 12 bytes");
   }
-  base64UrlToBytes(candidate.ciphertext);
+  if (base64UrlToBytes(candidate.ciphertext).byteLength < 16) {
+    throw new Error("AES-GCM ciphertext must include an authentication tag");
+  }
+  if (!/^vulnseal:ciphertext:v1:[A-Za-z0-9_-]{1,128}$/.test(candidate.aad)) {
+    throw new Error("Ciphertext must be bound to a public program identifier");
+  }
   return {
     version: 1,
     algorithm: ENVELOPE_ALGORITHM,
@@ -91,6 +97,7 @@ export const sealReport = async (
   providedKey?: Uint8Array,
   providedIv?: Uint8Array,
 ): Promise<SealedReport> => {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(publicProgramId)) throw new Error("Invalid public program identifier");
   const canonicalReport = canonicalizeReport(report);
   const canonicalBytes = utf8(canonicalReport);
   const canonicalReportDigest = await sha256(canonicalBytes);
@@ -149,7 +156,8 @@ export const openReport = async (
         arrayBuffer(base64UrlToBytes(envelope.ciphertext)),
       ),
     );
-    return JSON.parse(fromUtf8(plaintext)) as VulnerabilityReport;
+    const report = JSON.parse(fromUtf8(plaintext)) as VulnerabilityReport;
+    return JSON.parse(canonicalizeReport(report)) as VulnerabilityReport;
   } catch (error) {
     throw new Error("Ciphertext authentication failed", { cause: error });
   }

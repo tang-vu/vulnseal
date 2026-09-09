@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { VulnSealApi } from "@vulnseal/api/api";
 import { CipherstoreClient } from "@vulnseal/api/cipherstore-client";
 import type { TransactionEvidence, VulnSealProviders } from "@vulnseal/api/types";
@@ -22,6 +22,8 @@ import {
   type VulnerabilityReport,
 } from "@vulnseal/shared";
 import { initializeBrowserProviders } from "./midnight/browser-providers.js";
+import { workflowTimeline, workflowStatement, type WorkflowEvent, type WorkflowTimeline } from "./workflow.js";
+import { defaultProgram, readProgramForm, programConstructor, severityLabel, type ProgramPolicy } from "./program.js";
 
 type Screen =
   | "home"
@@ -42,9 +44,6 @@ type Operation =
   | { readonly state: "error"; readonly label: string; readonly detail: string };
 
 const env = validateEnvironment(import.meta.env);
-const programBytes = new Uint8Array(32).fill(0x17);
-const vendorSecret = new Uint8Array(32).fill(0x2a);
-const researcherSecret = new Uint8Array(32).fill(0x51);
 
 const shortHex = (value?: Uint8Array): string => {
   if (value === undefined) return "Not anchored";
@@ -52,7 +51,6 @@ const shortHex = (value?: Uint8Array): string => {
   return `${hex.slice(0, 10)}…${hex.slice(-8)}`;
 };
 
-const copy = async (value: string): Promise<void> => navigator.clipboard.writeText(value);
 
 const initialReport: VulnerabilityReport = {
   schemaVersion: 1,
@@ -89,16 +87,22 @@ function Pill({ tone = "neutral", children }: { readonly tone?: string; readonly
 }
 
 function HashValue({ label, value }: { readonly label: string; readonly value: Uint8Array | undefined }) {
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const full = value === undefined ? "" : bytesToHex(value);
+  const copy = async (): Promise<void> => {
+    try { await navigator.clipboard.writeText(full); setCopyState("copied"); }
+    catch { setCopyState("failed"); }
+  };
   return (
     <div className="hash-row">
       <div>
         <span className="eyebrow">{label}</span>
-        <code>{shortHex(value)}</code>
+        <code title={full}>{copyState === "failed" ? full : shortHex(value)}</code>
       </div>
       {value !== undefined && (
-        <button className="icon-button" aria-label={`Copy ${label}`} onClick={() => void copy(full)}>Copy</button>
+        <button className="icon-button" aria-label={`Copy ${label}`} onClick={() => void copy()}>{copyState === "copied" ? "Copied" : "Copy"}</button>
       )}
+      {copyState === "failed" && <span role="status">Clipboard unavailable. Select the value to copy it manually.</span>}
     </div>
   );
 }
@@ -121,10 +125,18 @@ function EmptyState({ title, detail, action }: {
 function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [persona, setPersona] = useState<Persona>("researcher");
-  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("guided-local");
+  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>(env.mode);
+  const [vendorSecret] = useState(() => randomBytes(32));
+  const [researcherSecret] = useState(() => randomBytes(32));
+  const busy = useRef(false);
   const [providers, setProviders] = useState<VulnSealProviders>();
   const [api, setApi] = useState<VulnSealApi>();
-  const [programCreated, setProgramCreated] = useState(true);
+  const [programCreated, setProgramCreated] = useState(env.mode === "guided-local");
+  const [programBytes, setProgramBytes] = useState(() => randomBytes(32));
+  const [programPolicy, setProgramPolicy] = useState(defaultProgram);
+  const [severity, setSeverity] = useState(3);
+  const [acceptedSeverity, setAcceptedSeverity] = useState(3);
+  const [rationale, setRationale] = useState("Authorization is missing after organization lookup. Reproduced in the test tenant.");
   const [report, setReport] = useState<VulnerabilityReport>(initialReport);
   const [sealed, setSealed] = useState<SealedReport>();
   const [vendorReport, setVendorReport] = useState<VulnerabilityReport>();
@@ -135,29 +147,64 @@ function App() {
   const [payoutReceipt, setPayoutReceipt] = useState<Uint8Array>();
   const [status, setStatus] = useState<ReportStatusName>("COMMITTED");
   const [evidence, setEvidence] = useState<TransactionEvidence[]>([]);
+  const [events, setEvents] = useState<WorkflowEvent[]>([]);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
   const [operation, setOperation] = useState<Operation>({ state: "idle" });
   const [patchReference, setPatchReference] = useState("release/2026.09.1+7f34c82");
   const [retestNotes, setRetestNotes] = useState("Original reproduction now returns HTTP 403 for the cross-tenant request.");
 
   const modeLabel = runtimeMode === "midnight" ? "Midnight network" : "Guided local";
   const networkReady = api !== undefined;
-  const isSealed = sealed !== undefined && reportId !== undefined;
-  const timeline = useMemo(() => {
-    const order: ReportStatusName[] = [
-      "COMMITTED",
-      "TRIAGED",
-      "ACCEPTED",
-      "PATCH_READY",
-      "RETEST_PASSED",
-      "PAYOUT_AUTHORIZED",
-    ];
-    const position = Math.max(0, order.indexOf(status));
-    return order.map((entry, index) => ({
-      entry,
-      complete: index <= position,
-      current: index === position,
-    }));
-  }, [status]);
+  const timeline = useMemo(() => workflowTimeline(events), [events]);
+
+  const recordTransition = (next: ReportStatusName, transaction?: TransactionEvidence): void => {
+    setStatus(next);
+    setEvents((entries) => [...entries, { status: next, ...(transaction ? { evidence: transaction } : {}) }]);
+    if (transaction) setEvidence((entries) => [...entries, transaction]);
+  };
+
+  const beginAction = (allowed?: readonly ReportStatusName[]): boolean => {
+    if (busy.current) return false;
+    if (needsRefresh) {
+      setOperation({ state: "error", label: "Public commitments need a refresh", detail: "The transaction finalized. Refresh public commitments before continuing; do not resubmit it." });
+      return false;
+    }
+    if (runtimeMode === "midnight" && api === undefined) {
+      setOperation({ state: "error", label: "Program not deployed", detail: "Connect Lace and create a Midnight program before submitting reports or changing their status." });
+      return false;
+    }
+    if (allowed && (!reportId || !allowed.includes(status))) {
+      setOperation({ state: "error", label: "Transition unavailable", detail: "This action is not allowed at the report’s current stage." });
+      return false;
+    }
+    busy.current = true;
+    return true;
+  };
+
+  const refreshCommitments = async (expectedStatus = status): Promise<void> => {
+    if (!api || !reportId) return;
+    setNeedsRefresh(true);
+    const snapshot = await api.readPublicState();
+    const record = snapshot.ledger.reports.lookup(reportId);
+    if (contractStatusName(record.status) !== expectedStatus) throw new Error("Indexer state does not match the finalized session transition. Refresh public commitments again before continuing.");
+    const present = (value: Uint8Array) => value.some((byte) => byte !== 0) ? value : undefined;
+    setPatchCommitment(present(record.patchCommitment));
+    setRetestCommitment(present(record.retestCommitment));
+    setPayoutReceipt(present(record.payoutReceipt));
+    setNeedsRefresh(false);
+  };
+
+  const retryPublicRead = async (): Promise<void> => {
+    if (busy.current) return;
+    busy.current = true;
+    setOperation({ state: "working", label: "Refreshing public commitments", detail: "Reading the indexer without submitting another transaction." });
+    try {
+      await refreshCommitments();
+      setOperation({ state: "idle" });
+    } catch {
+      setOperation({ state: "error", label: "Public read unavailable", detail: "The finalized transaction is retained. Try Refresh public commitments when the indexer is available." });
+    } finally { busy.current = false; }
+  };
 
   const changeScreen = (next: Screen, nextPersona?: Persona): void => {
     if (nextPersona !== undefined) setPersona(nextPersona);
@@ -166,11 +213,18 @@ function App() {
   };
 
   const connectWallet = async (): Promise<void> => {
+    if (busy.current || providers) return;
+    if (reportId) {
+      setOperation({ state: "error", label: "Local report remains local", detail: "A guided report cannot become a network report by connecting a wallet. Open its submission receipt and choose Seal another to start a fresh session first." });
+      return;
+    }
+    busy.current = true;
     setOperation({ state: "working", label: "Connecting wallet", detail: "Waiting for a compatible Lace connector API." });
     try {
       const initialized = await initializeBrowserProviders(env.network === "undeployed" ? "preprod" : env.network);
       setProviders(initialized);
       setRuntimeMode("midnight");
+      setProgramCreated(false);
       setOperation({ state: "idle" });
     } catch (error) {
       setOperation({
@@ -178,46 +232,49 @@ function App() {
         label: "Wallet unavailable",
         detail: error instanceof Error ? error.message : "Wallet connection failed",
       });
-    }
+    } finally { busy.current = false; }
   };
 
   const createProgram = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
+    if (busy.current) return;
+    if (reportId || api) {
+      setOperation({ state: "error", label: "Program already in use", detail: "Keep this program open to finish the current workflow. Create a separate program in a new tab." });
+      return;
+    }
+    busy.current = true;
+    const form = new FormData(event.currentTarget);
     setOperation({ state: "working", label: "Creating program", detail: networkReady ? "Generating a deployment proof and awaiting finality." : "Preparing the guided local program." });
     try {
+      const policy = readProgramForm(form);
+      const identifier = randomBytes(32);
+      const constructor = await programConstructor(identifier, policy);
       if (runtimeMode === "midnight") {
         if (providers === undefined) throw new Error("Connect a wallet before deploying a Midnight program");
-        const [scope, response, reward, disclosure] = await Promise.all([
-          sha256(utf8("api.acme.test and *.acme.test")),
-          sha256(utf8("acknowledge:2d;triage:7d;updates:14d")),
-          sha256(utf8("P1:4;P2:3;P3:2;P4:1")),
-          sha256(utf8("coordinated:90d")),
-        ]);
         const deployed = await VulnSealApi.deploy(
           providers,
           createVulnSealPrivateState(vendorSecret),
-          {
-            programId: programBytes,
-            scopeDigest: scope,
-            responsePolicyDigest: response,
-            responseDays: 7n,
-            rewardPolicyDigest: reward,
-            disclosurePolicyDigest: disclosure,
-            disclosureDelayDays: 90n,
-          },
+          constructor,
         );
         setApi(deployed.api);
         setEvidence([deployed.evidence]);
       }
+      setProgramBytes(identifier);
+      setProgramPolicy(policy);
       setProgramCreated(true);
       setOperation({ state: "idle" });
       changeScreen("dashboard", "vendor");
     } catch (error) {
       setOperation({ state: "error", label: "Program creation failed", detail: error instanceof Error ? error.message : "Unknown deployment error" });
-    }
+    } finally { busy.current = false; }
   };
 
   const submitSealedReport = async (): Promise<void> => {
+    if (reportId) {
+      changeScreen("receipt");
+      return;
+    }
+    if (!beginAction()) return;
     changeScreen("seal", "researcher");
     setOperation({ state: "working", label: "Canonicalizing report", detail: "Normalizing a deterministic private report document in this browser." });
     try {
@@ -241,6 +298,7 @@ function App() {
           ? "Lace will authorize the transaction after the proof server returns a real proof."
           : "Guided local mode calculates the real Compact commitment but does not submit a transaction.",
       });
+      let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
         await api.usePrivateState(
           createVulnSealPrivateState(researcherSecret, {
@@ -249,13 +307,12 @@ function App() {
             salt,
           }),
         );
-        const transaction = await api.submitReport(encrypted.ciphertextDigest);
-        setEvidence((entries) => [...entries, transaction]);
+        transaction = await api.submitReport(encrypted.ciphertextDigest);
       }
       setSealed(encrypted);
       setReportSalt(salt);
       setReportId(commitment);
-      setStatus("COMMITTED");
+      recordTransition("COMMITTED", transaction);
       setOperation({ state: "idle" });
       changeScreen("receipt", "researcher");
     } catch (error) {
@@ -264,14 +321,16 @@ function App() {
         label: "Sealing stopped safely",
         detail: error instanceof Error ? error.message : "Unknown sealing error",
       });
-    }
+    } finally { busy.current = false; }
   };
 
   const openVendorReview = async (): Promise<void> => {
+    if (busy.current) return;
     if (sealed === undefined) {
       changeScreen("triage", "vendor");
       return;
     }
+    busy.current = true;
     setOperation({
       state: "working",
       label: "Opening encrypted report",
@@ -290,35 +349,40 @@ function App() {
         label: "Vendor decryption failed",
         detail: error instanceof Error ? error.message : "Unable to open encrypted report",
       });
-    }
+    } finally { busy.current = false; }
   };
 
   const vendorTransition = async (kind: "triage" | "accept" | "reject"): Promise<void> => {
     if (reportId === undefined) return;
+    if (!beginAction(kind === "triage" ? ["COMMITTED"] : ["TRIAGED"])) return;
     setOperation({ state: "working", label: kind === "triage" ? "Opening triage" : kind === "accept" ? "Accepting report" : "Rejecting report", detail: api ? "Proving vendor authorization and awaiting finality." : "Updating the clearly labeled guided local workflow." });
     try {
+      if (kind !== "triage" && !rationale.trim()) throw new Error("Enter a private decision rationale");
+      let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
         await api.usePrivateState(createVulnSealPrivateState(vendorSecret));
-        const transaction = kind === "triage"
+        transaction = kind === "triage"
           ? await api.beginTriage(reportId)
           : kind === "accept"
-            ? await api.acceptReport(reportId, 3n, await sha256(utf8("accepted:P2:2026-09-01")))
-            : await api.rejectReport(reportId, await sha256(utf8("rejected:policy:2026-09-01")));
-        setEvidence((entries) => [...entries, transaction]);
+            ? await api.acceptReport(reportId, BigInt(severity), await sha256(utf8(rationale.trim())))
+            : await api.rejectReport(reportId, await sha256(utf8(rationale.trim())));
       }
-      setStatus(kind === "triage" ? "TRIAGED" : kind === "accept" ? "ACCEPTED" : "REJECTED");
+      if (kind === "accept") setAcceptedSeverity(severity);
+      recordTransition(kind === "triage" ? "TRIAGED" : kind === "accept" ? "ACCEPTED" : "REJECTED", transaction);
       setOperation({ state: "idle" });
     } catch (error) {
       setOperation({ state: "error", label: "Transition rejected", detail: error instanceof Error ? error.message : "Unknown transition error" });
-    }
+    } finally { busy.current = false; }
   };
 
   const anchorPatch = async (): Promise<void> => {
     if (reportId === undefined) return;
+    if (!beginAction(["ACCEPTED", "RETEST_FAILED"])) return;
     setOperation({ state: "working", label: "Anchoring patch", detail: api ? "Binding the private patch digest to this report." : "Preparing a local patch reference without claiming an on-chain transaction." });
     try {
+      if (!patchReference.trim()) throw new Error("Enter a patch or release reference");
       const patchDigest = await sha256(utf8(patchReference));
-      let publicPatch = patchDigest;
+      let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
         await api.usePrivateState(
           createVulnSealPrivateState(vendorSecret, undefined, {
@@ -326,25 +390,27 @@ function App() {
             patchDigest,
           }),
         );
-        const transaction = await api.anchorPatch(reportId);
-        setEvidence((entries) => [...entries, transaction]);
-        const snapshot = await api.readPublicState();
-        publicPatch = snapshot.ledger.reports.lookup(reportId).patchCommitment;
+        transaction = await api.anchorPatch(reportId);
       }
-      setPatchCommitment(publicPatch);
-      setStatus("PATCH_READY");
+      setPatchCommitment(api ? undefined : patchDigest);
+      setRetestCommitment(undefined);
+      setPayoutReceipt(undefined);
+      recordTransition("PATCH_READY", transaction);
+      if (api) await refreshCommitments("PATCH_READY");
       setOperation({ state: "idle" });
     } catch (error) {
       setOperation({ state: "error", label: "Patch anchoring failed", detail: error instanceof Error ? error.message : "Unknown patch error" });
-    }
+    } finally { busy.current = false; }
   };
 
   const submitRetest = async (passed: boolean): Promise<void> => {
     if (reportId === undefined || reportSalt === undefined || sealed === undefined || patchCommitment === undefined) return;
+    if (!beginAction(["PATCH_READY"])) return;
     setOperation({ state: "working", label: "Submitting retest", detail: api ? "Proving report ownership and binding private evidence to the anchored patch." : "Recording a local preview result without claiming a proof." });
     try {
+      if (!retestNotes.trim()) throw new Error("Enter private retest notes");
       const evidenceDigest = await sha256(utf8(retestNotes));
-      let publicRetest = evidenceDigest;
+      let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
         await api.usePrivateState(
           createVulnSealPrivateState(
@@ -362,43 +428,56 @@ function App() {
             },
           ),
         );
-        const transaction = await api.submitRetest(reportId, passed);
-        setEvidence((entries) => [...entries, transaction]);
-        const snapshot = await api.readPublicState();
-        publicRetest = snapshot.ledger.reports.lookup(reportId).retestCommitment;
+        transaction = await api.submitRetest(reportId, passed);
       }
-      setRetestCommitment(publicRetest);
-      setStatus(passed ? "RETEST_PASSED" : "RETEST_FAILED");
+      setRetestCommitment(api ? undefined : evidenceDigest);
+      recordTransition(passed ? "RETEST_PASSED" : "RETEST_FAILED", transaction);
+      if (api) await refreshCommitments(passed ? "RETEST_PASSED" : "RETEST_FAILED");
       setOperation({ state: "idle" });
     } catch (error) {
       setOperation({ state: "error", label: "Retest rejected", detail: error instanceof Error ? error.message : "Unknown retest error" });
-    }
+    } finally { busy.current = false; }
   };
 
   const authorizePayout = async (): Promise<void> => {
     if (reportId === undefined) return;
+    if (!beginAction(["RETEST_PASSED"])) return;
     setOperation({ state: "working", label: "Authorizing payout", detail: api ? "Checking accepted and passed-retest state inside the contract." : "Recording local authorization only—no funds move." });
     try {
-      let receipt = await sha256(utf8(`local-preview:${bytesToHex(reportId)}:tier-3`));
+      const receipt = api ? undefined : await sha256(utf8(`local-preview:${bytesToHex(reportId)}:tier-${acceptedSeverity}`));
+      let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
         await api.usePrivateState(createVulnSealPrivateState(vendorSecret));
-        const transaction = await api.authorizePayout(reportId, 3n);
-        setEvidence((entries) => [...entries, transaction]);
-        const snapshot = await api.readPublicState();
-        const record = snapshot.ledger.reports.lookup(reportId);
-        receipt = record.payoutReceipt;
-        setStatus(contractStatusName(record.status));
-      } else {
-        setStatus("PAYOUT_AUTHORIZED");
+        transaction = await api.authorizePayout(reportId, BigInt(acceptedSeverity));
       }
+      recordTransition("PAYOUT_AUTHORIZED", transaction);
       setPayoutReceipt(receipt);
+      if (api) await refreshCommitments("PAYOUT_AUTHORIZED");
       setOperation({ state: "idle" });
     } catch (error) {
       setOperation({ state: "error", label: "Payout authorization rejected", detail: error instanceof Error ? error.message : "Unknown authorization error" });
-    }
+    } finally { busy.current = false; }
+  };
+
+  const closeReport = async (): Promise<void> => {
+    if (!reportId || !beginAction(["REJECTED", "PAYOUT_AUTHORIZED"])) return;
+    setOperation({ state: "working", label: "Closing report", detail: api ? "Awaiting the authorized closure transaction." : "Closing the guided local workflow." });
+    try {
+      let transaction: TransactionEvidence | undefined;
+      if (api) {
+        await api.usePrivateState(createVulnSealPrivateState(vendorSecret));
+        transaction = await api.closeReport(reportId);
+      }
+      recordTransition("CLOSED", transaction);
+      setOperation({ state: "idle" });
+      changeScreen("verify", "verifier");
+    } catch (error) {
+      setOperation({ state: "error", label: "Closure failed", detail: error instanceof Error ? error.message : "Unable to close report" });
+    } finally { busy.current = false; }
   };
 
   const resetDemo = (): void => {
+    if (busy.current) return;
     setSealed(undefined);
     setVendorReport(undefined);
     setReportSalt(undefined);
@@ -407,6 +486,10 @@ function App() {
     setRetestCommitment(undefined);
     setPayoutReceipt(undefined);
     setStatus("COMMITTED");
+    setEvents([]);
+    setNeedsRefresh(false);
+    setSeverity(3);
+    setAcceptedSeverity(3);
     setEvidence(api === undefined ? [] : evidence.slice(0, 1));
     setOperation({ state: "idle" });
     changeScreen("submit", "researcher");
@@ -417,7 +500,7 @@ function App() {
       case "home":
         return <Landing onExplore={() => changeScreen("dashboard")} onSubmit={() => changeScreen("submit", "researcher")} />;
       case "dashboard":
-        return <Dashboard programCreated={programCreated} status={status} reportId={reportId} timeline={timeline} onCreate={() => changeScreen("create", "vendor")} onTriage={() => void openVendorReview()} onVerify={() => changeScreen("verify", "verifier")} />;
+        return <Dashboard programCreated={programCreated} programPolicy={programPolicy} programBytes={programBytes} status={status} reportId={reportId} timeline={timeline} onCreate={() => changeScreen("create", "vendor")} onTriage={() => void openVendorReview()} onVerify={() => changeScreen("verify", "verifier")} />;
       case "create":
         return <CreateProgram mode={runtimeMode} connected={providers !== undefined} operation={operation} onConnect={() => void connectWallet()} onSubmit={(event) => void createProgram(event)} />;
       case "submit":
@@ -427,11 +510,11 @@ function App() {
       case "receipt":
         return <Receipt sealed={sealed} reportId={reportId} evidence={evidence} network={api !== undefined} onTriage={() => void openVendorReview()} onReset={resetDemo} />;
       case "triage":
-        return <Triage status={status} reportId={reportId} report={vendorReport} operation={operation} onBegin={() => void vendorTransition("triage")} onAccept={() => void vendorTransition("accept")} onReject={() => void vendorTransition("reject")} onResolution={() => changeScreen("resolution", "vendor")} />;
+        return <Triage status={status} reportId={reportId} report={vendorReport} operation={operation} severity={severity} rationale={rationale} onSeverity={setSeverity} onRationale={setRationale} onBegin={() => void vendorTransition("triage")} onAccept={() => void vendorTransition("accept")} onReject={() => void vendorTransition("reject")} onResolution={() => changeScreen("resolution", "vendor")} onClose={() => void closeReport()} />;
       case "resolution":
-        return <Resolution status={status} reportId={reportId} patchCommitment={patchCommitment} retestCommitment={retestCommitment} payoutReceipt={payoutReceipt} operation={operation} patchReference={patchReference} retestNotes={retestNotes} onPatchReference={setPatchReference} onRetestNotes={setRetestNotes} onAnchor={() => void anchorPatch()} onRetest={(passed) => void submitRetest(passed)} onAuthorize={() => void authorizePayout()} onVerify={() => changeScreen("verify", "verifier")} />;
+        return <Resolution status={status} reportId={reportId} patchCommitment={patchCommitment} retestCommitment={retestCommitment} payoutReceipt={payoutReceipt} operation={operation} severity={acceptedSeverity} patchReference={patchReference} retestNotes={retestNotes} onPatchReference={setPatchReference} onRetestNotes={setRetestNotes} onAnchor={() => void anchorPatch()} onRetest={(passed) => void submitRetest(passed)} onAuthorize={() => void authorizePayout()} onVerify={() => changeScreen("verify", "verifier")} onClose={() => void closeReport()} />;
       case "verify":
-        return <Verifier status={status} reportId={reportId} sealed={sealed} patchCommitment={patchCommitment} retestCommitment={retestCommitment} payoutReceipt={payoutReceipt} evidence={evidence} timeline={timeline} network={api !== undefined} />;
+        return <Verifier status={status} reportId={reportId} sealed={sealed} patchCommitment={patchCommitment} retestCommitment={retestCommitment} payoutReceipt={payoutReceipt} timeline={timeline} network={api !== undefined} />;
       case "privacy":
         return <PrivacyModel />;
     }
@@ -460,7 +543,7 @@ function App() {
               <option value="verifier">Verifier</option>
             </select>
           </div>
-          <button className="network-button" onClick={() => void connectWallet()}>
+          <button className="network-button" disabled={operation.state === "working" || providers !== undefined} onClick={() => void connectWallet()}>
             <span className={`status-dot ${providers ? "online" : ""}`} aria-hidden="true" />
             {providers ? "Lace connected" : modeLabel}
           </button>
@@ -469,16 +552,18 @@ function App() {
       {runtimeMode === "guided-local" && (
         <div className="truth-banner" role="status">
           <span>Guided local mode</span>
-          Web Crypto and Compact commitment calculation are real. Workflow changes are not Midnight transactions until Lace is connected.
+          Web Crypto and Compact commitment calculation are real. Workflow changes are not Midnight transactions. Network submissions require Lace and a deployed program.
         </div>
       )}
+      {runtimeMode === "midnight" && !networkReady && <div className="truth-banner" role="status"><span>Network setup required</span>Connect Lace and create a program before submitting a report. <button className="secondary-button" onClick={() => changeScreen("create", "vendor")}>Set up program</button></div>}
+      {reportId && <div className="session-actions"><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("receipt")}>Submission receipt</button>{needsRefresh && <button className="primary-button" disabled={operation.state === "working"} onClick={() => void retryPublicRead()}>Refresh public commitments</button>}</div>}
       {operation.state === "error" && screen !== "seal" && (
         <div className="global-operation" role="alert">
           <strong>{operation.label}</strong>
           <span>{operation.detail}</span>
         </div>
       )}
-      <main id="main-content">{main}</main>
+      <main id="main-content" aria-busy={operation.state === "working"}><fieldset className="workflow-controls" disabled={operation.state === "working"}>{main}</fieldset></main>
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {navigation.slice(0, 5).map((item) => (
           <button key={item.screen} className={screen === item.screen ? "active" : ""} onClick={() => changeScreen(item.screen)}>
@@ -538,39 +623,41 @@ function Landing({ onExplore, onSubmit }: { readonly onExplore: () => void; read
   );
 }
 
-function Dashboard({ programCreated, status, reportId, timeline, onCreate, onTriage, onVerify }: {
+function Dashboard({ programCreated, programPolicy, programBytes, status, reportId, timeline, onCreate, onTriage, onVerify }: {
   readonly programCreated: boolean; readonly status: ReportStatusName; readonly reportId: Uint8Array | undefined;
-  readonly timeline: ReadonlyArray<{ entry: ReportStatusName; complete: boolean; current: boolean }>;
+  readonly programPolicy: ProgramPolicy; readonly programBytes: Uint8Array;
+  readonly timeline: WorkflowTimeline;
   readonly onCreate: () => void; readonly onTriage: () => void; readonly onVerify: () => void;
 }) {
   if (!programCreated) return <section className="page"><EmptyState title="No disclosure program yet" detail="Publish scope and response commitments before accepting sealed reports." action={<button className="primary-button" onClick={onCreate}>Create program</button>} /></section>;
+  const open = reportId !== undefined && !["REJECTED", "CLOSED", "PAYOUT_AUTHORIZED"].includes(status);
   return (
     <section className="page">
-      <PageHeading eyebrow="Vendor workspace" title="Acme Security Program" detail="A public policy surface with a private disclosure channel." actions={<><button className="secondary-button" onClick={onVerify}>Public view</button><button className="primary-button" onClick={onCreate}>New program</button></>} />
+      <PageHeading eyebrow="Vendor workspace" title={programPolicy.name} detail="A public policy surface with a private disclosure channel." actions={<><button className="secondary-button" onClick={onVerify}>Public view</button><button className="primary-button" onClick={onCreate}>New program</button></>} />
       <div className="metric-grid">
-        <article className="metric-card"><span>Open sealed reports</span><strong>{reportId ? "1" : "0"}</strong><small>{reportId ? "Requires vendor attention" : "No pending reports"}</small></article>
+        <article className="metric-card"><span>Open sealed reports</span><strong>{open ? "1" : "0"}</strong><small>{open ? "Requires vendor attention" : "No pending reports"}</small></article>
         <article className="metric-card"><span>Median first response</span><strong>—</strong><small>Waiting for real program data</small></article>
-        <article className="metric-card"><span>Resolved this wave</span><strong>{status === "PAYOUT_AUTHORIZED" || status === "CLOSED" ? "1" : "0"}</strong><small>No invented historical metrics</small></article>
+        <article className="metric-card"><span>Authorized in this session</span><strong>{timeline.some((event) => event.complete && event.entry === "PAYOUT_AUTHORIZED") ? "1" : "0"}</strong><small>Payout authorization is not a transfer</small></article>
         <article className="metric-card accent-card"><span>Privacy posture</span><strong>Sealed</strong><small>0 private report fields public</small></article>
       </div>
       <div className="dashboard-grid">
         <section className="panel report-panel">
-          <div className="panel-head"><div><span className="eyebrow">Report queue</span><h2>Active disclosures</h2></div><Pill tone={reportId ? "warning" : "neutral"}>{reportId ? "1 open" : "Empty"}</Pill></div>
+          <div className="panel-head"><div><span className="eyebrow">Report queue</span><h2>Session disclosure</h2></div><Pill tone={open ? "warning" : "neutral"}>{open ? "1 open" : reportId ? "Inactive" : "Empty"}</Pill></div>
           {reportId ? (
             <button className="report-row" onClick={onTriage}>
-              <span className="severity-mark">P2</span><span><strong>Sealed report {shortHex(reportId)}</strong><small>Exploit content private · submission receipt available</small></span><Pill tone="accent">{publicStatusLabel[status]}</Pill><span aria-hidden="true">›</span>
+              <span className="severity-mark" aria-hidden="true">◆</span><span><strong>Sealed report {shortHex(reportId)}</strong><small>Exploit content private · submission receipt available</small></span><Pill tone="accent">{publicStatusLabel[status]}</Pill><span aria-hidden="true">›</span>
             </button>
           ) : <EmptyState title="No reports have been sealed" detail="A researcher submission appears here after ciphertext storage and commitment." />}
         </section>
         <aside className="panel policy-card">
           <div className="panel-head"><div><span className="eyebrow">Public configuration</span><h2>Program policy</h2></div><span className="verified-mark" aria-label="Policy active">✓</span></div>
-          <dl><div><dt>Scope</dt><dd>api.acme.test · *.acme.test</dd></div><div><dt>First response</dt><dd>Within 7 days</dd></div><div><dt>Disclosure window</dt><dd>90 days</dd></div><div><dt>Reward policy</dt><dd>Four public tiers</dd></div></dl>
+          <dl><div><dt>Scope</dt><dd>{[programPolicy.primaryScope, programPolicy.additionalScope].filter(Boolean).join(" · ")}</dd></div><div><dt>First response</dt><dd>Within {programPolicy.responseDays} days</dd></div><div><dt>Disclosure window</dt><dd>{programPolicy.disclosureDays} days</dd></div><div><dt>Reward policy</dt><dd className="policy-text">{programPolicy.rewardPolicy}</dd></div></dl>
           <HashValue label="Program identifier" value={programBytes} />
         </aside>
       </div>
       <section className="panel lifecycle-panel">
         <div className="panel-head"><div><span className="eyebrow">Current lifecycle</span><h2>Authorized workflow</h2></div><span className="muted">Contract-relative order</span></div>
-        <div className="horizontal-timeline">{timeline.map(({ entry, complete, current }, index) => <div className={complete ? "complete" : ""} key={entry}><span className={current ? "current" : ""}>{complete ? "✓" : index + 1}</span><small>{publicStatusLabel[entry]}</small></div>)}</div>
+        <div className="horizontal-timeline">{timeline.map(({ entry, complete, current }, index) => <div className={complete ? "complete" : ""} key={index}><span className={current ? "current" : ""}>{complete ? "✓" : index + 1}</span><small>{publicStatusLabel[entry]}</small></div>)}</div>
       </section>
     </section>
   );
@@ -581,12 +668,12 @@ function CreateProgram({ mode, connected, operation, onConnect, onSubmit }: { re
     <section className="page narrow-page">
       <PageHeading eyebrow="Vendor setup" title="Create a disclosure program" detail="Publish the minimum policy surface researchers need. Sensitive internal procedures stay off-ledger." />
       <form className="form-panel" onSubmit={onSubmit}>
-        <div className="form-section"><span className="step-number">01</span><div><h2>Program identity</h2><p>This name is for the interface. The contract stores a fixed public identifier.</p></div></div>
-        <label>Program name<input defaultValue="Acme Security Program" required /></label>
-        <div className="field-grid"><label>Primary scope<input defaultValue="api.acme.test" required /></label><label>Additional scope<input defaultValue="*.acme.test" /></label></div>
+        <div className="form-section"><span className="step-number">01</span><div><h2>Program identity</h2><p>This name is for the interface. Each program receives a random public identifier.</p></div></div>
+        <label>Program name<input name="name" defaultValue={defaultProgram.name} required /></label>
+        <div className="field-grid"><label>Primary scope<input name="primaryScope" defaultValue={defaultProgram.primaryScope} required /></label><label>Additional scope<input name="additionalScope" defaultValue={defaultProgram.additionalScope} /></label></div>
         <div className="form-section"><span className="step-number">02</span><div><h2>Response and disclosure policy</h2><p>These values become public commitments and coarse policy fields.</p></div></div>
-        <div className="field-grid"><label>First response target<select defaultValue="7"><option value="2">2 days</option><option value="7">7 days</option><option value="14">14 days</option></select></label><label>Coordinated disclosure window<select defaultValue="90"><option value="30">30 days</option><option value="60">60 days</option><option value="90">90 days</option></select></label></div>
-        <label>Reward policy<textarea defaultValue={"P1 · Critical — Tier 4\nP2 · High — Tier 3\nP3 · Medium — Tier 2\nP4 · Low — Tier 1"} rows={4} /></label>
+        <div className="field-grid"><label>First response target<select name="responseDays" defaultValue="7"><option value="2">2 days</option><option value="7">7 days</option><option value="14">14 days</option></select></label><label>Coordinated disclosure window<select name="disclosureDays" defaultValue="90"><option value="30">30 days</option><option value="60">60 days</option><option value="90">90 days</option></select></label></div>
+        <label>Reward policy<textarea name="rewardPolicy" defaultValue={defaultProgram.rewardPolicy} rows={4} required /></label>
         <div className="reveal-box"><span aria-hidden="true">◈</span><div><strong>What becomes public?</strong><p>Program identifier, authorization key, scope digest, response targets, and policy digests. Internal contacts and triage playbooks do not.</p></div></div>
         {mode === "midnight" && !connected && <div className="inline-error"><strong>Wallet disconnected</strong><span>Connect Lace before deployment.</span><button type="button" className="secondary-button" onClick={onConnect}>Connect Lace</button></div>}
         {operation.state !== "idle" && <OperationNotice operation={operation} />}
@@ -660,7 +747,7 @@ function Receipt({ sealed, reportId, evidence, network, onTriage, onReset }: { r
   );
 }
 
-function Triage({ status, reportId, report, operation, onBegin, onAccept, onReject, onResolution }: { readonly status: ReportStatusName; readonly reportId: Uint8Array | undefined; readonly report: VulnerabilityReport | undefined; readonly operation: Operation; readonly onBegin: () => void; readonly onAccept: () => void; readonly onReject: () => void; readonly onResolution: () => void }) {
+function Triage({ status, reportId, report, operation, severity, rationale, onSeverity, onRationale, onBegin, onAccept, onReject, onResolution, onClose }: { readonly status: ReportStatusName; readonly reportId: Uint8Array | undefined; readonly report: VulnerabilityReport | undefined; readonly operation: Operation; readonly severity: number; readonly rationale: string; readonly onSeverity: (value: number) => void; readonly onRationale: (value: string) => void; readonly onBegin: () => void; readonly onAccept: () => void; readonly onReject: () => void; readonly onResolution: () => void; readonly onClose: () => void }) {
   if (reportId === undefined) return <section className="page"><EmptyState title="Triage queue is empty" detail="A sealed submission is required before vendor review." /></section>;
   if (report === undefined) return <section className="page"><EmptyState title="Encrypted report is not open" detail="Open the report from its receipt or program queue to fetch and decrypt the authenticated ciphertext." /></section>;
   return (
@@ -676,13 +763,14 @@ function Triage({ status, reportId, report, operation, onBegin, onAccept, onReje
         </section>
         <aside className="panel decision-panel">
           <span className="eyebrow">Authorized decision</span><h2>Triage controls</h2>
-          <label>Public severity tier<select defaultValue="3"><option value="4">P1 · Critical</option><option value="3">P2 · High</option><option value="2">P3 · Medium</option><option value="1">P4 · Low</option></select></label>
-          <label>Private rationale<textarea rows={5} defaultValue="Authorization is missing after organization lookup. Reproduced in the test tenant." /></label>
-          <div className="reveal-list"><strong>On acceptance, reveal:</strong><span>✓ Accepted status</span><span>✓ Severity tier 3</span><span>✓ Decision digest</span><span className="private">◆ Rationale remains private</span></div>
+          <label>Public severity tier<select value={severity} disabled={status !== "COMMITTED" && status !== "TRIAGED"} onChange={(event) => onSeverity(Number(event.target.value))}><option value="4">P1 · Critical</option><option value="3">P2 · High</option><option value="2">P3 · Medium</option><option value="1">P4 · Low</option></select></label>
+          <label>Private rationale<textarea rows={5} value={rationale} readOnly={status !== "COMMITTED" && status !== "TRIAGED"} onChange={(event) => onRationale(event.target.value)} /></label>
+          <div className="reveal-list"><strong>On acceptance, reveal:</strong><span>✓ Accepted status</span><span>✓ Severity tier {severity}</span><span>✓ Decision digest</span><span className="private">◆ Rationale remains private</span></div>
           {operation.state !== "idle" && <OperationNotice operation={operation} />}
           {status === "COMMITTED" && <button className="primary-button wide" onClick={onBegin}>Begin authorized triage</button>}
-          {status === "TRIAGED" && <><button className="primary-button wide" onClick={onAccept}>Accept as P2</button><button className="danger-button wide" onClick={onReject}>Reject with digest</button></>}
+          {status === "TRIAGED" && <><button className="primary-button wide" onClick={onAccept}>Accept as {severityLabel(severity)}</button><button className="danger-button wide" onClick={onReject}>Reject with digest</button></>}
           {status === "REJECTED" && <div className="warning-box"><span aria-hidden="true">!</span><div><strong>Report rejected</strong><p>The authorized rejection and decision digest are now part of the public trail; private rationale remains sealed.</p></div></div>}
+          {status === "REJECTED" && <button className="secondary-button wide" onClick={onClose}>Close report</button>}
           {(status === "ACCEPTED" || status === "PATCH_READY" || status.startsWith("RETEST") || status === "PAYOUT_AUTHORIZED") && <button className="primary-button wide" onClick={onResolution}>Continue to remediation</button>}
         </aside>
       </div>
@@ -694,36 +782,41 @@ function Resolution(props: {
   readonly status: ReportStatusName; readonly reportId: Uint8Array | undefined; readonly patchCommitment: Uint8Array | undefined; readonly retestCommitment: Uint8Array | undefined; readonly payoutReceipt: Uint8Array | undefined; readonly operation: Operation;
   readonly patchReference: string; readonly retestNotes: string; readonly onPatchReference: (value: string) => void; readonly onRetestNotes: (value: string) => void;
   readonly onAnchor: () => void; readonly onRetest: (passed: boolean) => void; readonly onAuthorize: () => void; readonly onVerify: () => void;
+  readonly onClose: () => void;
+  readonly severity: number;
 }) {
   if (props.reportId === undefined) return <section className="page"><EmptyState title="No resolution workflow" detail="Accept a report before anchoring a patch." /></section>;
+  if (["COMMITTED", "TRIAGED", "REJECTED", "CLOSED"].includes(props.status)) return <section className="page"><EmptyState title="Resolution unavailable" detail={workflowStatement[props.status]} action={<button className="secondary-button" onClick={props.onVerify}>Open public verifier</button>} /></section>;
   const stage = props.status === "ACCEPTED" ? 0 : props.status === "PATCH_READY" ? 1 : props.status === "RETEST_PASSED" ? 2 : props.status === "PAYOUT_AUTHORIZED" ? 3 : 0;
   return (
     <section className="page narrow-page">
       <PageHeading eyebrow="Patch and retest" title="Prove the resolution path" detail="Each commitment is bound to this report. A payout receipt can exist only after acceptance and a passing retest." />
       <div className="resolution-rail">{["Patch", "Retest", "Authorize", "Verify"].map((label, index) => <div className={index <= stage ? "complete" : ""} key={label}><span>{index < stage ? "✓" : index + 1}</span><small>{label}</small></div>)}</div>
       <section className="form-panel resolution-card">
+        {props.status === "RETEST_FAILED" && <div className="warning-box"><strong>Retest failed. Anchor a revised patch before requesting another retest.</strong></div>}
         {stage === 0 && <><span className="eyebrow">Vendor step</span><h2>Anchor a private patch commitment</h2><p>Hash the release reference locally. The circuit binds its private digest to report {shortHex(props.reportId)}.</p><label>Patch or release reference<input value={props.patchReference} onChange={(event) => props.onPatchReference(event.target.value)} /></label><div className="reveal-box"><span aria-hidden="true">◈</span><div><strong>Public output</strong><p>A domain-separated patch commitment—never source code, diff contents, or private repository location.</p></div></div><button className="primary-button" onClick={props.onAnchor}>Anchor patch commitment</button></>}
         {stage === 1 && <><span className="eyebrow">Researcher step</span><h2>Submit private retest evidence</h2><HashValue label="Patch commitment" value={props.patchCommitment} /><label>Private retest notes<textarea rows={5} value={props.retestNotes} onChange={(event) => props.onRetestNotes(event.target.value)} /></label><div className="result-choice"><button className="selected" onClick={() => props.onRetest(true)}><span>✓</span><strong>Pass retest</strong><small>Disclose result only</small></button><button onClick={() => props.onRetest(false)}><span>×</span><strong>Fail retest</strong><small>Return to vendor</small></button></div></>}
-        {stage === 2 && <><span className="eyebrow">Vendor step</span><h2>Authorize the bounty—not a transfer</h2><HashValue label="Retest commitment" value={props.retestCommitment} /><div className="reward-summary"><div><span>Public reward tier</span><strong>Tier 3 · P2</strong></div><div><span>Funds moved</span><strong>None in Wave 1</strong></div></div><button className="primary-button" onClick={props.onAuthorize}>Generate payout authorization</button></>}
+        {stage === 2 && <><span className="eyebrow">Vendor step</span><h2>Authorize the bounty—not a transfer</h2><HashValue label="Retest commitment" value={props.retestCommitment} /><div className="reward-summary"><div><span>Public reward tier</span><strong>Tier {props.severity} · {severityLabel(props.severity)}</strong></div><div><span>Funds moved</span><strong>None in Wave 1</strong></div></div><button className="primary-button" onClick={props.onAuthorize}>Generate payout authorization</button></>}
         {stage === 3 && <><div className="success-emblem small" aria-hidden="true">✓</div><span className="eyebrow accent">Workflow complete</span><h2>Payout authorization is verifiable</h2><HashValue label="Payout authorization receipt" value={props.payoutReceipt} /><p>No token transfer is claimed. The receipt proves the contract reached the configured accepted → patch → passed-retest path.</p><button className="primary-button" onClick={props.onVerify}>Open public verifier</button></>}
         {props.operation.state !== "idle" && <OperationNotice operation={props.operation} />}
+        {props.status === "PAYOUT_AUTHORIZED" && <button className="secondary-button" onClick={props.onClose}>Close report</button>}
       </section>
     </section>
   );
 }
 
-function Verifier({ status, reportId, sealed, patchCommitment, retestCommitment, payoutReceipt, evidence, timeline, network }: {
-  readonly status: ReportStatusName; readonly reportId: Uint8Array | undefined; readonly sealed: SealedReport | undefined; readonly patchCommitment: Uint8Array | undefined; readonly retestCommitment: Uint8Array | undefined; readonly payoutReceipt: Uint8Array | undefined; readonly evidence: readonly TransactionEvidence[]; readonly timeline: ReadonlyArray<{ entry: ReportStatusName; complete: boolean; current: boolean }>; readonly network: boolean;
+function Verifier({ status, reportId, sealed, patchCommitment, retestCommitment, payoutReceipt, timeline, network }: {
+  readonly status: ReportStatusName; readonly reportId: Uint8Array | undefined; readonly sealed: SealedReport | undefined; readonly patchCommitment: Uint8Array | undefined; readonly retestCommitment: Uint8Array | undefined; readonly payoutReceipt: Uint8Array | undefined; readonly timeline: WorkflowTimeline; readonly network: boolean;
 }) {
   if (reportId === undefined || sealed === undefined) return <section className="page"><PageHeading eyebrow="Public verifier" title="Verify a sealed disclosure" detail="Open a completed receipt to load its public commitment trail." /><EmptyState title="No public trail loaded" detail="The verifier never needs the vulnerability plaintext, encryption key, salt, or researcher identity." /></section>;
   return (
     <section className="page verifier-page">
-      <PageHeading eyebrow="Public verifier" title="Resolution trail verified" detail="Anyone can inspect this audit surface. It contains no exploit content or researcher contact." actions={<Pill tone={network ? "success" : "warning"}>{network ? "Indexer-backed evidence" : "Guided local trail"}</Pill>} />
-      <div className="verdict-card"><span className="verdict-mark" aria-hidden="true">✓</span><div><span className="eyebrow">Verifiable statement</span><h2>Report existed, remained sealed, followed the authorized process, passed retest, and reached payout authorization—without exposing the exploit.</h2><p>{network ? "Supported by finalized Midnight transaction evidence shown below." : "This screen demonstrates the public data model only. It is not presented as on-chain evidence."}</p></div></div>
+      <PageHeading eyebrow="Public verifier" title={network ? "Public transaction trail" : "Guided workflow preview"} detail="This view contains public commitments and workflow metadata, without exploit content or researcher contact." actions={<Pill tone={network ? "success" : "warning"}>{network ? "Session transaction evidence" : "Guided local trail"}</Pill>} />
+      <div className="verdict-card"><span className="verdict-mark" aria-hidden="true">{status === "PAYOUT_AUTHORIZED" ? "✓" : "i"}</span><div><span className="eyebrow">{network ? "Recorded workflow state" : "Simulated workflow state"}</span><h2>{workflowStatement[status]}</h2><p>{network ? "These finalized transactions were recorded by this session. This view is not an independent refresh of current ledger state." : "This screen demonstrates the public data model only. It is not presented as on-chain evidence."}</p></div></div>
       <div className="verifier-grid">
         <section className="panel audit-timeline"><div className="panel-head"><div><span className="eyebrow">Audit timeline</span><h2>Public workflow</h2></div><Pill tone="accent">{publicStatusLabel[status]}</Pill></div>
-          {timeline.map(({ entry, complete }, index) => (
-            <div className={complete ? "audit-event complete" : "audit-event"} key={entry}><span>{complete ? "✓" : index + 1}</span><div><strong>{publicStatusLabel[entry]}</strong><small>{complete ? evidence[index]?.blockHeight ? `Finalized at block ${evidence[index]?.blockHeight}` : network ? `Finalized transaction ${index + 1}` : `Guided sequence ${index + 1}` : "Not reached"}</small></div>{complete && <Pill tone="success">{network ? "Finalized" : "Local step"}</Pill>}</div>
+          {timeline.map(({ entry, complete, evidence: transaction }, index) => (
+            <div className={complete ? "audit-event complete" : "audit-event"} key={index}><span>{complete ? "✓" : index + 1}</span><div><strong>{publicStatusLabel[entry]}</strong><small>{complete ? transaction ? `Finalized at block ${transaction.blockHeight}` : network ? "Finality evidence unavailable" : `Guided sequence ${index + 1}` : "Not reached"}</small>{transaction && <code className="audit-transaction">{transaction.txId}</code>}</div>{complete && <Pill tone={transaction ? "success" : "warning"}>{transaction ? "Finalized" : network ? "Unverified" : "Local step"}</Pill>}</div>
           ))}
         </section>
         <aside className="panel public-data-card"><div className="panel-head"><div><span className="eyebrow">Public data</span><h2>Commitment set</h2></div></div><HashValue label="Report" value={reportId} /><HashValue label="Ciphertext" value={sealed.ciphertextDigest} /><HashValue label="Patch" value={patchCommitment} /><HashValue label="Retest" value={retestCommitment} /><HashValue label="Payout auth" value={payoutReceipt} /><div className="privacy-score"><span>Private fields exposed</span><strong>0</strong></div></aside>

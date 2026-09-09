@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHash } from "node:crypto";
-import { constants } from "node:fs";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { link, mkdir, open, readFile, unlink } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 
@@ -59,6 +58,40 @@ const validateEnvelope = (bytes: Uint8Array): void => {
   ) {
     throw new Error("INVALID_ENVELOPE");
   }
+  const decode = (value: string): Buffer => {
+    if (!/^[A-Za-z0-9_-]+$/.test(value)) throw new Error("INVALID_ENVELOPE");
+    const bytes = Buffer.from(value, "base64url");
+    if (bytes.toString("base64url") !== value) throw new Error("INVALID_ENVELOPE");
+    return bytes;
+  };
+  if (decode(envelope.iv).length !== 12 || decode(envelope.ciphertext).length < 16 ||
+      !/^vulnseal:ciphertext:v1:[A-Za-z0-9_-]{1,128}$/.test(envelope.aad)) {
+    throw new Error("INVALID_ENVELOPE");
+  }
+};
+
+const errorCode = (error: unknown): string | undefined =>
+  error !== null && typeof error === "object" && "code" in error ? String(error.code) : undefined;
+
+/** Publish only a complete, flushed blob, without replacing a concurrent writer. */
+const storeImmutable = async (filename: string, body: Uint8Array): Promise<boolean> => {
+  const temporary = `${filename}.${randomUUID()}.tmp`;
+  const file = await open(temporary, "wx", 0o600);
+  try {
+    try {
+      await file.writeFile(body);
+      await file.sync();
+    } finally { await file.close(); }
+    try {
+      await link(temporary, filename);
+      return true;
+    } catch (error) {
+      if (errorCode(error) !== "EEXIST") throw error;
+      const existing = await readFile(filename);
+      if (!existing.equals(Buffer.from(body))) throw new Error("IMMUTABLE_CONFLICT");
+      return false;
+    }
+  } finally { await unlink(temporary); }
 };
 
 export const createCipherstoreServer = (options: CipherstoreOptions) => {
@@ -90,7 +123,7 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
     try {
       await mkdir(dataDirectory, { recursive: true });
       if (request.method === "PUT") {
-        if (!request.headers["content-type"]?.startsWith(MEDIA_TYPE)) {
+        if (request.headers["content-type"]?.split(";")[0]?.trim().toLowerCase() !== MEDIA_TYPE) {
           json(response, 415, { error: "ciphertext_media_type_required" });
           return;
         }
@@ -101,29 +134,24 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
           json(response, 422, { error: "content_digest_mismatch" });
           return;
         }
-        try {
-          await access(filename, constants.F_OK);
-          const existing = await readFile(filename);
-          if (!existing.equals(Buffer.from(body))) {
-            json(response, 409, { error: "immutable_blob_conflict" });
-            return;
-          }
-          json(response, 200, { address: `sha256:${hexDigest}`, stored: false });
-        } catch {
-          await writeFile(filename, body, { flag: "wx", mode: 0o600 });
-          json(response, 201, { address: `sha256:${hexDigest}`, stored: true });
-        }
+        const stored = await storeImmutable(filename, body);
+        json(response, stored ? 201 : 200, { address: `sha256:${hexDigest}`, stored });
         return;
       }
       if (request.method === "GET") {
         try {
           const body = await readFile(filename);
+          if (createHash("sha256").update(body).digest("hex") !== hexDigest) {
+            json(response, 500, { error: "stored_blob_corrupted" });
+            return;
+          }
           response.writeHead(200, {
             "content-type": MEDIA_TYPE,
             "content-length": body.byteLength,
           });
           response.end(body);
-        } catch {
+        } catch (error) {
+          if (errorCode(error) !== "ENOENT") throw error;
           json(response, 404, { error: "blob_not_found" });
         }
         return;
@@ -132,9 +160,10 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
       json(response, 405, { error: "method_not_allowed" });
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
-      json(response, code === "PAYLOAD_TOO_LARGE" ? 413 : 400, {
-        error: code === "INVALID_ENVELOPE" ? "invalid_ciphertext_envelope" : "invalid_request",
-      });
+      if (code === "PAYLOAD_TOO_LARGE") json(response, 413, { error: "payload_too_large" });
+      else if (code === "INVALID_ENVELOPE") json(response, 400, { error: "invalid_ciphertext_envelope" });
+      else if (code === "IMMUTABLE_CONFLICT") json(response, 409, { error: "immutable_blob_conflict" });
+      else json(response, 500, { error: "storage_unavailable" });
     }
   });
 };

@@ -1,6 +1,6 @@
 # Wave 1 progress — Proof of Disclosure
 
-Last updated: 2026-09-02.
+Last updated: 2026-09-09. The original Wave 1 baseline is retained below. Follow-up work improves browser state/evidence correctness, policy forms, wallet network binding, atomic ciphertext storage, and schema validation; production E2E now covers eight desktop/mobile cases. All eight recorded Preprod identifiers were independently reverified on September 9. Exact results and remaining completion gaps are in [validation-report.md](validation-report.md) and [readiness-audit.md](readiness-audit.md).
 
 ## Completion gates
 
