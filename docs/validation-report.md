@@ -1,5 +1,11 @@
 # Validation report
 
+## Exact generated-directory copies — 2026-09-09
+
+Contract/web artifact copying now replaces each generated directory from a completed temporary copy instead of overlaying files. This removes obsolete key/circuit files; an absent optional source directory produces an empty destination rather than retaining old keys. Required source absence, redirected paths and overlapping/out-of-workspace paths are rejected. Copy failure preserves the old destination; a reported installation-rename failure attempts rollback. A rollback failure retains its temporary recovery copy and reports its path. This is per-directory installation, not a transaction across an entire build or crash-atomic publication. Build and serving must remain separate.
+
+The release suite passed **seven tests**, including stale-file removal, absent optional keys, required-source failure, path rejection, simulated copy failure and simulated installation failure with rollback. The normal `release:build` passed fresh compiler-source comparison, all six builds and packaging: **eight circuits, 62 files, 62,567,604 bytes**. Afterwards, synthetic obsolete `.prover` files were placed only in contract/web `dist` directories; both actual copy scripts removed them, and the readonly release manifest check passed with the same file count and bytes. Original generated source files were not changed. Application and browser suites were not rerun for this packaging-only increment.
+
 ## Staged compiler output and retained recovery — 2026-09-09
 
 Full compilation and fresh syntax compilation now generate into an isolated `.compact/compile-*` directory under an exclusive cooperative compiler lock. The launcher verifies compiler files and, for a full compile, nonempty regular prover/verifier/binary-ZKIR files for every proving circuit. A changed source blocks installation. Only successful output is promoted; any old managed directory is archived in the same staging area. Installed source-map paths are adjusted to the final directory. Failure before promotion leaves existing artifacts untouched. Two-rename promotion is not crash-atomic: a crash between renames or failure of rollback requires manual recovery, and builds must not run concurrently. No semantic key verification or automatic cleanup is claimed.
