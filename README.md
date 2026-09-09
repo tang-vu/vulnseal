@@ -72,6 +72,7 @@ Versions are pinned from the current official `midnightntwrk/example-bboard` and
 npm ci
 cp .env.example .env
 npm run compact:skip-zk
+npm run build
 npm run demo
 ```
 
@@ -98,14 +99,14 @@ For independent client implementations, the [single-role transaction API](docs/r
 The role workspace supports password-encrypted browser autosave for identity and prepared/received reports, with fresh-tab unlock and revision checks against conflicting tab writes. Real role submissions require autosave so the transaction identifier can be persisted before calling the wallet; the [submission journal](docs/adr/0012-submission-journal.md) records attempts without claiming success or finality. Keep a downloaded backup too: clearing browser data removes local copies. Draft edits, transition notes and receiving keys are outside this autosave. See [the storage design](docs/adr/0011-encrypted-browser-autosave.md).
 
 ```bash
-npm run typecheck
-npm run test:run
-npm run build
+npm run validate
 npm run test:e2e
 npm run audit:prod
 ```
 
-The Playwright configuration builds and serves the production UI with installed Chrome, then exercises the complete guided journey, rejection/closure, failed-retest recovery, custom program policies, and encrypted backup/restore after closing a tab at desktop and Pixel 7 viewports. CI installs Chrome and runs these same journeys. Optional visual captures:
+`validate` first builds shared, contract and API packages before their consumers, then runs all typechecks and tests against those current artifacts. Compile the Compact bindings first on a new checkout. Individual workspace checks rely on these built package exports; use the root validation command after cross-package changes to avoid stale `dist` imports.
+
+The Playwright configuration builds and serves the production UI with installed Chrome, then exercises the complete guided journey, rejection/closure, failed-retest recovery, custom program policies, and encrypted backup/restore after closing a tab at desktop and Pixel 7 viewports. Browser concurrency is bounded to four workers locally and two in CI because each loads ledger WASM and performs backup/key cryptography. CI installs Chrome and runs these same journeys. Optional visual captures:
 
 ```powershell
 $env:VULNSEAL_CAPTURE_VISUALS='1'; npm run test:e2e

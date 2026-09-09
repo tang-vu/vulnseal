@@ -40,7 +40,7 @@ jobs:
       - name: Compile Compact bindings and ZKIR
         run: npm run compact:skip-zk
 
-      - name: Typecheck, unit tests, and production builds
+      - name: Build dependencies, typecheck, and test current artifacts
         run: npm run validate
 
       - name: Production dependency audit

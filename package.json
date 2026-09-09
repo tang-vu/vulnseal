@@ -8,11 +8,11 @@
     "node": ">=24.11.1"
   },
   "workspaces": [
+    "packages/shared",
     "contract",
     "api",
     "cipherstore",
     "integration",
-    "packages/shared",
     "web"
   ],
   "scripts": {
@@ -32,7 +32,7 @@
     "midnight:proof:down": "docker compose --env-file infra/arm64-emulation.env -f infra/standalone.yml stop proof-server",
     "midnight:down": "docker compose -f infra/standalone.yml down",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "validate": "npm run typecheck && npm run test:run && npm run build",
+    "validate": "npm run build && npm run typecheck && npm run test:run",
     "audit:prod": "npm audit --omit=dev",
     "demo": "concurrently -k -n cipherstore,web -c yellow,green \"npm run dev -w @vulnseal/cipherstore\" \"npm run dev -w @vulnseal/web\""
   },

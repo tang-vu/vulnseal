@@ -1,5 +1,19 @@
 # Validation report
 
+## Fresh workspace artifacts and release-gate review — 2026-09-09
+
+The former `validate` order ran typechecks/tests before builds even though workspace exports resolve to `dist`. Removing all six workspace `dist` directories from their expected locations reproduced API TS2307 errors for missing contract/shared declarations. The original build directories were preserved in a temporary archive; generated Compact source artifacts and installed dependencies were retained. The workspace order now builds shared before contract/API/consumers, and `validate` builds first, then typechecks and tests current artifacts. CI and quick-start instructions follow that order.
+
+| Check | Command / environment | Observed result |
+| --- | --- | --- |
+| Fresh dist validation | `npm run validate` with no workspace `dist` present initially | Exit 0; six workspaces rebuilt/typechecked; 26 test files / 122 tests passed |
+| Production dependency audit | `npm audit --omit=dev --json` | Exit 0; 0 reported vulnerabilities |
+| Local browser proof-asset inventory | Rebuilt `web/dist/keys` and `web/dist/zkir` | 8 prover/verifier pairs and 8 ZKIR/BZKIR pairs present from existing generated Compact artifacts |
+| Initial full browser run | `npm run test:e2e`, automatic 14 workers | Exit 1; 28 passed, 4 failed waiting 5 seconds for sealing; traces showed PUT requests with no captured response, not a definitive server error |
+| Final full browser run | `npm run test:e2e`, bounded 4 workers | Exit 0; all 32 passed in 1.7 minutes; assertions and timeouts unchanged |
+
+Browser concurrency is now four locally and two in CI to bound concurrent WASM/cryptography workloads. The successful run does not establish the root cause of every high-concurrency stall or constitute production load testing. This audit proves a build with absent workspace dist artifacts, not a fresh dependency installation, fresh proving-key generation, native wallet ceremony or GitHub-hosted CI execution. Prior green local runs alone did not establish clean-build readiness. Publication and live native-wallet release gates remain open.
+
 ## Cipherstore writer exclusion — 2026-09-09
 
 The CLI now leases its canonical data directory before listening. Backup creation leases the source and restoration leases its fresh destination. SIGINT/SIGTERM stops accepting connections, waits for server close and remaining request/file operations, then releases the lease. Abandoned locks require operator inspection; there is no automatic stale-lock takeover.
