@@ -1,5 +1,17 @@
 # Validation report
 
+## Consolidated validation of recovery and wallet changes — 2026-09-09
+
+At code revision `87071f8`, `npm run validate` exited successfully without reruns: all six workspace builds and typechecks passed, followed by **230 tests across 44 files** (shared 13, contract 13, API 27, ciphertext service 18, integration 9, web 150). The web portion took 69.80 seconds and includes all three retest checkpoint-ordering cases in one green full run. Generated source-map warnings remain; they did not fail compilation or tests.
+
+The eight compiler/release/HTTP/copy/environment test files also passed together under `node --test`: **15 tests, zero failures or skips**, in 1.35 seconds. These verify local tooling behavior, not remote CI or deployed service configuration.
+
+The full ordinary browser suite passed **70 desktop/mobile cases in 3.8 minutes**, using two workers with `CI=1`, no retries and no test exclusions. It includes v9 retest-choice recovery and production-worker patch/retest comparison in the expanded suite. Wallet responses remain injected where applicable; historical chain replay uses captured evidence rather than a new native-wallet ceremony.
+
+The separate replication suite passed **4 desktop/mobile cases in 46.4 seconds**, also without retries. Two actual local ciphertext services retained identical envelopes, partial writes blocked completion, corrupt replicas were rejected and offline backfill reused saved ciphertext. This does not establish independently operated or geographically separate storage.
+
+After both browser configurations, the final normal `release:build` exited successfully and restored the default artifact: **8 circuits, 62 files, 62,616,549 bytes**. Its fresh source comparison at 12:03:40.100 UTC matched retained compiler output; proving keys were not regenerated. Public hosting, remote CI, native Lace, physical-device recovery and the unimplemented roadmap remain separate completion requirements.
+
 ## Verify retest checkpoint ordering from workspace controls — 2026-09-09
 
 Three component regressions now drive the real workspace Pass/Fail controls while holding the mocked storage write unresolved. They decrypt the pending write and require v9, the matching report/operation, exact note whitespace, the explicit choice and no finalization. Submission continuation must remain untouched until storage resolves, and stay untouched when storage rejects. A later callback outside the operation must fail; no follow-up ledger read or automatic retry occurs. Storage and role session are mocked, so these establish application ordering, not native-wallet or physical-disk durability.
