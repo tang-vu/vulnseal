@@ -2,7 +2,31 @@
 import { describe, expect, it } from "vitest";
 import { decryptRoleVault, encryptRoleVault, parseInvitation, validateRoleVault, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withFinalizedSubmission, type RoleVault } from "./role-recovery.js";
 import { recoveryFixture } from "./test/recovery-fixture.js";
-import { withSubmissionNotes } from "./role-recovery.js";
+import { withSubmissionNotes, withRetestChoice } from "./role-recovery.js";
+
+it("preserves explicit retest choices through v9 recovery and later edits without guessing older choices", async () => {
+  const original = await roleFixture(), reportId = original.reports[0]!.reportId;
+  const first = "12".repeat(32), second = "34".repeat(32);
+  let vault = await withSubmissionAttempt(original, first, { circuit: "submitRetest", reportId });
+  vault = await withSubmissionAttempt(vault, second, { circuit: "submitRetest", reportId });
+  vault = await withRetestChoice(vault, second, false);
+  expect(vault.version).toBe(9);
+  expect(vault.submissionAttempts![0]!.retestPassed).toBeNull();
+  expect(vault.submissionAttempts![1]!.retestPassed).toBe(false);
+  vault = await withSubmissionNotes(vault, second, { reportId, text: "Retest failed", tier: "3" });
+  vault = withAttachmentDraft(vault, { filename: "", mediaType: "", size: "", digest: "" });
+  vault = await withSubmissionAttempt(vault, "56".repeat(32), { circuit: "submitReport", reportId });
+  vault = await withFinalizedSubmission(vault, { circuit: "submitRetest", txId: second, blockHeight: "901" });
+  expect(vault.version).toBe(9);
+  expect(vault.submissionAttempts![1]!.retestPassed).toBe(false);
+  expect(vault.submissionAttempts![2]!.retestPassed).toBeNull();
+  const encrypted = await encryptRoleVault(vault, "Retest choice recovery password");
+  expect(await decryptRoleVault(encrypted, "Retest choice recovery password")).toEqual(vault);
+  await expect(withRetestChoice(vault, second, true)).rejects.toThrow("cannot be replaced");
+  await expect(withRetestChoice(vault, "56".repeat(32), true)).rejects.toThrow("retest intent");
+  for (const retestPassed of ["false", 0, undefined]) await expect(validateRoleVault({ ...vault, submissionAttempts: [{ ...vault.submissionAttempts![1], retestPassed }] })).rejects.toThrow();
+  await expect(validateRoleVault({ ...vault, version: 8 })).rejects.toThrow("Unsupported role document");
+});
 
 export const roleFixture = async (role: "researcher" | "vendor" = "researcher"): Promise<RoleVault> => {
   const { snapshot } = await recoveryFixture();

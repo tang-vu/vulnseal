@@ -1,5 +1,13 @@
 # Validation report
 
+## Preserve explicit retest choice in encrypted recovery — 2026-09-09
+
+Role-vault v9 adds nullable `retestPassed` per submission attempt. New retest commands capture the boolean from the actual command, attach it with immutable attempt notes, and persist the encrypted journal before wallet broadcast. Migration keeps older choices null, rejects non-boolean values or choices attached to other circuits, and prevents replacing an existing choice. Notes, attachment drafts, subsequent attempts and finalized receipts preserve v9. The unlocked journal distinguishes saved intent from verified outcome; the wallet-free projection omits it. Versions 1–8 remain accepted; old releases do not support v9. Retest commitment comparison remains open.
+
+The 12 role-workspace tests passed in the first focused run. Its new recovery test initially used the wrong attachment-fixture field (`sha256` instead of `digest`); after correcting that fixture, all **12 recovery tests passed in 11.46 seconds**. The new case checks legacy unknown choice, saved false, edit/migration preservation, encrypted round-trip, replacement rejection, invalid values and downgrade rejection. Web typechecking passed. No native wallet call was performed.
+
+After adding an explicit finalized-receipt preservation assertion, the final **12 recovery tests passed in 11.11 seconds**. All **4 desktop/mobile role-note cases passed in 1.0 minute**, including two new v9 offline-restoration cases; the ordinary browser suite now contains 70 cases, not all rerun here. The final normal release build exited successfully: **8 circuits, 62 files, 62,608,059 bytes**, with a fresh compiler comparison at 11:45:57.869 UTC and no regenerated proving keys.
+
 ## Compare saved patch context after report replay — 2026-09-09
 
 Report replay now returns the public patch commitment. The local saved-context comparison supports `anchorPatch` by hashing the attempt's exact note text and applying the retained Compact contract's domain-separated persistent-hash layout with the report ID. No private notes enter the worker payload. Missing or malformed commitments fail comparison; existing snapshots, journal states and retry controls are unchanged. Retest intent and full transaction argument reconstruction remain open.

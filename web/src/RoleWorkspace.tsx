@@ -11,7 +11,7 @@ import { createVulnSealPrivateState, pureCircuits } from "@vulnseal/contract";
 import { bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, randomBytes, sealReport, sha256, utf8, validateEnvironment, type VulnerabilityReport } from "@vulnseal/shared";
 import { initializeBrowserProviders } from "./midnight/browser-providers.js";
 import { defaultProgram, programConstructor, readProgramForm } from "./program.js";
-import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, parseInvitation, validateRoleVault, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withSubmissionNotes, withFinalizedSubmission, type ReportNotes, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
+import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, parseInvitation, validateRoleVault, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withSubmissionNotes, withRetestChoice, withFinalizedSubmission, type ReportNotes, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
 import { joinRoleVault } from "./role-network.js";
 import { HandoffPanel } from "./HandoffPanel.js";
 import { validateDisclosure, type Disclosure, type RecipientKeys } from "./handoff.js";
@@ -54,15 +54,16 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const [saved, setSaved] = useState<RoleVault>();
   const currentVault = useRef(vault); currentVault.current = vault;
   const persistJournal = useRef<((value: RoleVault) => Promise<void>) | undefined>(undefined);
+  const retestChoice = useRef<boolean | null>(null);
   const submissionNotes = useRef<ReportNotes | null>(null);
   const submissionIntent = useRef<SubmissionIntent | undefined>(undefined);
   const requireJournal = () => {
     if (!persistJournal.current) throw new Error("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
   };
-  const duringSubmission = async <T,>(intent: SubmissionIntent, action: () => Promise<T>, notes: ReportNotes | null = null): Promise<T> => {
+  const duringSubmission = async <T,>(intent: SubmissionIntent, action: () => Promise<T>, notes: ReportNotes | null = null, passed: boolean | null = null): Promise<T> => {
     if (submissionIntent.current) throw new Error("Another submission is active");
-    submissionIntent.current = intent; submissionNotes.current = notes;
-    try { return await action(); } finally { submissionIntent.current = undefined; submissionNotes.current = null; }
+    submissionIntent.current = intent; submissionNotes.current = notes; retestChoice.current = passed;
+    try { return await action(); } finally { submissionIntent.current = undefined; submissionNotes.current = null; retestChoice.current = null; }
   };
   const recordSubmission = async (transactionId: string) => {
     const current = currentVault.current, persist = persistJournal.current;
@@ -71,6 +72,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
     if (!submissionIntent.current) throw new Error("Submission intent is missing. No transaction was sent.");
     let updated = await withSubmissionAttempt(current, transactionId, submissionIntent.current);
     if (submissionNotes.current) updated = await withSubmissionNotes(updated, transactionId, submissionNotes.current);
+    if (retestChoice.current !== null) updated = await withRetestChoice(updated, transactionId, retestChoice.current);
     await persist(updated);
     currentVault.current = updated; setVault(updated); setSaved(updated);
   };
@@ -159,7 +161,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
     const command = typeof input === "function" ? await input() : input;
     setSnapshot(undefined); setReceipt(undefined);
     const id = command.kind === "submitReport" ? pureCircuits.deriveReportCommitment(Uint8Array.from(command.report.programId), Uint8Array.from(command.report.canonicalDigest), Uint8Array.from(command.report.salt)) : command.reportId;
-    const result = await duringSubmission({ circuit: command.kind, reportId: bytesToHex(id) }, () => session.execute(command), { reportId: bytesToHex(id), text: detail, tier }); setReceipt(result);
+    const result = await duringSubmission({ circuit: command.kind, reportId: bytesToHex(id) }, () => session.execute(command), { reportId: bytesToHex(id), text: detail, tier }, command.kind === "submitRetest" ? command.passed : null); setReceipt(result);
     let updated = currentVault.current!;
     try {
       updated = await withFinalizedSubmission(updated, result);
