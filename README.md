@@ -59,6 +59,8 @@ Ciphertext uploads/downloads have a 20-second client deadline. A stalled request
 
 The client also enforces the 5 MiB ciphertext limit independently of the server. Downloads are read incrementally and rejected when oversized, invalid UTF-8 or inconsistent with their digest. Where the workspace already holds a valid local encrypted copy, vendor review can fall back to that copy.
 
+Startup now shows a loading screen before the Midnight components finish downloading. A component load/render failure shows recovery guidance and an explicit reload button. Avoid clearing site data when troubleshooting: it may contain your encrypted role copies. Only previously saved data is recoverable; unsaved edits can be lost after an application failure. Basic HTML instructions remain available when JavaScript cannot start.
+
 ## Prerequisites
 
 - Node.js `>=24.11.1` (validated with `24.14.1`)

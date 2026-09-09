@@ -1,5 +1,17 @@
 # Validation report
 
+## Application startup and render failure recovery — 2026-09-09
+
+The entry point now renders a lightweight React loading screen before dynamically loading the browser globals, Midnight network module and selected app/role entry. A root error boundary handles rejected module loading and descendant render failures with generic recovery guidance and explicit reload. It does not render exception contents or clear browser storage. The HTML root also carries loading/recovery instructions, including a paragraph for JavaScript-disabled browsers.
+
+The production build/typecheck and the error-boundary component test passed. Initial bootstrap E2E checks passed the six delayed/failed WASM cases but could not locate the bare `noscript` text in the two JavaScript-disabled cases; a screenshot showed the text outside the main content. Moving it into a paragraph within the main fallback improved its placement and made all 8 bootstrap cases pass on desktop/mobile Chrome in 35.2 seconds. Those cases delay actual WASM loading, abort it at both app entries, explicitly reload after removing the fault and unlock a previously persisted real IndexedDB role copy with its password. No live wallet or contract transaction is involved.
+
+The full `CI=true npm run test:e2e` run passed all 54 desktop/mobile cases in 2.9 minutes with 2 workers, covering the shared entry-point change across all existing browser journeys.
+
+After refining the recovery text to state what this screen does (rather than guarantee the state of every saved copy), the component check passed again and a rebuilt app passed all 8 bootstrap cases in 36.3 seconds.
+
+This boundary does not recover unsaved React state or establish total offline availability. If the initial bootstrap script itself cannot load, only the static HTML guidance is available. Existing operational handlers remain responsible for async/event-handler failures; this boundary covers module-loading and rendering failures, not every possible exception.
+
 ## Bounded ciphertext response reading — 2026-09-09
 
 The client now independently enforces the service's 5 MiB envelope limit. PUT rejects excessive UTF-8 byte length before digest work/fetch. GET incrementally reads into a bounded growable byte buffer and cancels excess input without trusting `Content-Length`; decoding rejects malformed UTF-8 and preserves BOM/multibyte bytes before digest validation. Unneeded PUT/error response bodies are cancelled. The existing request deadline covers the streamed body read.
