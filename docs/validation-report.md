@@ -1,5 +1,11 @@
 # Validation report
 
+## Raw transaction content investigation and fixtures — 2026-09-09
+
+The new read-only integration collector retrieved seven historical VulnSeal contract transactions from the official Preprod indexer, checked each against retained transaction hashes, deserialized them with the actual protocol SDK, and recomputed both hashes and identifiers. All seven passed; the constructor had no call entry and the six remaining transactions each had the expected call address/circuit. Public raw bytes and decoded call projections are retained in [the fixture](evidence/preprod-raw-transactions.json), with findings and remaining report-binding work in [the investigation](transaction-content-investigation.md).
+
+The integration build passed, and its two test files / six tests passed in 928 ms. The new offline cases decode every captured transaction and reject wrong identifiers, wrong hashes, changed bytes and malformed/excessive input. The packaged `npm run preprod:inspect-transactions -w @vulnseal/integration` command also passed against all seven historical transactions without rewriting the fixture. This evidence supports SDK byte/hash/identifier compatibility; it does not verify proofs/signatures or report effects, add a browser report verifier, or establish coverage of absent reject/close/failed-retest network branches. No transaction was submitted.
+
 ## Consolidated recovery release checks — 2026-09-09
 
 At runtime commit `fa6fe57`, `npm run validate` passed all six workspace builds and typechecks, followed by 29 test files / 147 tests. This consolidated run includes the startup export, contextual submission journal, finalized deployment-address checkpoint and indexer contract-action comparison changes together. It ran on Windows with Node 24.14.1 and npm 11.11.0.
