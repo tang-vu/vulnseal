@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { VulnSealApi } from "@vulnseal/api/api";
 import { RoleSession, type RoleCommand } from "@vulnseal/api/role-session";
-import { createCipherstoreClient } from "@vulnseal/api/cipherstore-client";
+import { createCipherstoreClient, verifyCipherstoreCopies } from "@vulnseal/api/cipherstore-client";
 import { CipherstoreDestinations } from "./CipherstoreDestinations.js";
 import { uploadSavedBatch } from "./ciphertext-batch.js";
 import type { PublicContractSnapshot, TransactionEvidence } from "@vulnseal/api/types";
@@ -80,6 +80,8 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const draft = vault?.draft ?? blank;
   const [offlineRestore, setOfflineRestore] = useState(false);
   const [selectedId, setSelectedId] = useState("");
+  const [copyCheck, setCopyCheck] = useState<Awaited<ReturnType<typeof verifyCipherstoreCopies>>>();
+  useEffect(() => { setCopyCheck(undefined); }, [selectedId]);
   const [keys, setKeys] = useState<RecipientKeys>();
   const [retainedKeys, setRetainedKeys] = useState<RecipientKeys>();
   const [file, setFile] = useState<File>();
@@ -108,6 +110,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const backedUp = vault !== undefined && saved === vault;
   const uploadAll = () => run(async () => {
     if (!vault || !backedUp) throw new Error("Save the current role backup before uploading");
+    setCopyCheck(undefined);
     const controller = new AbortController();
     batchController.current = controller;
     const reports = [...vault.reports];
@@ -271,8 +274,20 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
             {chosen && <><p className="public-value">Report: {chosen.reportId}</p><SelectedRoleReport key={chosen.reportId} disclosure={chosen} /><p>{snapshot ? status ?? "Prepared locally; absent from the current ledger snapshot" : "Refresh ledger state before continuing. A prior transaction may still require reconciliation."}</p>
               <section aria-label="Saved ciphertext storage"><h3>Store this encrypted report</h3><p>Save an encrypted role backup first, then upload the exact saved ciphertext. You can repeat this upload after a storage failure or restore; its report ID, encryption key and content address stay the same. Only ciphertext is sent. This action does not connect Lace or submit a transaction.</p>
                 <CipherstoreDestinations urls={env.cipherstoreUrls} />
+                <p>Check reads each configured store independently and validates the returned bytes. Each request has a 20-second deadline and a 5 MiB limit.</p>
+                <button type="button" className="secondary-button" onClick={() => run(async () => {
+                  setCopyCheck(undefined);
+                  const address = `sha256:${bytesToHex(await sha256(utf8(chosen.envelope)))}`;
+                  setCopyCheck(await verifyCipherstoreCopies(env.cipherstoreUrls, address));
+                })}>Check stored copies</button>
+                {copyCheck && <section aria-label="Stored copy results">
+                  <p role="status">{copyCheck.copies.filter((copy) => copy.verified).length} of {copyCheck.copies.length} stores returned verified ciphertext. Checked {copyCheck.checkedAt}.</p>
+                  <ul>{copyCheck.copies.map((copy) => <li key={copy.endpoint}><span className="public-value">{copy.endpoint}</span>: {copy.verified ? "Verified" : "Not verified"} — {copy.detail}</li>)}</ul>
+                  <p>This is a read-only snapshot, not a retention guarantee or ledger receipt. No fallback or repair upload hides a failed copy. Keep your encrypted backup.</p>
+                </section>}
                 <button type="button" className="secondary-button" disabled={!backedUp} onClick={() => run(async () => {
                   if (!backedUp) throw new Error("Save this report in an encrypted role backup before uploading");
+                  setCopyCheck(undefined);
                   await uploadDisclosure(chosen); setMessage("Storage acknowledged the saved ciphertext. Keep your backup; this is not a ledger receipt or a retention guarantee.");
                 })}>Upload saved ciphertext</button>
                 <p>To copy this workspace to the configured stores, upload all saved reports in order. The first unconfirmed upload stops the batch. Repeating it sends the same ciphertext again.</p>

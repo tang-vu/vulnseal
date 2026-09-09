@@ -75,7 +75,7 @@ export class CipherstoreClient {
   async get(address: string): Promise<string> {
     if (!/^sha256:[a-f0-9]{64}$/.test(address)) throw new Error("Invalid ciphertext content address");
     return this.request("GET", async (signal) => {
-      const response = await fetch(`${this.baseUrl}/v1/blobs/${address}`, { signal, credentials: "omit", redirect: "error", referrerPolicy: "no-referrer" });
+      const response = await fetch(`${this.baseUrl}/v1/blobs/${address}`, { signal, credentials: "omit", redirect: "error", referrerPolicy: "no-referrer", cache: "no-store" });
       if (!response.ok) {
         void response.body?.cancel().catch(() => {});
         throw new Error(`Cipherstore GET failed with HTTP ${response.status}`);
@@ -118,3 +118,19 @@ export const createCipherstoreClient = (urls: readonly string[], timeoutMs = CIP
   const endpoints = validateCipherstoreUrls(urls);
   return endpoints.length === 1 ? new CipherstoreClient(endpoints[0]!, timeoutMs) : new ReplicatedCipherstoreClient(endpoints, timeoutMs);
 };
+
+/** Probe every destination explicitly, without fallback hiding a missing copy. */
+export async function verifyCipherstoreCopies(urls: readonly string[], address: string, timeoutMs = CIPHERSTORE_REQUEST_TIMEOUT_MS) {
+  if (!/^sha256:[a-f0-9]{64}$/.test(address)) throw new Error("Invalid ciphertext content address");
+  const endpoints = validateCipherstoreUrls(urls);
+  const clients = endpoints.map((endpoint) => new CipherstoreClient(endpoint, timeoutMs));
+  const copies = await Promise.all(clients.map(async (client, index) => {
+    try {
+      await client.get(address);
+      return { endpoint: endpoints[index]!, verified: true, detail: "Returned ciphertext matching its SHA-256 address" };
+    } catch (error) {
+      return { endpoint: endpoints[index]!, verified: false, detail: error instanceof Error ? error.message : "Ciphertext read failed" };
+    }
+  }));
+  return { address, checkedAt: new Date().toISOString(), copies };
+}

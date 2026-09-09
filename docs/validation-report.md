@@ -1,5 +1,13 @@
 # Validation report
 
+## Read back every ciphertext destination — 2026-09-09
+
+The role workspace can explicitly check the selected saved report at every configured ciphertext store, including offline-restored roles. The API probe reads destinations in parallel and returns ordered per-store digest verification or failure details with a timestamp. GET requests bypass browser caching and keep the existing bounds. It neither falls back silently nor repairs/uploads data. The UI clears the observation when selecting another report or starting an upload and describes it as a read-only snapshot, not retention or ledger evidence.
+
+The API client suite passed **15 tests**. Its new probe case receives valid bytes, corrupt bytes and HTTP 404 from three destinations, checks all outcomes independently, asserts GET-only/no-store behavior, and rejects bad addresses/timeouts before fetch. The two-service desktop/mobile suite exercises zero verified copies before upload, one after partial replication, two after full retry, and one after a simulated corrupt replica; read checks never increase the PUT count. This is two same-host service instances, not independently operated infrastructure.
+
+The complete two-store suite passed **four cases in 51.5 seconds**. All **12 role-workspace tests** passed in 54.48 seconds, and web typechecking passed. The final normal-configuration `release:build` passed fresh compiler-source comparison, six builds and packaging: **eight circuits, 62 files, 62,584,706 bytes**. The previous broader unit/browser suites were not rerun beyond these changed paths. No proving keys, contract source, public deployment or blockchain state changed.
+
 ## Saved submission ciphertext reconciliation — 2026-09-09
 
 For a recorded `submitReport`, the role workspace now compares SHA-256 of the exact saved disclosure envelope with the ciphertext digest returned by report replay. The envelope is selected by the journal report ID from the validated vault and hashed locally. Neither envelope nor decryption key is sent to the worker or evidence services. A mismatch gives explicit investigation guidance; absent saved material or malformed digest does not yield a match. The comparison does not test ciphertext-service retention, authenticate chain data, verify every submission argument or enable retry. The backup schema is unchanged.

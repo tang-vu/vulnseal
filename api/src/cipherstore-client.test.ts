@@ -1,10 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CipherstoreClient, ReplicatedCipherstoreClient, MAX_CIPHERSTORE_BYTES } from "./cipherstore-client.js";
+import { CipherstoreClient, ReplicatedCipherstoreClient, verifyCipherstoreCopies, MAX_CIPHERSTORE_BYTES } from "./cipherstore-client.js";
 import { createHash } from "node:crypto";
 
 describe("CipherstoreClient", () => {
   afterEach(() => vi.unstubAllGlobals());
+  it("checks every copy independently and reports corruption and missing copies without uploads", async () => {
+    const body = "{}", address = `sha256:${createHash("sha256").update(body).digest("hex")}`;
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(body)).mockResolvedValueOnce(new Response("corrupt")).mockResolvedValueOnce(new Response(null, { status: 404 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const urls = ["https://a.test", "https://b.test", "https://c.test"];
+    const result = await verifyCipherstoreCopies(urls, address);
+    expect(result.copies.map((copy) => copy.verified)).toEqual([true, false, false]);
+    expect(result.copies.map((copy) => copy.endpoint)).toEqual(urls);
+    expect(result.copies[1]!.detail).toContain("invalid digest");
+    expect(result.copies[2]!.detail).toContain("404");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    for (const [, options] of fetchMock.mock.calls) { expect(options?.method).toBeUndefined(); expect(options?.cache).toBe("no-store"); }
+    await expect(verifyCipherstoreCopies(urls, "invalid")).rejects.toThrow("content address");
+    await expect(verifyCipherstoreCopies(urls, address, 0)).rejects.toThrow("timeout");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
   it("validates direct client endpoints before requests and appends paths to a normalized base", async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status: 201 })); vi.stubGlobal("fetch", fetchMock);
     for (const base of ["https://a.test?", "https://a.test#", "https://user:secret@a.test", "file:///tmp/store", "/store"]) expect(() => new CipherstoreClient(base)).toThrow();

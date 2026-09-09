@@ -61,10 +61,11 @@ test("offline workspace backfill stops on partial replication and retries identi
   const reports = [snapshot.report!, (await recoveryFixture({ ...recoveryDraft, title: "Second saved report" })).snapshot.report!, (await recoveryFixture({ ...recoveryDraft, title: "Third saved report" })).snapshot.report!];
   const backup = await encryptRoleVault({ version: 1, role: "researcher", network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, actorSecret: snapshot.researcherSecret, reports: reports.map((report) => ({ network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: report.id, envelope: report.envelope, key: report.key, salt: report.salt })) }, password);
   const writes: { origin: string; body: string | null }[] = [];
-  let partial = true;
+  let partial = true, corruptRead = false;
   await context.route("**/*", (route) => {
     const request = route.request(), origin = new URL(request.url()).origin;
     if (![primary, replica, "http://127.0.0.1:4173"].includes(origin)) return route.abort();
+    if (request.method() === "GET" && origin === replica && corruptRead) return route.fulfill({ status: 200, headers: { "Access-Control-Allow-Origin": "http://127.0.0.1:4173" }, body: "corrupt ciphertext" });
     if (request.method() === "PUT") {
       expect(reports.map((report) => report.envelope)).toContain(request.postData());
       writes.push({ origin, body: request.postData() });
@@ -80,14 +81,28 @@ test("offline workspace backfill stops on partial replication and retries identi
   await page.getByRole("button", { name: "Restore role workspace" }).click();
   await expect(page.getByText("Ciphertext storage destinations (2)", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Submit prepared report" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Check stored copies" }).click();
+  await expect(page.getByText(/0 of 2 stores returned verified ciphertext/)).toBeVisible();
+  expect(writes).toHaveLength(0);
   await page.getByRole("button", { name: "Upload all saved ciphertext (3)" }).click();
   await expect(page.getByRole("alert")).toContainText("1 of 3 saved reports acknowledged. Stopped at the selected report");
   await expect(page.getByLabel("Workspace report")).toHaveValue(reports[1]!.id);
   expect(writes).toHaveLength(4);
   expect(writes.some((entry) => entry.body === reports[2]!.envelope)).toBe(false);
+  await expect(page.getByRole("region", { name: "Stored copy results" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Check stored copies" }).click();
+  await expect(page.getByText(/1 of 2 stores returned verified ciphertext/)).toBeVisible();
+  expect(writes).toHaveLength(4);
   partial = false;
   await page.getByRole("button", { name: "Upload all saved ciphertext (3)" }).click();
   await expect(page.getByText(/3 of 3 saved reports acknowledged by all configured stores/)).toBeVisible();
+  expect(writes).toHaveLength(10);
+  await page.getByRole("button", { name: "Check stored copies" }).click();
+  await expect(page.getByText(/2 of 2 stores returned verified ciphertext/)).toBeVisible();
+  corruptRead = true;
+  await page.getByRole("button", { name: "Check stored copies" }).click();
+  await expect(page.getByText(/1 of 2 stores returned verified ciphertext/)).toBeVisible();
+  await expect(page.getByText(/invalid digest/)).toBeVisible();
   expect(writes).toHaveLength(10);
   for (const report of reports) {
     const digest = createHash("sha256").update(report.envelope).digest("hex");
