@@ -1,5 +1,13 @@
 # Validation report
 
+## Bound browser ZK artifact downloads — 2026-09-09
+
+Inspection of the installed SDK found a five-minute HTTP timeout for proof-server calls, but no deadline or size limit in `FetchZkConfigProvider`. Browser provider wiring now supplies a fetch adapter that buffers each artifact under a two-minute header/body deadline and a 64 MiB decompressed-byte cap, rejects redirects, cancels error/oversized/timed-out bodies and discards late responses. HTTP and HTML diagnostics remain handled by the SDK. The largest current retained key is 9,979,674 bytes, below the cap. This is a per-artifact transport bound, not release authentication or an overall proof deadline; the installed proof provider catches artifact errors and can use server-side keys instead.
+
+The focused run passed **24 artifact/provider tests in 4.16 seconds**, including six new transport cases and the existing release-subdirectory URL test. It covers exact binary bytes, missing headers, stalled body, streamed overflow despite false Content-Length, and HTTP/HTML body cancellation. The initial overflow fixture closed its stream before cancellation and was corrected to keep producing data; production overflow rejection already passed. Web typechecking passed. These use mocked fetch/connector responses; no native wallet operation was performed.
+
+The final normal release build exited successfully, including final web typechecking: **8 circuits, 62 files, 62,600,549 bytes**. The fresh compiler comparison at 11:35:38.060 UTC matched retained output without regenerating proving keys. The full browser and web suites were not rerun in this increment.
+
 ## Bound wallet balancing — 2026-09-09
 
 Wallet balancing now has a five-minute response deadline after its authorization check. The installed connector API returns a transaction ready for submission and exposes no cancellation parameter for this operation. The installed SDK awaits `balanceTx` before calling `submitTx`; returning a timeout rejection therefore stops that continuation. Late balance responses are not decoded or forwarded. The extension may still finish or display its own request; the error instructs the user to review it before another attempt. No automatic retry was added, and proving/finality remain outside this deadline.

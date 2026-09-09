@@ -23,6 +23,7 @@ import type {
 import type { VulnSealPrivateState } from "@vulnseal/contract";
 import { inMemoryPrivateStateProvider } from "./in-memory-private-state-provider.js";
 import { submitIdentifiedTransaction } from "./submission.js";
+import { fetchZkArtifact } from "./fetch-zk-artifact.js";
 
 declare global {
   interface Window {
@@ -110,7 +111,7 @@ export const initializeBrowserProviders = async (
   setNetworkId(networkId);
   const zkConfigProvider = new FetchZkConfigProvider<VulnSealCircuitKeys>(
     new URL(".", window.location.href).href,
-    window.fetch.bind(window),
+    fetchZkArtifact,
   );
   return {
     privateStateProvider: inMemoryPrivateStateProvider<
