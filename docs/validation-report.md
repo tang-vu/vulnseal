@@ -1,5 +1,17 @@
 # Validation report
 
+## Consolidated release validation — 2026-09-09
+
+At application commit `e32cca3`, `npm run validate` passed all six workspace builds and typechecks followed by **35 test files / 172 tests**: shared 12, contract 13, API 21, ciphertext service 18, integration 9 and web 99. The complete web suite passed in 52.85 seconds. This consolidates attachment drafts, transport limits, release tooling, bounded evidence reads and static hosting changes with the existing recovery/replay implementation. Generated Compact sourcemap warnings remain visible; no assertion was skipped to suppress them.
+
+`npm run audit:prod` reported zero vulnerabilities in its production dependency audit, and `npm run test:release` passed all four packaging/HTTP tests. The npm result does not cover OS/container packages or independent source review.
+
+The full `CI=true npm run test:e2e` run passed **all 62 desktop/mobile cases in 3.4 minutes**, using two workers without exclusions or retries. The production browser build exercised report authoring/attachments, encrypted file and IndexedDB recovery, bootstrap failure, role switching, transaction journals, worker replay, public lookup and ciphertext-service failures. These journeys use captured or mocked network/wallet evidence and a local ciphertext service; the native Lace ceremony remains outstanding. No application change was required by this consolidation run.
+
+The existing read-only Preprod verifier passed at `2026-09-09T08:19:41.981Z`: all eight retained historical identifiers were successful, the lifecycle tip remained `authorizePayout` at block 2371914, and the observed finalized head was 2471554. These are the previously recorded transactions, including the registration identifier; no deployment, transfer or new contract call was submitted. Reverification does not establish native Lace browser operation or payment execution.
+
+After browser tests, `npm run release:build` restored the normal release build rather than leaving the E2E service configuration in `web/dist`. The generated manifest and subsequent read-only release check passed for eight circuits, 62 files and 62,526,683 bytes. Compiler outputs were reused; no fresh compilation provenance or public hosting claim follows from this packaging result. The preceding container drills remain separate evidence, and no remote CI run or public deployment was performed in this increment.
+
 ## Checked static web container — 2026-09-09
 
 `npm run release:build` passed all six workspace builds and generated a release with eight proving circuits, 62 files and 62,526,683 bytes. The new multi-stage web image requires a manifest and reruns the packaging gate on copied local compiler/release inputs before copying only the static artifact into a digest-pinned Caddy runtime. Its initial Docker context was 104.38 MB. Image building and Caddy configuration validation passed.
