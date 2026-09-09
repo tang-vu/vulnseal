@@ -1,0 +1,22 @@
+{
+  "checkedAt": "2026-09-09T04:30:22.285Z",
+  "scope": "Compiled CLI with synthetic envelope; independent library tests cover authenticated decryption",
+  "results": [
+    {
+      "operation": "create",
+      "blobs": 1,
+      "bytes": 205
+    },
+    {
+      "operation": "verify",
+      "blobs": 1,
+      "bytes": 205
+    },
+    {
+      "operation": "restore",
+      "blobs": 1,
+      "bytes": 205
+    }
+  ],
+  "restoredBytesMatch": true
+}

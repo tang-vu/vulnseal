@@ -25,6 +25,7 @@ integration/.wallet-state/
 integration/midnight-level-db/
 reports/
 cipherstore/data/
+vulnseal-cipherstore-backup*/
 
 # Tooling and OS files
 .DS_Store

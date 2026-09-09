@@ -26,4 +26,21 @@ The write queue is process-local, not a cross-process lock. Do not share this da
 
 Readiness is a point-in-time check, not a reservation for an upload: it requires at least one byte and one blob slot of configured headroom and sufficient physical space for the small probe, not enough space for every possible 5 MiB envelope. It does not audit existing blob integrity or current upload-slot availability. At quota, liveness and stored-blob reads remain available. Configure write admission or alerts around readiness without unnecessarily removing all read traffic to a full store. Use a moderate polling interval; probes perform actual disk I/O. A process crash can leave `.readiness-*.tmp` files for stopped-writer maintenance.
 
-Put public deployments behind infrastructure with request/time/rate limits and access controls appropriate to the program. These application quotas bound committed content and active upload buffering; they do not provide per-user fairness, disk replication, backup/restore assurance, or complete abuse protection. Hosting, monitoring integration, retention policy and a verified backup drill remain release requirements.
+Put public deployments behind infrastructure with request/time/rate limits and access controls appropriate to the program. These application quotas bound committed content and active upload buffering; they do not provide per-user fairness, disk replication, backup/restore assurance, or complete abuse protection. Hosting, monitoring integration, retention policy and a production-volume backup drill remain release requirements.
+
+## Backup and restore
+
+Stop the writer and prevent other changes to the data directory for the entire copy. Build the CLI, then run these commands from the repository root, substituting your paths:
+
+```text
+npm run build -w @vulnseal/cipherstore
+node cipherstore/dist/backup.js create <stopped-store-directory> <new-backup-directory>
+node cipherstore/dist/backup.js verify <backup-directory>
+node cipherstore/dist/backup.js restore <backup-directory> <new-store-directory>
+```
+
+Destination parents must exist. The destination directory itself must not exist, even if empty, and must be outside the source tree. No operation merges, overwrites or deletes an existing store. Backup creation copies committed ciphertext files only, validates each envelope and content-address digest, flushes copied files and writes the manifest last. Interrupted temporary files are excluded; other unknown source entries cause failure. Verification checks the exact inventory, manifest structure, byte lengths, envelope format and every digest. Restore verifies first and checks each blob again while copying. A failed copy/restore may leave a partial new directory; do not start a service against it or treat it as a valid backup. Inspect it separately and retry into another fresh directory.
+
+After successful restoration, point `CIPHERSTORE_DATA_DIR` at the new store, start one writer, check `/readyz`, fetch known ciphertext addresses and perform an authenticated decryption with separately retained report keys. Retain the old store until the drill succeeds. The repository tests exercise this sequence with synthetic encrypted content, including real HTTP retrieval and decryption; the compiled CLI drill is recorded in `docs/evidence/cipherstore-backup-drill.json`. Physical off-device recovery and production-volume drills remain operational work.
+
+The manifest proves self-consistency, not provenance: someone who can replace both manifest and files can create a different consistent backup. Keep backups and their trusted inventory in controlled storage. No second encryption layer is added; existing ciphertext remains encrypted, while digests, sizes and counts remain visible to anyone with backup access. Role secrets and report keys are not included. The tool limits manifests to 16 MiB and 100,000 entries and blobs to the HTTP service's 5 MiB limit. It does not make a live distributed snapshot or guarantee survival of filesystem metadata across sudden power loss. Conventional `vulnseal-cipherstore-backup*` directories are Git-ignored; do not commit other backup paths.

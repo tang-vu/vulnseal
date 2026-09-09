@@ -40,7 +40,7 @@ const readLimited = async (request: IncomingMessage): Promise<Uint8Array> => {
   return output;
 };
 
-const validateEnvelope = (bytes: Uint8Array): void => {
+export const validateEnvelope = (bytes: Uint8Array): void => {
   let value: unknown;
   try {
     value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));

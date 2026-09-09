@@ -1,5 +1,13 @@
 # Validation report
 
+## Cipherstore backup and restoration — 2026-09-09
+
+The ciphertext service now has `create`, `verify` and `restore` CLI operations for a stopped writer. Destinations must be new and outside the source tree; existing stores are never merged or overwritten. Manifest verification covers exact inventory, digest, size and encrypted-envelope shape. The writer must remain stopped; no live-snapshot claim is made.
+
+The cipherstore TypeScript build passed, followed by 2 files / 12 tests. The new drill uploads genuine AES-GCM ciphertext through HTTP, stops the service, creates/verifies/restores the backup, starts the restored store, checks readiness, retrieves the same content and authenticates/decrypts it with the original key. Negative cases reject corruption before destination creation, manifest traversal, unlisted files, nested destinations and overwriting an existing restored directory. Source and restored bytes remain intact.
+
+The compiled CLI independently completed create/verify/restore for a synthetic envelope at `2026-09-09T04:30:22.285Z`, with byte equality confirmed. Counts are recorded in [cipherstore-backup-drill.json](evidence/cipherstore-backup-drill.json); no private paths, keys or ciphertext payloads are included. This is a local temporary-directory drill, not physical off-device or production-volume evidence. See [the operator guide](cipherstore-operations.md).
+
 ## Cipherstore storage readiness — 2026-09-09
 
 The service now exposes `/readyz` independently of `/healthz`. It checks aggregate quota headroom and exercises actual write, flush, hard-link publication, read-back and cleanup in the configured directory. Simultaneous probes share one in-flight operation. Full quota or inaccessible storage returns 503 without exposing paths; liveness and existing reads remain available at capacity.
