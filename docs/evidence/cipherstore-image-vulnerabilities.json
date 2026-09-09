@@ -1,0 +1,138 @@
+{
+  "scannerVersion": "0.74.0",
+  "scannerImage": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+  "databaseUpdatedAt": "2026-09-09T07:06:00.099209771Z",
+  "scanners": [
+    "vuln"
+  ],
+  "input": "docker save archive; no ignore-unfixed or suppression flags",
+  "base": "node:24.20.0-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf",
+  "runtimeChanges": [
+    "libcrypto3=3.5.8-r0",
+    "libssl3=3.5.8-r0",
+    "Remove npm, Corepack and Yarn; compiled service and backup CLI use Node built-ins"
+  ],
+  "scans": [
+    {
+      "stage": "before",
+      "dockerImageId": "sha256:1200ddb6386bac1e2596a521f1aec0739046d032de7b1d38db1296fa5dec9cdf",
+      "scannedImageConfigId": "sha256:756eb76df559194b2d624e95970efa4b166fa1c19f099f72c2e13dbf26243bdb",
+      "createdAt": "2026-09-09T13:38:38.445711445Z",
+      "rawReportSha256": "85027de01b3c6536b1c5b815008d942cb0d59d759e85466d7ad88ac2a1297802",
+      "os": {
+        "Family": "debian",
+        "Name": "12.13"
+      },
+      "findingCount": 283,
+      "results": [
+        {
+          "type": "debian",
+          "findingCount": 259,
+          "counts": {
+            "CRITICAL": 6,
+            "HIGH": 56,
+            "MEDIUM": 112,
+            "LOW": 80,
+            "UNKNOWN": 5
+          }
+        },
+        {
+          "type": "node-pkg",
+          "findingCount": 24,
+          "counts": {
+            "CRITICAL": 1,
+            "HIGH": 13,
+            "MEDIUM": 9,
+            "LOW": 1,
+            "UNKNOWN": 0
+          }
+        }
+      ]
+    },
+    {
+      "stage": "node-alpine-only",
+      "dockerImageId": "sha256:fe0b7f4590b76ab7fb062341fb6758ec20c26f21a3bb0b338d8b4320e99dc84b",
+      "scannedImageConfigId": "sha256:574bca7e9d1baf7ba3173a70bc8155583bdc5d013666f5c868d470ec783e2910",
+      "createdAt": "2026-09-09T13:44:50.223732408Z",
+      "rawReportSha256": "163d87afb6395c271f79fe9cc400318e24910cb04626f466aba8c271552dc276",
+      "os": {
+        "Family": "alpine",
+        "Name": "3.24.1"
+      },
+      "findingCount": 29,
+      "results": [
+        {
+          "type": "alpine",
+          "findingCount": 20,
+          "counts": {
+            "CRITICAL": 0,
+            "HIGH": 2,
+            "MEDIUM": 6,
+            "LOW": 12,
+            "UNKNOWN": 0
+          }
+        },
+        {
+          "type": "node-pkg",
+          "findingCount": 9,
+          "counts": {
+            "CRITICAL": 0,
+            "HIGH": 4,
+            "MEDIUM": 5,
+            "LOW": 0,
+            "UNKNOWN": 0
+          }
+        }
+      ]
+    },
+    {
+      "stage": "final",
+      "dockerImageId": "sha256:f56e9ea927305fc6a4fea44bf9e78013b263f24d54fa4231345b0ff4f79b90ab",
+      "scannedImageConfigId": "sha256:c8734908b743bffcdb7ccc33d72bf62db2e46947eb1dcc5a6977bcae98df90c2",
+      "createdAt": "2026-09-09T13:52:26.797590616Z",
+      "rawReportSha256": "d106c4e2f6b16a479b001d4a82b7336ca977e41b3858df9081d36405396dc3b3",
+      "os": {
+        "Family": "alpine",
+        "Name": "3.24.1"
+      },
+      "findingCount": 0,
+      "results": [
+        {
+          "type": "alpine",
+          "findingCount": 0,
+          "counts": {
+            "CRITICAL": 0,
+            "HIGH": 0,
+            "MEDIUM": 0,
+            "LOW": 0,
+            "UNKNOWN": 0
+          }
+        },
+        {
+          "type": "node-pkg",
+          "findingCount": 0,
+          "counts": {
+            "CRITICAL": 0,
+            "HIGH": 0,
+            "MEDIUM": 0,
+            "LOW": 0,
+            "UNKNOWN": 0
+          }
+        }
+      ]
+    }
+  ],
+  "validation": {
+    "buildStageTests": 18,
+    "testFiles": 4,
+    "testDurationSeconds": 6.28,
+    "finalBuildReusedPassingBuildStage": true,
+    "containerDrill": "cipherstore-container-drill.json"
+  },
+  "limits": [
+    "Counts are package/advisory occurrences, not unique CVEs or exploitability proof.",
+    "Zero findings applies to the final runtime filesystem and this scanner/database; builder layers, host and future advisories are not cleared.",
+    "Raw reports and image archives are local ignored artifacts; their hashes identify the inspected reports.",
+    "No public deployment, external audit, native-wallet execution or physical off-device recovery is claimed."
+  ]
+}

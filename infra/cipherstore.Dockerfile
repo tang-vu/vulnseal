@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-FROM node:24.14.1-bookworm-slim@sha256:b506e7321f176aae77317f99d67a24b272c1f09f1d10f1761f2773447d8da26c AS build
+FROM node:24.20.0-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf AS build
 WORKDIR /build
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/shared/package.json ./packages/shared/package.json
@@ -10,12 +10,15 @@ COPY integration/package.json ./integration/package.json
 COPY web/package.json ./web/package.json
 RUN npm ci --ignore-scripts --no-audit --no-fund
 COPY cipherstore/src ./cipherstore/src
-RUN npm run build --workspace @vulnseal/cipherstore
+RUN npm run build --workspace @vulnseal/cipherstore && npm run test:run --workspace @vulnseal/cipherstore
 
-FROM node:24.14.1-bookworm-slim@sha256:b506e7321f176aae77317f99d67a24b272c1f09f1d10f1761f2773447d8da26c
+FROM node:24.20.0-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf
 ENV NODE_ENV=production CIPHERSTORE_HOST=0.0.0.0 CIPHERSTORE_PORT=8787 CIPHERSTORE_DATA_DIR=/data
 WORKDIR /app
-RUN mkdir /data && chown node:node /data
+RUN apk add --no-cache libcrypto3=3.5.8-r0 libssl3=3.5.8-r0 \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /opt/yarn-v1.22.22 \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+    && mkdir /data && chown node:node /data
 COPY --from=build /build/cipherstore/dist ./dist
 COPY cipherstore/package.json ./package.json
 COPY LICENSE ./LICENSE

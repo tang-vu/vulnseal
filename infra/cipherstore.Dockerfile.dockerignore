@@ -16,7 +16,6 @@
 !cipherstore/tsconfig.json
 !cipherstore/src/
 !cipherstore/src/*.ts
-cipherstore/src/*.test.ts
 !integration/
 !integration/package.json
 !web/

@@ -1,37 +1,57 @@
 {
-  "capturedAt": "2026-09-09T07:37:06.004Z",
-  "evidenceKind": "Local Linux container and Compose verification using synthetic AES-GCM ciphertext; not a public deployment",
-  "host": "Windows with Docker Engine 29.5.3 and Compose 5.1.4 in Ubuntu WSL",
-  "image": "vulnseal-cipherstore:local",
-  "imageId": "sha256:2e6ac40a16445093349c057aa8d89436c0b0d15457463f4b39668bd177181cce",
-  "platform": "linux/amd64",
-  "base": "node:24.14.1-bookworm-slim@sha256:b506e7321f176aae77317f99d67a24b272c1f09f1d10f1761f2773447d8da26c",
-  "imageBytes": 79379398,
-  "buildContextBytes": 242180,
-  "drill": {
-    "nonRoot": true,
-    "readOnlyRoot": true,
-    "readyBeforeUpload": true,
-    "quotaRejectsNewBlob": true,
-    "fullStoreRemainsReadable": true,
-    "secondWriterRefused": true,
-    "gracefulRestart": true,
-    "persistedCiphertextDecrypted": true
-  },
-  "subsequentComposeCheck": {
-    "user": "node",
-    "readOnly": true,
-    "init": true,
-    "memoryBytes": 536870912,
-    "pidsLimit": 64,
-    "health": "healthy",
-    "published": "127.0.0.1:32770",
-    "ready": "ready"
+  "capturedAt": "2026-09-09T13:52:31.665Z",
+  "imageId": "sha256:f56e9ea927305fc6a4fea44bf9e78013b263f24d54fa4231345b0ff4f79b90ab",
+  "nonRoot": true,
+  "readOnlyRoot": true,
+  "readyBeforeUpload": true,
+  "trickledUploadTerminated": true,
+  "quotaRejectsNewBlob": true,
+  "fullStoreRemainsReadable": true,
+  "secondWriterRefused": true,
+  "gracefulRestart": true,
+  "persistedCiphertextDecrypted": true,
+  "evidenceKind": "Local Linux container drill with synthetic AES-GCM ciphertext; not a public deployment",
+  "base": "node:24.20.0-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf",
+  "previousVerification": {
+    "capturedAt": "2026-09-09T07:37:06.004Z",
+    "evidenceKind": "Local Linux container and Compose verification using synthetic AES-GCM ciphertext; not a public deployment",
+    "host": "Windows with Docker Engine 29.5.3 and Compose 5.1.4 in Ubuntu WSL",
+    "image": "vulnseal-cipherstore:local",
+    "imageId": "sha256:2e6ac40a16445093349c057aa8d89436c0b0d15457463f4b39668bd177181cce",
+    "platform": "linux/amd64",
+    "base": "node:24.14.1-bookworm-slim@sha256:b506e7321f176aae77317f99d67a24b272c1f09f1d10f1761f2773447d8da26c",
+    "imageBytes": 79379398,
+    "buildContextBytes": 242180,
+    "drill": {
+      "nonRoot": true,
+      "readOnlyRoot": true,
+      "readyBeforeUpload": true,
+      "quotaRejectsNewBlob": true,
+      "fullStoreRemainsReadable": true,
+      "secondWriterRefused": true,
+      "gracefulRestart": true,
+      "persistedCiphertextDecrypted": true
+    },
+    "subsequentComposeCheck": {
+      "user": "node",
+      "readOnly": true,
+      "init": true,
+      "memoryBytes": 536870912,
+      "pidsLimit": 64,
+      "health": "healthy",
+      "published": "127.0.0.1:32770",
+      "ready": "ready"
+    },
+    "limits": [
+      "Local Docker volume persistence only; no physical off-device recovery",
+      "No public TLS endpoint, user authentication, rate limiter or external monitoring configured",
+      "No image/OS vulnerability scan or remote CI execution claimed",
+      "Forced termination and production-load shutdown were not tested"
+    ]
   },
   "limits": [
-    "Local Docker volume persistence only; no physical off-device recovery",
-    "No public TLS endpoint, user authentication, rate limiter or external monitoring configured",
-    "No image/OS vulnerability scan or remote CI execution claimed",
-    "Forced termination and production-load shutdown were not tested"
+    "Latest drill checks local volume persistence, not physical off-device recovery.",
+    "Earlier Compose verification remains scoped to its earlier image.",
+    "Runtime scan is recorded separately in cipherstore-image-vulnerabilities.json."
   ]
 }
