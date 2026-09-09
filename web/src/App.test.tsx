@@ -1,11 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import axe from "axe-core";
 import App from "./App.js";
 
 describe("VulnSeal product interface", () => {
+  it("does not claim a saved ciphertext when report validation fails before encryption", async () => {
+    const user = userEvent.setup();
+    const upload = vi.fn(); vi.stubGlobal("fetch", upload);
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: /Seal a vulnerability/i }));
+    await user.clear(screen.getByLabelText("Report title"));
+    fireEvent.submit(screen.getByRole("button", { name: /Encrypt & seal/i }).closest("form")!);
+    await screen.findByRole("heading", { name: "Review your draft" });
+    expect(screen.getByText(/Preparation did not finish/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry saved report upload" })).not.toBeInTheDocument();
+    expect(upload).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Review report" }));
+    expect(screen.getByLabelText("Report title")).toHaveValue("");
+  });
   it("retries a failed upload with the same prepared ciphertext and prevents draft replacement", async () => {
     const user = userEvent.setup();
     const upload = vi.fn().mockRejectedValueOnce(new Error("Upload response lost")).mockResolvedValueOnce(new Response("{}", { status: 201 }));

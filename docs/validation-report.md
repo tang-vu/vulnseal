@@ -1,5 +1,17 @@
 # Validation report
 
+## Consolidated recovery-release validation — 2026-09-09
+
+The preparation error UI now distinguishes a draft that failed before encryption from a retained ciphertext. Early failure no longer marks canonicalization complete or offers an upload retry for nonexistent saved bytes. Its regression test bypasses native form validation to exercise application validation, verifies no upload occurs and confirms the draft remains editable. Import guidance also names a pending preparation as an existing session that must not be replaced.
+
+The compiler-comparison rejection test and all four release/HTTP tests passed. `npm run audit:prod` reported zero known production-dependency vulnerabilities at check time. These checks do not cover container OS packages, compiler provenance or a deployed service.
+
+`npm run validate` completed all six workspace builds and typechecks, followed by **35 files / 182 tests**: shared 12, contract 13, API 21, ciphertext service 18, integration 9 and web 109. The web portion finished in 51.79 seconds. This is a new consolidated root run covering the preceding submission deadlines, recovery schema updates, retained uploads and pending preparation changes; it is not a native-wallet or live integration lifecycle run.
+
+`CI=true npm run test:e2e` then passed **all 66 desktop/mobile cases in 3.7 minutes**, with two workers, no exclusions and no retries. This consolidates the entire browser suite after recovery v3 and role upload recovery, including older journal payloads, per-report notes, exact ciphertext reupload after file restore, worker replay and nested-release asset loading. It replaces the earlier 64-case browser baseline for this source state. Browser wallet/indexer fixtures and local services do not establish a real Lace ceremony, physical device recovery or public deployment.
+
+The final normal-configuration `release:build` passed fresh compiler-source comparison, all six workspace builds and the manifest gate: eight proving circuits, 62 files and 62,551,757 bytes. Existing proving keys were reused. No new container image, public upload, GitHub CI execution or blockchain write was performed.
+
 ## Pending combined-session preparation — 2026-09-09
 
 The combined browser now retains its exact encrypted preparation before upload. A storage-only retry reuses the original ciphertext, key, salt and report ID; pending data is separated from completed workflow state. Recovery v3 includes that preparation and a conservative submission-start flag. Once network submission setup begins, retry remains blocked after an error and after export/restore. Pending material is readable in the UI, and navigation cannot replace its draft/program or import over it. This is manual recovery, not a durable pre-wallet journal.

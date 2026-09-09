@@ -50,7 +50,7 @@ export function RecoveryPanel({ onExport, onImport, canImport }: {
     })}>
       <h2>Restore a saved session</h2>
       <p>Restore in a fresh tab. An existing draft is replaced. Network recovery connects Lace and checks the contract and report on the file’s network; it does not submit a transaction.</p>
-      {!canImport && <p role="status">This tab already has a sealed report or deployed program. Open a fresh tab to restore without replacing it.</p>}
+      {!canImport && <p role="status">This tab already has a prepared report, sealed report or deployed program. Open a fresh tab to restore without replacing it.</p>}
       <label>Recovery file<input type="file" accept=".json,application/json" required disabled={!canImport || working} onChange={(event) => setFile(event.target.files?.[0])} /></label>
       <label>Recovery password<input type="password" autoComplete="current-password" minLength={12} required value={restorePassword} onChange={(event) => setRestorePassword(event.target.value)} disabled={!canImport || working} /></label>
       <button className="primary-button" disabled={!canImport || working}>Restore encrypted backup</button>

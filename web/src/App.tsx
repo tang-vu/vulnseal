@@ -609,7 +609,7 @@ function App() {
         if (pendingPreparation) return <section className="page narrow-page"><h1>Keep the prepared report</h1><p>The exact encrypted report is retained. Save it through Private recovery before closing this tab. Editing a replacement here could lose the original encryption material.</p><p className="public-value">Report: {bytesToHex(pendingPreparation.id)}</p><PreparedReportReview report={JSON.parse(pendingPreparation.sealed.canonicalReport) as VulnerabilityReport} />{pendingPreparation.submissionStarted ? <p role="alert">Submission setup already started. Its outcome needs reconciliation; resubmission is blocked. Check your wallet and ledger before deciding what to do next.</p> : <button className="primary-button" onClick={() => void submitSealedReport()}>Retry saved report upload</button>}</section>;
         return <ReportWizard attachmentDraft={attachmentDraft} onAttachmentDraftChange={setAttachmentDraft} report={report} onChange={setReport} onSeal={() => void submitSealedReport()} />;
       case "seal":
-        return <SealProgress operation={operation} canRetry={!pendingPreparation?.submissionStarted} onRetry={() => void submitSealedReport()} onBack={() => changeScreen("submit")} />;
+        return <SealProgress operation={operation} hasPreparation={pendingPreparation !== undefined} canRetry={!pendingPreparation?.submissionStarted} onRetry={() => void submitSealedReport()} onBack={() => changeScreen("submit")} />;
       case "receipt":
         return <Receipt sealed={sealed} reportId={reportId} evidence={evidence} network={api !== undefined} onTriage={() => void openVendorReview()} onReset={resetDemo} />;
       case "triage":
@@ -823,20 +823,20 @@ export function ReportWizard({ report, onChange, onSeal, preserveDraftLines = fa
   );
 }
 
-function SealProgress({ operation, canRetry, onRetry, onBack }: { readonly operation: Operation; readonly canRetry: boolean; readonly onRetry: () => void; readonly onBack: () => void }) {
+function SealProgress({ operation, hasPreparation, canRetry, onRetry, onBack }: { readonly operation: Operation; readonly hasPreparation: boolean; readonly canRetry: boolean; readonly onRetry: () => void; readonly onBack: () => void }) {
   return (
     <section className="page focus-page">
       <div className={`progress-orb ${operation.state}`} aria-hidden="true"><span>{operation.state === "error" ? "!" : "V"}</span></div>
       <span className="eyebrow accent">Private computation</span>
-      <h1>{operation.state === "error" ? "Keep your prepared report" : operation.state === "working" ? operation.label : "Preparing your receipt"}</h1>
+      <h1>{operation.state === "error" ? hasPreparation ? "Keep your prepared report" : "Review your draft" : operation.state === "working" ? operation.label : "Preparing your receipt"}</h1>
       <p>{operation.state === "error" ? operation.detail : operation.state === "working" ? operation.detail : "Finalizing the next safe step."}</p>
       <div className="progress-list">
-        <div className="complete"><span>✓</span><p>Canonical report<small>Deterministic UTF-8 JSON</small></p></div>
+        <div className={hasPreparation ? "complete" : operation.state === "error" ? "failed" : "active"}><span>{hasPreparation ? "✓" : operation.state === "error" ? "!" : "1"}</span><p>Canonical report<small>Deterministic UTF-8 JSON</small></p></div>
         <div className={operation.state === "working" ? "active" : operation.state === "error" ? "failed" : "complete"}><span>{operation.state === "error" ? "!" : "◌"}</span><p>Encrypt &amp; store<small>Authenticated ciphertext only</small></p></div>
         <div><span>3</span><p>Generate ownership proof<small>Runs only in Midnight mode</small></p></div>
         <div><span>4</span><p>Finalize receipt<small>Transaction evidence when available</small></p></div>
       </div>
-      {operation.state === "error" && <><p>Use Private recovery to retain an encrypted backup. {canRetry ? "Retry reuses the saved ciphertext, key, salt and report ID." : "Submission setup already started; its outcome needs reconciliation. Resubmission is blocked."}</p><div className="button-row"><button className="secondary-button" onClick={onBack}>Review report</button>{canRetry && <button className="primary-button" onClick={onRetry}>Retry saved report upload</button>}</div></>}
+      {operation.state === "error" && <><p>Use Private recovery to retain an encrypted backup. {!hasPreparation ? "Preparation did not finish. Review the draft before trying again; no upload or submission started." : canRetry ? "Retry reuses the saved ciphertext, key, salt and report ID." : "Submission setup already started; its outcome needs reconciliation. Resubmission is blocked."}</p><div className="button-row"><button className="secondary-button" onClick={onBack}>Review report</button>{canRetry && hasPreparation && <button className="primary-button" onClick={onRetry}>Retry saved report upload</button>}</div></>}
       <div className="privacy-footnote">No plaintext, key, salt, or researcher secret is sent to the ciphertext service.</div>
     </section>
   );
