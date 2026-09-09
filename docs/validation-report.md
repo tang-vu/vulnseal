@@ -1,5 +1,15 @@
 # Validation report
 
+## Additional Caddy dependency remediation and Go scan precision -- 2026-09-09
+
+Pinned govulncheck **1.8.0** scans of the previous Caddy, Prometheus and promtool binaries exited **3**, reporting **6 / 3 / 3** advisory IDs. Separate extracts exited **0** and contained no package symbols. Inspection of the pinned scanner implementation confirmed its module-level fallback in that situation; the printed symbol heading does not establish a linked or reachable vulnerable function. [Diagnostic evidence](evidence/go-binary-diagnostic.json) records exact binary hashes and [the method](go-vulnerability-checks.md) explains this limitation. No scanner exclusion or release-gate change was made.
+
+Caddy's dependency graph now selects **CEL 0.30.0, compress 1.18.7 and chi 5.3.0**. Module verification, the existing SHA-guarded compatibility patch, upstream CEL/expression tests (**0.491s**), compilation and configuration checks passed. Both Docker builds exited **0**; Git revision metadata capture still warned, so no embedded Git-provenance claim is made. The application release and Compact artifacts were unchanged.
+
+The new web image is **sha256:6f20375885cd4438e506254ab901dab67d919824c4eaea3edfe89c399564d094** and ingress is **sha256:c0a8b7f326698cc17b8138e03d100d1eb469e55d87f7ab5a740d24b12f2a09ef**. The web binary's Go scan now reports **one** advisory, GO-2026-5932, with **exit 3**. Each image's strict Trivy scan reports the same **one UNKNOWN** finding, with **exit 1**. [Post-update evidence](evidence/caddy-additional-remediation.json) preserves log hashes and identities. The captured Trivy logs include a truncated informational line; their finding tables and actual exit codes are retained. These are failing security gates, not clearance.
+
+The full web-container drill passed at **16:23:29.672 UTC** and exited **0** after cleanup: **62 files, 63 HTTP requests, 62,648,273 bytes**, headers/MIME/cache/404 checks, non-root/read-only execution, desktop/mobile captured-state lookup and graceful restart. The rollout drill passed at **16:27:04.597 UTC** and exited **0** after cleanup, including both retained lazy-chunk directions, complete inventories and fixed backend identities. Current [hosting](evidence/web-container-drill.json) and [rollout](evidence/web-rollout-drill.json) evidence refer to these rebuilt images. The historical A fixture remains unchanged. No new wallet transaction, public deployment, proving-key generation or remote CI run occurred; the earlier consolidated application suite was not repeated for this Go dependency-only change.
+
 ## Verify current hosting image and retention in both rollout directions -- 2026-09-09
 
 The normal release from the consolidated baseline was rebuilt into `vulnseal-web:local`, exact image **sha256:c84079a90438bf739e0e07ad99283aad547bac06f77922202426aa5f0fa6b5b9**. The image's artifact gate and Caddy configuration validation passed. Docker reused the pinned Caddy compilation; build metadata warned that Git revision information could not be captured, so no signed or embedded Git-provenance claim is made.

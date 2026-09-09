@@ -1,0 +1,103 @@
+{
+  "recordedAt": "2026-09-09T16:26:38.254922+00:00",
+  "dependencyUpdates": {
+    "github.com/google/cel-go": [
+      "v0.29.0",
+      "v0.30.0"
+    ],
+    "github.com/klauspost/compress": [
+      "v1.18.6",
+      "v1.18.7"
+    ],
+    "github.com/go-chi/chi/v5": [
+      "v5.2.5",
+      "v5.3.0"
+    ]
+  },
+  "moduleFileHashes": {
+    "go.mod": "f2b308a387b39cdb802e51ab1274b510569546492550a2fae6c14098604346eb",
+    "go.sum": "63d5ddb64a7d5039efde0d4357bf9486ce3741ddd20843d39105e04a742b95f0"
+  },
+  "builds": {
+    "webExitCode": 0,
+    "ingressExitCode": 0,
+    "celExpressionTests": "passed, 0.491s",
+    "gitRevisionMetadataCaptured": false
+  },
+  "govulncheck": {
+    "toolVersion": "v1.8.0",
+    "toolImageId": "sha256:572b37a03e4d5efabaed8612366cca50b66254d76e11cf193cd7f919919ce39d",
+    "sourceImageId": "sha256:6f20375885cd4438e506254ab901dab67d919824c4eaea3edfe89c399564d094",
+    "binarySha256": "17f18ad9a6906155756ea0f558bf9b8821a415fe0bdc7bede1c83a461b2f82b4",
+    "exitCode": 3,
+    "findings": [
+      "GO-2026-5932"
+    ],
+    "rawLogSha256": "2834179edfcb854bb9362a2584c99fdf9762cd060a48cd9a065de533c089c497",
+    "rawLog": ".compact/go-binary-scan-20260909/caddy-updated.log",
+    "limits": "Stripped build; no call-path or release-clearance claim."
+  },
+  "runtimeScans": [
+    {
+      "recordedAt": "2026-09-09T16:26:38.254922+00:00",
+      "imageId": "sha256:6f20375885cd4438e506254ab901dab67d919824c4eaea3edfe89c399564d094",
+      "imageConfigId": "sha256:8529ea149c9ce8a692053c54a732533c1dbd91a4e9a8b44a0f44e641a6a0814a",
+      "command": "sh scripts/scan-container.sh sha256:6f20375885cd4438e506254ab901dab67d919824c4eaea3edfe89c399564d094",
+      "scannerImage": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+      "scannerExitCode": 1,
+      "rawLog": ".compact/go-binary-scan-20260909/web-updated-trivy.log",
+      "rawLogSha256": "207b8a20e4de3d193885fa67f1f84a46453550738b4304459f372ae873cbe729",
+      "findings": [
+        {
+          "id": "GO-2026-5932",
+          "package": "golang.org/x/crypto",
+          "installedVersion": "v0.56.0",
+          "severity": "UNKNOWN",
+          "fixedVersion": null
+        }
+      ],
+      "limits": [
+        "The strict all-severity scan gate did not pass.",
+        "Historical source package inventories do not establish current reachability or waive this advisory.",
+        "The captured log has a truncated informational line; findings and exit status are retained.",
+        "No public deployment, penetration test or host scan."
+      ]
+    },
+    {
+      "recordedAt": "2026-09-09T16:26:38.254922+00:00",
+      "imageId": "sha256:c0a8b7f326698cc17b8138e03d100d1eb469e55d87f7ab5a740d24b12f2a09ef",
+      "imageConfigId": "sha256:9592721aa4b7f9358dfe81cb3f8d71c8d68d9d927cfe2bcb3f067f572417dde1",
+      "command": "sh scripts/scan-container.sh sha256:c0a8b7f326698cc17b8138e03d100d1eb469e55d87f7ab5a740d24b12f2a09ef",
+      "scannerImage": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+      "scannerExitCode": 1,
+      "rawLog": ".compact/go-binary-scan-20260909/ingress-updated-trivy.log",
+      "rawLogSha256": "0a7cf2fe764a5aecc0aa4d97efeed5437d166dd2e436585d56a46d722eafc70c",
+      "findings": [
+        {
+          "id": "GO-2026-5932",
+          "package": "golang.org/x/crypto",
+          "installedVersion": "v0.56.0",
+          "severity": "UNKNOWN",
+          "fixedVersion": null
+        }
+      ],
+      "limits": [
+        "The strict all-severity scan gate did not pass.",
+        "Historical source package inventories do not establish current reachability or waive this advisory.",
+        "The captured log has a truncated informational line; findings and exit status are retained.",
+        "No public deployment, penetration test or host scan."
+      ]
+    }
+  ],
+  "priorDiagnostic": "go-binary-diagnostic.json",
+  "functionalEvidence": [
+    "web-container-drill.json",
+    "web-rollout-drill.json"
+  ],
+  "releaseGatePassed": false,
+  "functionalChecks": {
+    "webContainerExitCode": 0,
+    "webRolloutExitCode": 0,
+    "cleanupCompleted": true
+  }
+}

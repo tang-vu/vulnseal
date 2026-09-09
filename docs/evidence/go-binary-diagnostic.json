@@ -1,0 +1,102 @@
+{
+  "recordedAt": "2026-09-09T16:15:23.981941+00:00",
+  "scope": "Diagnostic binary scans of pre-update images; analyzed binaries were copied from created, never-started containers. Not release clearance.",
+  "tool": {
+    "version": "v1.8.0",
+    "imageId": "sha256:572b37a03e4d5efabaed8612366cca50b66254d76e11cf193cd7f919919ce39d",
+    "dockerfile": "infra/govulncheck.Dockerfile",
+    "command": "govulncheck -mode binary -show verbose /scan/<binary>"
+  },
+  "binaries": [
+    {
+      "image": "vulnseal-web:local",
+      "imageId": "sha256:c84079a90438bf739e0e07ad99283aad547bac06f77922202426aa5f0fa6b5b9",
+      "path": "/usr/bin/caddy",
+      "file": "caddy",
+      "sha256": "a5e83ab9b020e0c08198e99c956933985043e4d5c10311333f167fa35610f35b",
+      "exitCode": 3,
+      "logSha256": "5c0d16bc7d71e7f1c1d70c7fe6baa0b7db357c601826b73bdec9ce073f617006",
+      "findings": [
+        "GO-2026-6094",
+        "GO-2026-5932",
+        "GO-2026-5841",
+        "GO-2026-5777",
+        "GO-2026-5775",
+        "GO-2026-5774"
+      ],
+      "rawLog": ".compact/go-binary-scan-20260909/caddy.log",
+      "extraction": {
+        "exitCode": 0,
+        "sha256": "bf60361128536285511ebb0d6610bc34825f2a2b508231c1e1e48ff88c42f00c",
+        "diagnosticOnly": true,
+        "formatHeader": {
+          "name": "govulncheck-extract",
+          "version": "0.1.0"
+        },
+        "observedPkgSymbolsCount": 0,
+        "precision": "module fallback (no extracted symbols)"
+      }
+    },
+    {
+      "image": "vulnseal-prometheus:local",
+      "imageId": "sha256:9716ce24565dad60ce6e2e3660e21c1268f457ee2aebddf0bc40ea4b19a04296",
+      "path": "/bin/prometheus",
+      "file": "prometheus",
+      "sha256": "cda84e80b5b3b70cea360554526a4c3fa455950297e198b491c1ff765953dffe",
+      "exitCode": 3,
+      "logSha256": "654280dda1b57b8758c87569b71da14c9fa7c03a7bfca4beeaa4db9884275ca7",
+      "findings": [
+        "GO-2026-5932",
+        "GO-2022-0646",
+        "GO-2022-0635"
+      ],
+      "rawLog": ".compact/go-binary-scan-20260909/prometheus.log",
+      "extraction": {
+        "exitCode": 0,
+        "sha256": "9867b7652fa7a2b93e77482f9e4abe1b3ac78a30594f7a87e3346fef7bc68905",
+        "diagnosticOnly": true,
+        "formatHeader": {
+          "name": "govulncheck-extract",
+          "version": "0.1.0"
+        },
+        "observedPkgSymbolsCount": 0,
+        "precision": "module fallback (no extracted symbols)"
+      }
+    },
+    {
+      "image": "vulnseal-prometheus:local",
+      "imageId": "sha256:9716ce24565dad60ce6e2e3660e21c1268f457ee2aebddf0bc40ea4b19a04296",
+      "path": "/bin/promtool",
+      "file": "promtool",
+      "sha256": "c0fef9ae421d8a6bad3522434e73b516e8ba9d1ee3d22c78370c286c74d69f46",
+      "exitCode": 3,
+      "logSha256": "8f7e2487545638e9cb6ae6365065464054c4fe1c64262d6c5251111ccb99c50c",
+      "findings": [
+        "GO-2026-5932",
+        "GO-2022-0646",
+        "GO-2022-0635"
+      ],
+      "rawLog": ".compact/go-binary-scan-20260909/promtool.log",
+      "extraction": {
+        "exitCode": 0,
+        "sha256": "305bf7003d4550aa8f8291233f5d89b74dfcb76f80d3f456783714331b012025",
+        "diagnosticOnly": true,
+        "formatHeader": {
+          "name": "govulncheck-extract",
+          "version": "0.1.0"
+        },
+        "observedPkgSymbolsCount": 0,
+        "precision": "module fallback (no extracted symbols)"
+      }
+    }
+  ],
+  "limitations": [
+    "Text-mode exit 3 indicates findings. No security gate or exception was changed.",
+    "Stripped Go binaries can fall back to module-level findings; the symbol wording alone does not establish linked or reachable code.",
+    "Historical source package inventories are separate evidence, not a substitute for the failing runtime gate."
+  ],
+  "sources": [
+    "https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck",
+    "https://raw.githubusercontent.com/golang/vuln/v1.8.0/internal/vulncheck/binary.go"
+  ]
+}

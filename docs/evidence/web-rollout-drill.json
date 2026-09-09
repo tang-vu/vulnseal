@@ -1,17 +1,17 @@
 {
-  "capturedAt": "2026-09-09T16:02:25.492Z",
+  "capturedAt": "2026-09-09T16:27:04.597Z",
   "imageA": "sha256:d36e2fb7188e115ca249f3a810d7ee7f62c50c004e1b52dd8552d3a4d0e8610c",
-  "imageB": "sha256:c84079a90438bf739e0e07ad99283aad547bac06f77922202426aa5f0fa6b5b9",
-  "ingressImage": "sha256:4f2aae8330960fcc7213ce4e3ed06c84852cc3ed15c5e2bb6c0b1f33130dc6b9",
+  "imageB": "sha256:6f20375885cd4438e506254ab901dab67d919824c4eaea3edfe89c399564d094",
+  "ingressImage": "sha256:c0a8b7f326698cc17b8138e03d100d1eb469e55d87f7ab5a740d24b12f2a09ef",
   "changedScripts": 6,
   "first": {
-    "origin": "http://127.0.0.1:32815/releases/before",
+    "origin": "http://127.0.0.1:32818/releases/before",
     "files": 62,
     "requests": 63,
     "bytes": 62535774
   },
   "second": {
-    "origin": "http://127.0.0.1:32815/releases/after",
+    "origin": "http://127.0.0.1:32818/releases/after",
     "files": 62,
     "requests": 63,
     "bytes": 62648273
