@@ -84,7 +84,11 @@ describe("ciphertext-only content store", () => {
     const busy = await fetch(url, { method: "PUT", headers: { "content-type": MEDIA_TYPE }, body: envelope });
     expect(busy.status).toBe(503); expect(busy.headers.get("retry-after")).toBe("1");
     expect(await busy.json()).toEqual({ error: "upload_capacity_busy" });
+    let drained = false;
+    const draining = (server as ReturnType<typeof createCipherstoreServer>).drain().then(() => { drained = true; });
+    await Promise.resolve(); expect(drained).toBe(false);
     held.end(envelope); expect(await completed).toBe(201);
+    await draining; expect(drained).toBe(true);
     expect((await fetch(url, { method: "PUT", headers: { "content-type": MEDIA_TYPE }, body: envelope })).status).toBe(200);
   });
 

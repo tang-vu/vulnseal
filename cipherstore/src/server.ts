@@ -127,7 +127,7 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
     void work.finally(() => { if (readiness === work) readiness = undefined; }).catch(() => {});
     return work;
   };
-  return createServer(async (request, response) => {
+  const handle = async (request: IncomingMessage, response: ServerResponse) => {
     response.setHeader("cache-control", "no-store");
     response.setHeader("x-content-type-options", "nosniff");
     if (options.allowedOrigin) {
@@ -223,7 +223,16 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
     } finally {
       if (uploading) activeUploads--;
     }
+  };
+  const operations = new Set<Promise<void>>();
+  const server = createServer((request, response) => {
+    const operation = handle(request, response).catch(() => {
+      if (!response.headersSent && !response.destroyed) json(response, 500, { error: "storage_unavailable" });
+      else response.destroy();
+    });
+    operations.add(operation); void operation.finally(() => operations.delete(operation));
   });
+  return Object.assign(server, { drain: async () => { while (operations.size) await Promise.allSettled([...operations]); } });
 };
 
 export { MAX_CIPHERTEXT_BYTES, MEDIA_TYPE };

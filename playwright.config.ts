@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { defineConfig, devices } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -24,6 +27,7 @@ export default defineConfig({
       env: {
         CIPHERSTORE_ALLOWED_ORIGIN: "http://127.0.0.1:4173",
         CIPHERSTORE_PORT: "8797",
+        CIPHERSTORE_DATA_DIR: path.join(tmpdir(), `vulnseal-e2e-${randomUUID()}`),
       },
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,

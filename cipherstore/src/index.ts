@@ -2,8 +2,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCipherstoreServer } from "./server.js";
+import { mkdir } from "node:fs/promises";
+import { acquireDirectoryLease } from "./directory-lease.js";
 
 export * from "./server.js";
+export * from "./directory-lease.js";
 
 const isEntrypoint = process.argv[1] !== undefined &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -29,7 +32,21 @@ if (isEntrypoint) {
     maxStoredBlobs: integer("CIPHERSTORE_MAX_STORED_BLOBS", 10_000),
     maxConcurrentUploads: integer("CIPHERSTORE_MAX_CONCURRENT_UPLOADS", 16),
   });
-  server.listen(port, host, () => {
-    process.stdout.write(`VulnSeal cipherstore listening on http://${host}:${port}\n`);
-  });
+  await mkdir(dataDirectory, { recursive: true });
+  const release = await acquireDirectoryLease(dataDirectory);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject); server.listen(port, host, () => { server.off("error", reject); resolve(); });
+    });
+  } catch (error) { await release(); throw error; }
+  process.stdout.write(`VulnSeal cipherstore listening on http://${host}:${port}\n`);
+  let stopping = false;
+  const stop = () => {
+    if (stopping) return; stopping = true;
+    void (async () => {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      await server.drain(); await release();
+    })().catch((error) => { process.stderr.write(`Cipherstore shutdown failed: ${String(error)}\n`); process.exitCode = 1; });
+  };
+  process.on("SIGINT", stop); process.on("SIGTERM", stop);
 }

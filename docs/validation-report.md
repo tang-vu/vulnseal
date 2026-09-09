@@ -1,5 +1,11 @@
 # Validation report
 
+## Cipherstore writer exclusion — 2026-09-09
+
+The CLI now leases its canonical data directory before listening. Backup creation leases the source and restoration leases its fresh destination. SIGINT/SIGTERM stops accepting connections, waits for server close and remaining request/file operations, then releases the lease. Abandoned locks require operator inspection; there is no automatic stale-lock takeover.
+
+The cipherstore build passed and its suite passed 3 files / 14 tests. A second actual Node process was rejected while the parent held the directory lease and acquired it after release; backup creation was also refused while locked. Changed owner tokens prevented lock removal. The final server test rerun passed 9 cases, including a drain that remains pending until an in-flight upload body completes. Production desktop/mobile guided disclosure passed 2 E2E cases in 35.4 seconds using the leased service CLI and a fresh temporary data directory. Native OS graceful-signal delivery and forced-crash recovery are not established by these tests; the handler ordering is implemented, while the drain primitive and cooperative exclusion are independently exercised. Library embedders must explicitly acquire the lease.
+
 ## Cipherstore backup and restoration — 2026-09-09
 
 The ciphertext service now has `create`, `verify` and `restore` CLI operations for a stopped writer. Destinations must be new and outside the source tree; existing stores are never merged or overwritten. Manifest verification covers exact inventory, digest, size and encrypted-envelope shape. The writer must remain stopped; no live-snapshot claim is made.

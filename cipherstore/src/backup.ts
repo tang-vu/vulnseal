@@ -4,6 +4,7 @@ import { lstat, mkdir, open, readdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { MAX_CIPHERTEXT_BYTES, validateEnvelope } from "./server.js";
+import { acquireDirectoryLease, directoryLeaseName } from "./directory-lease.js";
 
 const manifestName = "vulnseal-cipherstore-manifest.json";
 const filenamePattern = /^([a-f0-9]{64})\.ciphertext\.json$/;
@@ -36,20 +37,23 @@ const freshDestination = async (source: string, destination: string) => {
 
 /** The writer must be stopped: immutable blobs simplify copies but do not define a live inventory snapshot. */
 export const createCipherstoreBackup = async (source: string, destination: string): Promise<Manifest> => {
-  const directory = await realpath(source), names = (await readdir(directory)).sort();
-  const blobs: Entry[] = [];
-  const output = await freshDestination(directory, destination);
-  for (const name of names) {
-    if (name.endsWith(".tmp")) continue;
-    const match = filenamePattern.exec(name);
-    if (!match) throw new Error("Source contains an unrecognized entry; inspect it with the writer stopped");
-    if (blobs.length >= 100_000) throw new Error("Backup contains too many blobs");
-    const digest = match[1]!, bytes = await readBlob(directory, digest);
-    await writeExclusive(path.join(output, name), bytes); blobs.push({ digest, bytes: bytes.length });
-  }
-  const manifest: Manifest = { format: "vulnseal-cipherstore-backup", version: 1, createdAt: new Date().toISOString(), blobs };
-  await writeExclusive(path.join(output, manifestName), Buffer.from(JSON.stringify(manifest, null, 2) + "\n"));
-  return manifest;
+  const directory = await realpath(source), release = await acquireDirectoryLease(directory);
+  try {
+    const names = (await readdir(directory)).sort();
+    const blobs: Entry[] = [];
+    const output = await freshDestination(directory, destination);
+    for (const name of names) {
+      if (name.endsWith(".tmp") || name === directoryLeaseName) continue;
+      const match = filenamePattern.exec(name);
+      if (!match) throw new Error("Source contains an unrecognized entry; inspect it with the writer stopped");
+      if (blobs.length >= 100_000) throw new Error("Backup contains too many blobs");
+      const digest = match[1]!, bytes = await readBlob(directory, digest);
+      await writeExclusive(path.join(output, name), bytes); blobs.push({ digest, bytes: bytes.length });
+    }
+    const manifest: Manifest = { format: "vulnseal-cipherstore-backup", version: 1, createdAt: new Date().toISOString(), blobs };
+    await writeExclusive(path.join(output, manifestName), Buffer.from(JSON.stringify(manifest, null, 2) + "\n"));
+    return manifest;
+  } finally { await release(); }
 };
 
 export const verifyCipherstoreBackup = async (source: string): Promise<Manifest> => {
@@ -70,12 +74,15 @@ export const verifyCipherstoreBackup = async (source: string): Promise<Manifest>
 export const restoreCipherstoreBackup = async (source: string, destination: string): Promise<Manifest> => {
   const directory = await realpath(source), manifest = await verifyCipherstoreBackup(directory);
   const output = await freshDestination(directory, destination);
-  for (const entry of manifest.blobs) {
-    const bytes = await readBlob(directory, entry.digest);
-    if (bytes.length !== entry.bytes) throw new Error("Backup changed during restoration");
-    await writeExclusive(path.join(output, `${entry.digest}.ciphertext.json`), bytes);
-  }
-  return manifest;
+  const release = await acquireDirectoryLease(output);
+  try {
+    for (const entry of manifest.blobs) {
+      const bytes = await readBlob(directory, entry.digest);
+      if (bytes.length !== entry.bytes) throw new Error("Backup changed during restoration");
+      await writeExclusive(path.join(output, `${entry.digest}.ciphertext.json`), bytes);
+    }
+    return manifest;
+  } finally { await release(); }
 };
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
