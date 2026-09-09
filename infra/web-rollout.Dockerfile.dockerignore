@@ -2,3 +2,8 @@
 !infra/
 !infra/web-rollout.Caddyfile
 !infra/web-rollout-start.sh
+!infra/caddy/
+!infra/caddy/go.mod
+!infra/caddy/go.sum
+!infra/caddy/main.go
+!infra/caddy/apply-cel-compat.sh

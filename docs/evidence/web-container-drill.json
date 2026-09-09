@@ -1,7 +1,7 @@
 {
-  "capturedAt": "2026-09-09T13:08:54.792Z",
-  "imageId": "sha256:d3951a4cb92093907a18fc2d3200b5be3e9f137981ffa44959bcb930ec2aae4b",
-  "origin": "http://127.0.0.1:32781",
+  "capturedAt": "2026-09-09T13:32:12.577Z",
+  "imageId": "sha256:2d1c667338370e102513493d8c0ebed7953ea484a619cbcc86781f7cf4a29d3a",
+  "origin": "http://127.0.0.1:32783",
   "files": 62,
   "requests": 63,
   "bytes": 62638761,
