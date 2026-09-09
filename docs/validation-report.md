@@ -1,5 +1,15 @@
 # Validation report
 
+## Effective public build configuration — 2026-09-09
+
+Vite now reads the repository-root env directory used by the README setup instructions and validates its effective public mode, network and storage/proof/indexer URLs before build or serve. Shell overrides retain precedence over mode-specific files. Earlier `web/.env*` settings must move to the repository root. The shared ciphertext validator rejects even empty query/fragment delimiters and normalizes trailing slashes before duplicate checks; the exported direct single-store client now uses that validator too.
+
+`npm run test:web-environment` passed **two tests** exercising actual Vite config resolution for build and serve, mode-specific files, shell precedence, root env-directory selection and exclusion of a synthetic non-public variable. A real failed Vite build preserved a preexisting output file even with `--emptyOutDir`. Initial test-development failures exposed fixture issues (dotenv strips an unquoted `#`; Vite's `envFile: false` also resolves its env directory to false); fixtures were corrected and the final tests passed. This gate validates syntax only and does not probe endpoints or validate every possible `VITE_*` application option.
+
+`npm run validate` passed six workspace builds/typechecks and **36 files / 192 tests**: shared 13, contract 13, API 26, ciphertext service 18, integration 9, web 113. The direct-client regression confirms invalid endpoints trigger no fetch and a normalized base path produces the intended blob URL. The separate two-store browser suite passed **four desktop/mobile cases in 47.3 seconds**, without retries or exclusions, including three-report offline backfill and corrupt-read fallback. The 66-case ordinary browser suite was not rerun in this increment. CI now includes the public-environment gate; no remote CI execution or deployment is claimed.
+
+The final normal-configuration `release:build` also passed fresh source/compiler comparison, all six builds and packaging: **eight circuits, 62 files, 62,567,604 bytes**. Existing proving keys and local container images were retained. Native-wallet, cross-region durability and public-host verification remain open.
+
 ## Saved workspace ciphertext backfill — 2026-09-09
 
 The role workspace can explicitly upload all backed-up saved reports to its configured destinations. Reports run sequentially; the first unconfirmed upload stops the batch and selects that report. Progress counts all-destination acknowledgments. The stop control remains usable while other workspace controls are locked and skips remaining reports after the active request settles. Component unmount also stops later reports. No envelope, key, report ID, backup schema or wallet state changes, and no durable upload cursor or automatic resume is claimed.

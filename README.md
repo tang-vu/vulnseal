@@ -93,6 +93,8 @@ npm run demo
 
 Open `http://127.0.0.1:5173`. Guided Local mode performs real canonicalization, SHA-256 commitment preparation, AES-GCM encryption, and ciphertext storage, while clearly labeling workflow transitions as a guided product demonstration. For actual Midnight transactions, connect a compatible Lace wallet, create a network program, and then submit a new report. Connecting a wallet does not convert a guided report into a network report.
 
+The browser reads public `VITE_*` settings from the repository-root `.env`, `.env.local`, and mode-specific files such as `.env.production` / `.env.production.local`. Shell variables take precedence. Move any earlier `web/.env*` configuration to the repository root; it is no longer the browser's env directory. Restart development or rebuild the static release after changes. Vite validates the effective mode, network and configured storage/proof/indexer URLs before serving or building; malformed ciphertext destinations fail before existing build output is replaced. This checks configuration syntax, not service reachability or TLS deployment. Non-`VITE_*` values are not exposed through Vite's browser environment.
+
 ## Compile the Compact contract
 
 ```bash

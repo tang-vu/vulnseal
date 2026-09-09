@@ -30,7 +30,9 @@ const readCiphertext = async (response: Response): Promise<string> => {
 };
 
 export class CipherstoreClient {
-  constructor(private readonly baseUrl: string, private readonly timeoutMs = CIPHERSTORE_REQUEST_TIMEOUT_MS) {
+  private readonly baseUrl: string;
+  constructor(baseUrl: string, private readonly timeoutMs = CIPHERSTORE_REQUEST_TIMEOUT_MS) {
+    this.baseUrl = validateCipherstoreUrls([baseUrl])[0]!;
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 300_000) throw new Error("Cipherstore timeout must be between 1 and 300000 milliseconds");
   }
 

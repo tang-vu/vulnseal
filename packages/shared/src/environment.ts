@@ -60,9 +60,11 @@ export const validateEnvironment = (
 export const validateCipherstoreUrls = (values: readonly string[]): readonly string[] => {
   if (values.length < 1 || values.length > 3) throw new Error("Configure between one and three ciphertext endpoints");
   const normalized = values.map((value) => {
-    const result = url(value, "Ciphertext endpoint", ["http:", "https:"]);
+    const result = url(value, "Ciphertext endpoint", ["http:", "https:"]).replace(/\/+$/, "");
     const parsed = new URL(result);
-    if (parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error("Ciphertext endpoints cannot contain credentials, query strings or fragments");
+    // URL.search/hash are empty even when a bare delimiter remains in href.
+    // Appending the blob path would then put it inside a query or fragment.
+    if (parsed.username || parsed.password || result.includes("?") || result.includes("#")) throw new Error("Ciphertext endpoints cannot contain credentials, query strings or fragments");
     return result;
   });
   if (new Set(normalized).size !== normalized.length) throw new Error("Ciphertext endpoints must be distinct");

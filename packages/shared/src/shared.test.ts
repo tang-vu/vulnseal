@@ -137,6 +137,10 @@ describe("privacy primitives", () => {
   it("bounds and validates explicit ciphertext replica configuration", () => {
     expect(validateEnvironment({}).cipherstoreUrls).toEqual(["http://127.0.0.1:8787"]);
     expect(validateEnvironment({ VITE_CIPHERSTORE_REPLICAS: "https://replica.example.test/" }).cipherstoreUrls).toEqual(["http://127.0.0.1:8787", "https://replica.example.test"]);
+    for (const suffix of ["?", "#", "?#", "?/"] ) expect(() => validateEnvironment({ VITE_CIPHERSTORE_URL: `https://a.test/base${suffix}` })).toThrow("query strings or fragments");
+    expect(validateEnvironment({ VITE_CIPHERSTORE_URL: "https://a.test/base///" }).cipherstoreUrl).toBe("https://a.test/base");
+    expect(() => validateEnvironment({ VITE_CIPHERSTORE_URL: "https://a.test/base/", VITE_CIPHERSTORE_REPLICAS: "https://a.test/base///" })).toThrow("distinct");
+    expect(validateEnvironment({ VITE_CIPHERSTORE_URL: "https://a.test/path%3Fpart%23part" }).cipherstoreUrl).toBe("https://a.test/path%3Fpart%23part");
     for (const replica of ["http://127.0.0.1:8787/", "https://a.test,https://b.test,https://c.test", "https://a.test,", "https://user:password@a.test", "https://a.test?token=x", "https://a.test/#fragment", "file:///a"]) expect(() => validateEnvironment({ VITE_CIPHERSTORE_REPLICAS: replica })).toThrow();
   });
 });

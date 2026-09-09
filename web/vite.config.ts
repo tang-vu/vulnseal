@@ -3,11 +3,20 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath, URL } from "node:url";
 import wasm from "vite-plugin-wasm";
+import { validateEnvironment } from "../packages/shared/src/environment.js";
 
 export default defineConfig({
+  envDir: fileURLToPath(new URL("../", import.meta.url)),
   base: "./",
   cacheDir: "./.vite",
-  plugins: [react(), wasm()],
+  plugins: [react(), wasm(), {
+    name: "vulnseal-public-environment",
+    configResolved(config) {
+      // Validate Vite's effective values after mode-specific files and shell
+      // overrides have been applied, before any output is emitted or served.
+      validateEnvironment(config.env);
+    },
+  }],
   worker: {
     format: "es", plugins: () => [wasm()],
     rollupOptions: { output: { manualChunks(id) {

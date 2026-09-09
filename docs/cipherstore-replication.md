@@ -2,7 +2,7 @@
 
 The browser can upload each saved encrypted envelope to two or three explicitly configured ciphertext endpoints. With no replicas configured it retains the single-store behavior. The report/key/salt/commitment formats do not change. Endpoint configuration is public build configuration, not private report metadata.
 
-Set the primary and up to two comma-separated additional URLs before building the web release:
+Set the primary and up to two comma-separated additional URLs in repository-root `.env.production` (or shell variables) before building the web release:
 
 ```text
 VITE_CIPHERSTORE_URL=https://primary.example
@@ -10,6 +10,8 @@ VITE_CIPHERSTORE_REPLICAS=https://replica.example
 ```
 
 Replace these placeholders with services you operate and have verified. Each must support the existing `/v1/blobs/sha256:...` protocol, including matching CORS for the actual web origin. Credentials, query strings, fragments, duplicate normalized URLs and more than three total endpoints are rejected. Distinct URLs do not prove distinct storage, operators or failure domains. Use HTTPS on public deployments. The UI lists all configured destinations before authoring/upload, including the ciphertext size/address/timing metadata their operators can observe. Requests omit browser credentials/referrers and refuse redirects.
+
+Validation also rejects empty `?` / `#` suffixes, which would otherwise swallow an appended blob path, and removes trailing path slashes before checking duplicates. Encoded path characters such as `%3F` remain valid. The direct single-store client enforces the same endpoint rules as the factory. Vite checks effective public configuration before serving/building; this is a syntax gate, not a reachability probe.
 
 `createCipherstoreClient(urls)` selects the existing single client or `ReplicatedCipherstoreClient`. Replicated PUTs run once per destination in parallel. All must acknowledge before the operation resolves. A partial failure reports the acknowledged count, waits for the bounded remaining attempts, and leaves the local encrypted report available. Failure does not imply that a destination discarded its bytes: its response could be lost. An explicit retry sends the identical envelope to every destination; the existing service makes identical PUTs idempotent. There is no background retry, delete, overwrite or rollback of a successful copy.
 

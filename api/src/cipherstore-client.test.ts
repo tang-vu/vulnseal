@@ -5,6 +5,14 @@ import { createHash } from "node:crypto";
 
 describe("CipherstoreClient", () => {
   afterEach(() => vi.unstubAllGlobals());
+  it("validates direct client endpoints before requests and appends paths to a normalized base", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status: 201 })); vi.stubGlobal("fetch", fetchMock);
+    for (const base of ["https://a.test?", "https://a.test#", "https://user:secret@a.test", "file:///tmp/store", "/store"]) expect(() => new CipherstoreClient(base)).toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+    const body = "{}", address = `sha256:${createHash("sha256").update(body).digest("hex")}`;
+    await new CipherstoreClient("https://a.test/storage///").put(address, body);
+    expect(fetchMock.mock.calls[0]![0]).toBe(`https://a.test/storage/v1/blobs/${address}`);
+  });
   it.each([[507, "storage is full"], [503, "temporarily busy or unavailable"]] as const)("explains HTTP %i without automatically retrying", async (status, message) => {
     const fetchMock = vi.fn(async () => new Response("{}", { status })); vi.stubGlobal("fetch", fetchMock);
     const body = "{}", digest = createHash("sha256").update(body).digest("hex");
