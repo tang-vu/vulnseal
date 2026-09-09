@@ -7,6 +7,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./role-session": {
+      "types": "./dist/role-session.d.ts",
+      "import": "./dist/role-session.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"

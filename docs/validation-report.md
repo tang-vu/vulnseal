@@ -1,5 +1,17 @@
 # Validation report
 
+## Fixed-role API validation — 2026-09-09
+
+| Check | Command / environment | Observed result |
+| --- | --- | --- |
+| Consolidated checks | `npm run validate` | Exit 0; all six workspace typechecks/builds; 15 test files / 81 tests passed before the final alternative-lifecycle case |
+| Final API tests | `npm run test:run -w @vulnseal/api` | Exit 0; 2 files / 10 tests, including 9 role-session/provider cases; total suite coverage across these runs is 82 tests |
+| Two-actor simulator lifecycle | Generated Compact circuits through the real API witness wrapper | Fixed researcher/vendor sessions submit, triage, accept, patch, retest, authorize and close; rejected closure and failed-retest remediation also pass; each circuit receives its intended actor witness |
+| Authority and concurrency failures | Included in API tests | Wrong role rejected before witness installation; wrong program/vendor/researcher and stale patch/preimage rejected; duplicate queued submission invokes one circuit; changed owner checked afresh; caller-array mutation cannot swap authority; queue releases after malformed input, provider failure and operation failure |
+| Built package export | Node import of `@vulnseal/api/role-session` | Exit 0; `RoleSession.join` available from built package |
+
+This work changes the API and adds a simulator-backed integration, not the browser's combined authority workflow. The simulator invokes generated circuits but produces no proofs, wallet signatures or real network finality. Existing browser E2E results remain historical; they were not rerun for this API-only change. See [ADR-0009](adr/0009-fixed-role-api-sessions.md) and the [API usage guide](role-session-api.md).
+
 ## Private disclosure exchange validation — 2026-09-09
 
 | Check | Command / environment | Observed result |

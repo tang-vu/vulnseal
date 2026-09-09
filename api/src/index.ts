@@ -3,3 +3,4 @@ export * from "./api.js";
 export * from "./cipherstore-client.js";
 export * from "./providers.js";
 export * from "./types.js";
+export * from "./role-session.js";

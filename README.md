@@ -91,6 +91,8 @@ On older x86 CPUs, the compiler-bundled ZKIR key generator may exit with illegal
 
 ## Run tests and builds
 
+For independent client implementations, the [single-role transaction API](docs/role-session-api.md) provides fixed researcher/vendor sessions with current-ledger checks and serialized private witnesses. The combined experimental browser authority flow remains separate from this API.
+
 ```bash
 npm run typecheck
 npm run test:run

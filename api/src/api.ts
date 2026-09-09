@@ -41,6 +41,7 @@ const evidence = (
 
 /** Adapter over real Midnight.js deployment, proof, indexer, and wallet providers. */
 export class VulnSealApi {
+  private static readonly privateStateQueues = new WeakMap<object, Promise<void>>();
   private constructor(
     readonly deployedContract: DeployedVulnSealContract,
     private readonly providers: VulnSealProviders,
@@ -96,6 +97,25 @@ export class VulnSealApi {
   async usePrivateState(privateState: VulnSealPrivateState): Promise<void> {
     this.providers.privateStateProvider.setContractAddress(this.contractAddress);
     await this.providers.privateStateProvider.set(vulnSealPrivateStateKey, privateState);
+  }
+
+  /** Keep a role's witness installation and transaction together, even across contracts sharing a provider. */
+  async withPrivateState<T>(privateState: VulnSealPrivateState, invoke: () => Promise<T>): Promise<T> {
+    // Copy before acquiring the queue: malformed input must not leave a locked provider.
+    const snapshot = structuredClone(privateState);
+    const provider = this.providers.privateStateProvider;
+    const previous = VulnSealApi.privateStateQueues.get(provider) ?? Promise.resolve();
+    let release!: () => void;
+    const current = new Promise<void>((resolve) => { release = resolve; });
+    VulnSealApi.privateStateQueues.set(provider, current);
+    await previous;
+    try {
+      await this.usePrivateState(snapshot);
+      return await invoke();
+    } finally {
+      release();
+      if (VulnSealApi.privateStateQueues.get(provider) === current) VulnSealApi.privateStateQueues.delete(provider);
+    }
   }
 
   async readPublicState(): Promise<PublicContractSnapshot> {
