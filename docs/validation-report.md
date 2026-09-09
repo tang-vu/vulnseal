@@ -1,5 +1,13 @@
 # Validation report
 
+## Served web artifact comparison — 2026-09-09
+
+`npm run release:check-host -- http://127.0.0.1:4186` passed against a freshly started loopback Vite preview serving the previously checked production artifact: 62 inventoried files plus the root page, 63 HTTP requests and 62,523,111 decoded bytes. Every response matched the local artifact by length and SHA-256; HTML/JS/CSS/WASM MIME checks passed. The root page matched `index.html`. The owned preview process was stopped after verification. This is local HTTP evidence, not a public hosting or native-wallet result.
+
+`npm run test:release` passed all four tests across packaging and hosting checks. Real HTTP fixtures cover changed/truncated/oversized content, incorrect MIME, HTTP errors, refused redirects, a stalled response body, wrong homepage content and inventory validation before requests. Origin checks require HTTPS outside loopback and reject credentials/paths/queries/fragments. The existing CI release-test step includes these cases automatically. No full workspace/browser test rerun is claimed for this tooling-only change.
+
+The command uses a locally checked inventory, never a downloaded manifest as the trust authority. It streams sequential downloads with per-file deadlines and expected-size bounds. See [the operator instructions and limits](web-release.md#verify-files-through-the-serving-origin). Public-host configuration, cache/security headers, CDN consistency and browser execution remain separate release gates.
+
 ## Web release packaging gate — 2026-09-09
 
 `npm run release:build` passed all six workspace builds and generated an inventory for eight proving circuits, 62 files and 62,521,837 bytes. A subsequent read-only `npm run release:check` passed against that manifest. The 24 required prover/verifier/binary-ZKIR files match the existing local compiler outputs by size and SHA-256. [The retained packaging evidence](evidence/web-release-packaging.json) records the manifest hash and source/metadata digests. Generated release files remain outside Git.

@@ -23,6 +23,8 @@ The startup error screen also offers export-only access to encrypted browser cop
 
 ## Work still required
 
+An explicit HTTP release check now compares the local inventory with each served file and the origin homepage, enforcing byte/hash equality, HTTP status, JS/CSS/WASM/HTML MIME types, redirect refusal and bounded downloads. All 62 files and the root page passed through loopback Vite preview; four packaging/HTTP tests passed. The same command can check a chosen HTTPS deployment, but no public host has been validated by this local evidence.
+
 The web release now has a separate packaging gate requiring each proving circuit's prover key, verifier key and binary ZKIR to match local compiler outputs. The production build and read-only manifest check passed for eight circuits and 62 files; synthetic rejection rules are included in CI. This establishes local package completeness, while compiler provenance/freshness, actual hosted asset availability and native-wallet release validation remain open. See [the release guide](web-release.md).
 
 Recovery journals now also offer an explicit worker-based report-effects check: finalized successful transaction observation, bounded predecessor discovery, RPC block checks and shared SDK data-state replay must match the saved program and report. The production worker passed captured-transaction browser tests, while the valid encrypted-backup UI test covers program mismatch and cancellation. Native Lace recovery, intended-argument matching, authenticated history/code and safe-retry decisions remain open; see [the precise scope](transaction-content-investigation.md#browser-recovery-journal-check).

@@ -26,3 +26,19 @@ This is a packaging check against local outputs, not a signed compiler attestati
 After packaging, retain normal build/test/audit results, verify all required assets through the actual public endpoint, and execute the native-wallet release ceremony against the intended deployment. Hosting and that ceremony remain separate gates. No publish, upload or wallet call is performed by these commands.
 
 `npm run test:release` exercises rejection of absent/empty/mismatched prover data, missing HTML/lazy asset references, unexpected files and stale manifests using isolated synthetic fixtures. CI runs this test even when its normal compiler step skips key generation. That test is not evidence that CI generated a network-complete release artifact.
+
+## Verify files through the serving origin
+
+After uploading the complete artifact to your chosen host, retain the matching local compiler outputs and `web/dist`, then run:
+
+```text
+npm run release:check-host -- https://your-deployment.example
+```
+
+Replace the example with the actual HTTPS origin. The command first runs the local packaging check, then downloads every inventoried file and the origin's `/` page. It requires HTTP 200, the expected byte length and SHA-256, and browser-compatible MIME types for HTML, JavaScript, CSS and WASM. The root page must match `index.html`. A missing key replaced by an HTML fallback therefore fails even if the host responds with 200. Redirects fail: supply the final serving origin directly. Credentials, URL paths, query strings and fragments are rejected; plain HTTP is accepted only for loopback testing.
+
+Requests run sequentially, omit credentials, request cache revalidation and have a 30-second deadline each, including the body. Hashing is streamed and aborts above the expected file size. Fetch-decoded bytes are compared, so transport compression does not change the required file contents. The reported byte total includes fetching `index.html` again at `/`. The served manifest is not trusted or fetched as an authority: comparisons use the locally checked inventory. The complete current artifact requires approximately 62.5 MB per check. Stop or rerun explicitly after fixing a failed deployment; the checker does not retry, upload, publish or mutate the host.
+
+For a local smoke check, start `npm run preview -w @vulnseal/web -- --port 4186 --strictPort` in a separate terminal and use `http://127.0.0.1:4186` as the origin. Vite preview is a local validation tool; choose and configure a production host separately.
+
+Passing proves the bytes served to this client at check time. It does not establish CDN-wide consistency, browser execution, cache policy correctness, security headers, TLS configuration beyond normal client certificate validation, endpoint availability or a successful wallet ceremony. Browser privacy/extension behavior also requires browser validation. Keep these deployment checks alongside the HTTP result.
