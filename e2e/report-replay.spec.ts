@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect, test, type Page } from "@playwright/test";
 import { readFile, readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { encryptRoleVault, withSubmissionAttempt } from "../web/src/role-recovery.js";
 import { recoveryFixture } from "../web/src/test/recovery-fixture.js";
 
@@ -46,6 +47,7 @@ test("production worker replays historical report effects and rejects a differen
   const result = await run(input);
   expect(result.error).toBeUndefined();
   expect(result.result).toMatchObject({ before: "RETEST_PASSED", after: "PAYOUT_AUTHORIZED", actionsRead: 7 });
+  expect(result.result.publicValues).toEqual({ decisionDigest: createHash("sha256").update("accepted:p2").digest("hex"), severity: "3", rewardTier: "3" });
   expect((await run({ ...input, reportId: "ff".repeat(32) })).error).toContain("did not change exactly the report");
 });
 test("journal report checking is explicit, rejects a different program, and can be cancelled", async ({ page }) => {

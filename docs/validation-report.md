@@ -1,5 +1,15 @@
 # Validation report
 
+## Saved decision versus replayed report — 2026-09-09
+
+The report worker now returns public decision-digest/severity/reward-tier values from the replayed changed record. The role workspace compares those values locally to the note snapshot attached to the selected submission attempt: exact UTF-8 decision text for acceptance/rejection, severity for acceptance, reward tier for payout authorization. Mismatches raise an alert; missing snapshots, mismatched report IDs and unsupported operations never receive a successful comparison message. The note snapshot is not sent to the worker or external services. This is partial source-trusting reconciliation, not authenticated arguments, a terminal journal result, token transfer evidence or permission to retry. See [ADR-0023](adr/0023-saved-decision-comparison.md).
+
+The focused comparison/worker-boundary suite passed **six tests**, and the complete web suite passed **25 files / 116 tests in 55.55 seconds**. Web typechecking passed. Tests include whitespace-sensitive text hashing, wrong digest/tier, operation-specific comparisons, absent snapshots and wrong report binding. The worker-boundary test supplies private text and asserts the exact outgoing payload remains public-only.
+
+The production-worker browser suite passed **four desktop/mobile cases in 44.2 seconds**, without retries or exclusions. It replays captured historical Preprod data, checks the `accepted:p2` SHA-256 and severity/reward tiers of 3, rejects wrong program/report bindings and supports explicit cancellation. UI comparison behavior is component-tested; this run does not claim a new native-wallet ceremony or a real-role browser comparison against that historical actor's private backup. The prior full 66-case and four-replica browser baseline was not rerun for this increment.
+
+The final normal-configuration `release:build` passed fresh compiler-source comparison, all six builds and packaging: **eight circuits, 62 files, 62,574,766 bytes**. No proving key, contract source or backup schema changed, and no external write was performed.
+
 ## Consolidated build-toolchain regression — 2026-09-09
 
 After the environment, compiler staging and exact artifact-copy changes, `npm run validate` completed all six builds and typechecks. Shared 13, contract 13, API 26, ciphertext service 18 and integration 9 tests passed. The web run had one failed query: the receiving-key retention test's default one-second wait expired while real RSA-3072 generation and encrypted backup derivation were still processing. Its wait now has an explicit five-second bound; assertions and production crypto are unchanged. The complete web rerun passed **24 files / 113 tests in 57.35 seconds**. This establishes 192 passing workspace tests across the initial run and corrected web rerun, not a claim that the initial command was green.

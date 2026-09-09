@@ -2,8 +2,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReportCheckInput, ReportCheckResult } from "./report-reconciliation.js";
 import { publicReplayEndpoints } from "./public-endpoints.js";
+import { SavedDecisionCheck } from "./SavedDecisionCheck.js";
+import type { ReportNotes } from "./role-recovery.js";
 
-export function ReportEffectCheck({ network, transactionId, contractAddress, programId, reportId, circuit }: Omit<ReportCheckInput, "indexerUrl" | "rpcUrl" | "websocketUrl"> & { network: string }) {
+export function ReportEffectCheck({ network, transactionId, contractAddress, programId, reportId, circuit, savedNotes }: Omit<ReportCheckInput, "indexerUrl" | "rpcUrl" | "websocketUrl"> & { network: string; savedNotes?: ReportNotes | null | undefined }) {
   const worker = useRef<Worker | undefined>(undefined), timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [working, setWorking] = useState(false), [error, setError] = useState(""), [result, setResult] = useState<ReportCheckResult>();
   const stop = () => { worker.current?.terminate(); worker.current = undefined; clearTimeout(timer.current); };
@@ -30,5 +32,6 @@ export function ReportEffectCheck({ network, transactionId, contractAddress, pro
     {working && <><p role="status">Checking report history and replaying the transaction…</p><button type="button" className="secondary-button" onClick={() => { stop(); setWorking(false); setError("Report check cancelled. No recovery decision was made."); }}>Cancel report check</button></>}
     {error && <p role="alert">{error}</p>}
     {result && <div role="status"><p>Replayed report change: {result.before} → {result.after}</p><p>Compared states at blocks {result.previousBlockHeight} and {result.blockHeight}, after reading {result.actionsRead} contract actions. Checked {result.checkedAt}.</p><p>This replay matches the recorded program and report using indexer data and RPC block checks. It does not authenticate proofs, deployed code or history completeness, verify every intended argument, transfer funds, or make retry safe.</p></div>}
+    {result && <SavedDecisionCheck circuit={circuit} reportId={reportId} notes={savedNotes} values={result.publicValues} />}
   </details>;
 }
