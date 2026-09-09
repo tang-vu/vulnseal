@@ -20,6 +20,8 @@ import type {
 } from "./types.js";
 import { vulnSealPrivateStateKey } from "./types.js";
 
+export const PUBLIC_STATE_TIMEOUT_MS = 20_000;
+
 export type SafeLogger = {
   info(message: string, context?: unknown): void;
   error(message: string, context?: unknown): void;
@@ -119,9 +121,18 @@ export class VulnSealApi {
   }
 
   async readPublicState(): Promise<PublicContractSnapshot> {
-    const state = await this.providers.publicDataProvider.queryContractState(this.contractAddress);
-    if (state === null) throw new Error("Contract state is unavailable from the indexer");
-    return { contractAddress: this.contractAddress, ledger: ledger(state.data) };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error("Public state read timed out. Retry the read when the indexer is available; this does not change transaction finality.")), PUBLIC_STATE_TIMEOUT_MS);
+    });
+    try {
+      const state = await Promise.race([
+        this.providers.publicDataProvider.queryContractState(this.contractAddress),
+        timeout,
+      ]);
+      if (state === null) throw new Error("Contract state is unavailable from the indexer");
+      return { contractAddress: this.contractAddress, ledger: ledger(state.data) };
+    } finally { clearTimeout(timer); }
   }
 
   private async call(

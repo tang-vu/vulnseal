@@ -1,5 +1,13 @@
 # Validation report
 
+## Bound public-state reads without changing transaction outcomes -- 2026-09-09
+
+`VulnSealApi.readPublicState` now stops waiting after **20 seconds**, returns a read-timeout error and clears its timer on all completion paths. It does not retry, submit a transaction or change finality. A late provider response is never decoded or returned to the timed-out caller. An explicit later call can obtain fresh state. This applies to API consumers including post-finality demo refresh, restoration's ledger read and role-session authority checks; connection/join and SDK-internal operations outside this method remain separate.
+
+The API suite passed **32 tests across four files in 3.48 seconds**, with typechecking successful. New tests call the actual API method with a mocked provider/ledger decoder and advance fake timers: timeout triggers once, late state is not decoded, an explicit fresh read succeeds, provider errors/null results retain their existing errors and timers are cleaned up. The existing mocked network UI case covering finalized receipt retention, blocked follow-up actions and successful explicit refresh passed separately (**1 case in 8.07 seconds**, nine unrelated cases skipped). That UI case exercises read-error handling, not a real indexer timeout.
+
+The normal release build passed after fresh source comparison at **15:42:44.559 UTC**: **8 circuits, 62 files, 62,646,994 bytes**. No contract or proving-key changes occurred. This is an application wait limit, not cancellation of the underlying network request, a limit on synchronous ledger decoding or native Lace verification. Full browser suites, current hosting-image rebuild and public deployment were not performed in this increment.
+
 ## Verify initial-submit timeout recovery through the UI -- 2026-09-09
 
 The initial-report recovery regression now covers API rejection, a never-resolving private-state preparation and a never-resolving submit call. The timeout cases advance the application timer, deliver the late result, and verify that no completed report or late transaction receipt appears. Preparation timeout makes zero submit calls, including after late preparation resolves; submission timeout makes exactly one.
