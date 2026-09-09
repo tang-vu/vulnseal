@@ -1,5 +1,15 @@
 # Validation report
 
+## Alert on unavailable storage while metrics remain reachable -- 2026-09-09
+
+Each enabled `/metrics` scrape now invokes the same coalesced quota and write/read probe as `/readyz`. The new fixed-name gauge `vulnseal_storage_ready` is 1 on success and 0 on failure; the scrape remains HTTP 200 on a completed failed probe. This closes the gap where `up=1` hid a full or unavailable store until another request generated an error. Filesystem details are not exposed. Scrapes now perform probe I/O; slow storage can cause scrape timeouts, and quota readiness checks only one byte of headroom, not every possible upload size.
+
+The new `CipherstoreStorageNotReady` alert requires two minutes of readiness 0 while `up=1`. Synthetic promtool tests cover pending/firing, readiness recovery and suppression while the scrape itself is unavailable. Existing scrape-unavailable and server-error rules remain, giving three rules in total. All **21 ciphertext tests across four files passed in 6.10 seconds** locally and **6.24 seconds** inside the image build; typechecking passed. New HTTP tests cover concurrent successful probes and cleanup, quota exhaustion with retained reads, and an unusable storage path without disclosure or modification of that path's contents.
+
+The complete real monitoring drill passed at **15:29:45.684 UTC**, terminated with **exit 0**, and cleaned its own project. A one-blob fixture became full after a synthetic upload: Prometheus observed readiness 0 with `up=1`, and the retained envelope remained readable. UI assets, three loaded rules, outage/recovery and TSDB restart retention also passed. [Current drill evidence](evidence/cipherstore-monitoring-drill.json) records the new ciphertext image `sha256:2012dd05ebe56a0026a141afb5d68d69b531fe9c6955e5e091139a0cb55a7ca5`. The two-minute alert timing is synthetic-test evidence, not a real-time firing/notification drill.
+
+The exact ciphertext runtime passed `scan-container.sh` with **exit 0**, zero Alpine and node-package findings; [scan evidence](evidence/cipherstore-readiness-scan.json) retains the log hash and scope. The separate collector still has its two unresolved UNKNOWN findings. No client release, contract, proving keys, operator data, external notifications or public deployment changed.
+
 ## Remove inherited OS layers from the collector -- 2026-09-09
 
 The collector now uses a `scratch` final image instead of overlaying its rebuilt binaries on the upstream BusyBox image. It includes only the two static executables, CA trust bundle, Go timezone archive, sample configuration, license/notice and numeric-user records. The data directory is created with UID/GID **65534:65534** before fresh named-volume initialization. Entry point, default arguments, exposed port and work directory are explicit. Docker reused the earlier successful binary compilation; no dependency or UI source changed.

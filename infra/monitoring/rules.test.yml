@@ -6,6 +6,32 @@ tests:
   - interval: 1m
     input_series:
       - series: 'up{job="cipherstore",instance="cipherstore:8787"}'
+        values: '1 1 1 1 1 0 0 0 0'
+      - series: 'vulnseal_storage_ready{job="cipherstore",instance="cipherstore:8787"}'
+        values: '0 0 0 1 1 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: CipherstoreStorageNotReady
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: CipherstoreStorageNotReady
+        exp_alerts:
+          - exp_labels:
+              job: cipherstore
+              instance: cipherstore:8787
+              severity: warning
+            exp_annotations:
+              summary: Cipherstore storage is not ready for new writes
+              description: Check capacity and storage access. Existing ciphertext may remain readable; do not delete it or automatically retry transactions.
+      - eval_time: 3m
+        alertname: CipherstoreStorageNotReady
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: CipherstoreStorageNotReady
+        exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'up{job="cipherstore",instance="cipherstore:8787"}'
         values: '0 0 0 1 1'
     alert_rule_test:
       - eval_time: 1m

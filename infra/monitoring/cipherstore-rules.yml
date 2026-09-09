@@ -2,6 +2,14 @@
 groups:
   - name: cipherstore
     rules:
+      - alert: CipherstoreStorageNotReady
+        expr: (vulnseal_storage_ready{job="cipherstore"} == 0) and on (job, instance) (up{job="cipherstore"} == 1)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cipherstore storage is not ready for new writes
+          description: Check capacity and storage access. Existing ciphertext may remain readable; do not delete it or automatically retry transactions.
       - alert: CipherstoreMetricsUnavailable
         expr: up{job="cipherstore"} == 0
         for: 2m

@@ -1,0 +1,17 @@
+{
+  "recordedAt": "2026-09-09T15:29:29.550153+00:00",
+  "imageId": "sha256:2012dd05ebe56a0026a141afb5d68d69b531fe9c6955e5e091139a0cb55a7ca5",
+  "imageConfigId": "sha256:d7af58aefa0ec1f0f22400056fef34cfeed8f5c3b773be8964035fcde7873bd8",
+  "scanner": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+  "command": "sh scripts/scan-container.sh",
+  "exitCode": 0,
+  "rawLogSha256": "554d6a39b47c7a7fc7df43295586881b40724c56b771eb74e1a909ad6d815bf4",
+  "findings": {
+    "alpine": 0,
+    "node-pkg": 0
+  },
+  "limits": [
+    "Runtime scan only, not a host or builder audit.",
+    "Scanner OS support/EOL coverage remains separate from vulnerability counts."
+  ]
+}

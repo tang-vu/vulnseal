@@ -1,7 +1,7 @@
 {
-  "capturedAt": "2026-09-09T15:21:31.287Z",
+  "capturedAt": "2026-09-09T15:29:45.684Z",
   "prometheusImage": "sha256:9716ce24565dad60ce6e2e3660e21c1268f457ee2aebddf0bc40ea4b19a04296",
-  "cipherstoreImage": "sha256:95aaedbc2c46a992e4858bbbc97a8446a67c83bb9f891067cbb0222dc5ab623b",
+  "cipherstoreImage": "sha256:2012dd05ebe56a0026a141afb5d68d69b531fe9c6955e5e091139a0cb55a7ca5",
   "ruleTests": true,
   "uiAssetsServed": true,
   "tsdbRestartRetained": true,
@@ -12,9 +12,11 @@
   "nonRoot": true,
   "readOnlyRoot": true,
   "externalNotifications": false,
+  "storageNotReadyDetected": true,
+  "retainedReadsAtCapacity": true,
   "previousVerification": {
-    "capturedAt": "2026-09-09T15:14:13.143Z",
-    "prometheusImage": "sha256:f801adf9b95daa93a886a1b94bebef62f1446f68c2f1edeb901be6787d4f9143",
+    "capturedAt": "2026-09-09T15:21:31.287Z",
+    "prometheusImage": "sha256:9716ce24565dad60ce6e2e3660e21c1268f457ee2aebddf0bc40ea4b19a04296",
     "cipherstoreImage": "sha256:95aaedbc2c46a992e4858bbbc97a8446a67c83bb9f891067cbb0222dc5ab623b",
     "ruleTests": true,
     "uiAssetsServed": true,
@@ -27,17 +29,32 @@
     "readOnlyRoot": true,
     "externalNotifications": false,
     "previousVerification": {
-      "capturedAt": "2026-09-09T14:44:32.646Z",
-      "prometheusImage": "sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0",
+      "capturedAt": "2026-09-09T15:14:13.143Z",
+      "prometheusImage": "sha256:f801adf9b95daa93a886a1b94bebef62f1446f68c2f1edeb901be6787d4f9143",
       "cipherstoreImage": "sha256:95aaedbc2c46a992e4858bbbc97a8446a67c83bb9f891067cbb0222dc5ab623b",
       "ruleTests": true,
+      "uiAssetsServed": true,
+      "tsdbRestartRetained": true,
       "realScrape": true,
       "errorCounterScraped": true,
       "outageDetected": true,
       "recoveryDetected": true,
       "nonRoot": true,
       "readOnlyRoot": true,
-      "externalNotifications": false
+      "externalNotifications": false,
+      "previousVerification": {
+        "capturedAt": "2026-09-09T14:44:32.646Z",
+        "prometheusImage": "sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0",
+        "cipherstoreImage": "sha256:95aaedbc2c46a992e4858bbbc97a8446a67c83bb9f891067cbb0222dc5ab623b",
+        "ruleTests": true,
+        "realScrape": true,
+        "errorCounterScraped": true,
+        "outageDetected": true,
+        "recoveryDetected": true,
+        "nonRoot": true,
+        "readOnlyRoot": true,
+        "externalNotifications": false
+      }
     }
   }
 }

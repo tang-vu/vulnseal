@@ -32,7 +32,7 @@ directory is owned by UID/GID 65534 before a fresh named volume is mounted.
 Existing volumes still need that ownership; this image cannot run a shell to
 repair an operator volume. The runtime inventory does not audit the host or
 exercise remote TLS scrapes. Functional coverage is the
-configured static scrape, query API, UI asset serving and local alert rules;
+configured static scrape, query API, UI asset serving, quota readiness and local alert rules;
 it does not cover every upstream service-discovery or remote-write integration.
 
 The `build-evidence` Docker target exports the resolved `go.mod`, `go.sum` and

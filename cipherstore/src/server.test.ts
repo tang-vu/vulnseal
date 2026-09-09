@@ -37,6 +37,7 @@ describe("ciphertext-only content store", () => {
       return response.text();
     };
     const empty = await scrape();
+    expect(empty).toContain("vulnseal_storage_ready 0\n");
     expect(await scrape()).toBe(empty);
     const digest = createHash("sha256").update(envelope).digest("hex");
     await fetch(`${base}/healthz`);
@@ -66,6 +67,41 @@ describe("ciphertext-only content store", () => {
         expect(closed).toContain("vulnseal_active_uploads 0\n");
       });
     } finally { upload.destroy(); }
+  });
+
+  it("scrapes fresh storage readiness through quota exhaustion while retaining reads", async () => {
+    const dataDirectory = await mkdtemp(path.join(tmpdir(), "vulnseal-ready-metrics-"));
+    server = createCipherstoreServer({ dataDirectory, maxStoredBlobs: 1, metricsEnabled: true });
+    await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
+    const address = server.address(); if (!address || typeof address === "string") throw new Error("No TCP address");
+    const base = `http://127.0.0.1:${address.port}`;
+    const results = await Promise.all(Array.from({ length: 8 }, async () => (await fetch(`${base}/metrics`)).text()));
+    expect(results.every((value) => value.includes("vulnseal_storage_ready 1\n"))).toBe(true);
+    expect(await readdir(dataDirectory)).toEqual([]);
+    const digest = createHash("sha256").update(envelope).digest("hex");
+    const url = `${base}/v1/blobs/sha256:${digest}`;
+    expect((await fetch(url, { method: "PUT", headers: { "content-type": MEDIA_TYPE }, body: envelope })).status).toBe(201);
+    const metrics = await fetch(`${base}/metrics`);
+    expect(metrics.status).toBe(200);
+    expect(await metrics.text()).toContain("vulnseal_storage_ready 0\n");
+    expect((await fetch(`${base}/readyz`)).status).toBe(503);
+    expect(await (await fetch(url)).text()).toBe(envelope);
+    expect(await readdir(dataDirectory)).toEqual([`${digest}.ciphertext.json`]);
+  });
+
+  it("reports failed storage probes without exposing filesystem details in metrics", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "vulnseal-probe-error-"));
+    const dataDirectory = path.join(directory, "private-storage-path");
+    await writeFile(dataDirectory, "unavailable");
+    server = createCipherstoreServer({ dataDirectory, metricsEnabled: true });
+    await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
+    const address = server.address(); if (!address || typeof address === "string") throw new Error("No TCP address");
+    const response = await fetch(`http://127.0.0.1:${address.port}/metrics`);
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    expect(body).toContain("vulnseal_storage_ready 0\n");
+    expect(body).not.toContain("private-storage-path");
+    expect(await readFile(dataDirectory, "utf8")).toBe("unavailable");
   });
 
   it("separates storage readiness from liveness and removes concurrent readiness probes", async () => {

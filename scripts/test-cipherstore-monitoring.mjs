@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, writeFile, unlink } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -21,7 +21,7 @@ const eventually = async (check) => {
   throw new Error("Monitoring condition did not become true within 60 seconds", { cause: last });
 };
 await mkdir(".compact", { recursive: true });
-await writeFile(envFile, "CIPHERSTORE_PUBLISHED_PORT=0\nPROMETHEUS_PUBLISHED_PORT=0\n", { flag: "wx" });
+await writeFile(envFile, "CIPHERSTORE_PUBLISHED_PORT=0\nPROMETHEUS_PUBLISHED_PORT=0\nCIPHERSTORE_MAX_STORED_BLOBS=1\n", { flag: "wx" });
 try {
   compose("config", "--quiet");
   compose("run", "--rm", "--no-deps", "--entrypoint", "/bin/promtool", "prometheus", "check", "config", "/etc/prometheus/prometheus.yml");
@@ -37,6 +37,13 @@ try {
     return result.data.result;
   };
   await eventually(async () => (await query('up{job="cipherstore"}'))[0]?.value[1] === "1");
+  await eventually(async () => (await query('vulnseal_storage_ready{job="cipherstore"}'))[0]?.value[1] === "1");
+  const envelope = JSON.stringify({ aad: "vulnseal:ciphertext:v1:monitoring-test", algorithm: "AES-256-GCM", ciphertext: Buffer.alloc(32, 1).toString("base64url"), iv: "AAAAAAAAAAAAAAAA", keyDerivation: "none-random-256-bit-key", version: 1 });
+  const blob = `${store}/v1/blobs/sha256:${createHash("sha256").update(envelope).digest("hex")}`;
+  assert.equal((await fetch(blob, { method: "PUT", headers: { "content-type": "application/vnd.vulnseal.ciphertext+json" }, body: envelope, signal: AbortSignal.timeout(5000) })).status, 201);
+  await eventually(async () => (await query('vulnseal_storage_ready{job="cipherstore"}'))[0]?.value[1] === "0");
+  assert.equal((await query('up{job="cipherstore"}'))[0]?.value[1], "1");
+  assert.equal(await (await request(blob)).text(), envelope);
   const ui = await request(`${origin}/query`);
   assert.equal(ui.status, 200);
   assert.match(ui.headers.get("content-type"), /text\/html/);
@@ -54,7 +61,7 @@ try {
   assert.equal((await request(`${store}/monitoring-test-missing`)).status, 404);
   await eventually(async () => Number((await query('vulnseal_http_responses_total{job="cipherstore",status_class="4xx"}'))[0]?.value[1]) >= 1);
   const rules = await (await request(`${origin}/api/v1/rules`)).json();
-  assert.deepEqual(rules.data.groups.flatMap((group) => group.rules.map((rule) => rule.name)).sort(), ["CipherstoreMetricsUnavailable", "CipherstoreServerErrors"]);
+  assert.deepEqual(rules.data.groups.flatMap((group) => group.rules.map((rule) => rule.name)).sort(), ["CipherstoreMetricsUnavailable", "CipherstoreServerErrors", "CipherstoreStorageNotReady"]);
   const inspection = JSON.parse(docker("inspect", compose("ps", "--quiet", "prometheus")))[0];
   assert.equal(inspection.Config.User, "65534:65534");
   assert.equal(inspection.HostConfig.ReadonlyRootfs, true);
@@ -66,7 +73,7 @@ try {
   compose("restart", "--timeout", "20", "prometheus");
   origin = `http://${compose("port", "prometheus", "9090")}`;
   await eventually(async () => (await query('up{job="cipherstore"}', retainedSampleTime))[0]?.value[1] === "1");
-  process.stdout.write(JSON.stringify({ capturedAt: new Date().toISOString(), prometheusImage: inspection.Image, cipherstoreImage: docker("image", "inspect", "vulnseal-cipherstore:local", "--format", "{{.Id}}"), ruleTests: true, uiAssetsServed: true, tsdbRestartRetained: true, realScrape: true, errorCounterScraped: true, outageDetected: true, recoveryDetected: true, nonRoot: true, readOnlyRoot: true, externalNotifications: false }) + "\n");
+  process.stdout.write(JSON.stringify({ capturedAt: new Date().toISOString(), prometheusImage: inspection.Image, cipherstoreImage: docker("image", "inspect", "vulnseal-cipherstore:local", "--format", "{{.Id}}"), ruleTests: true, storageNotReadyDetected: true, retainedReadsAtCapacity: true, uiAssetsServed: true, tsdbRestartRetained: true, realScrape: true, errorCounterScraped: true, outageDetected: true, recoveryDetected: true, nonRoot: true, readOnlyRoot: true, externalNotifications: false }) + "\n");
 } catch (error) {
   try { process.stderr.write(compose("logs", "--no-color", "--tail", "20", "prometheus") + "\n"); } catch { /* Preserve the original failure. */ }
   throw error;

@@ -117,7 +117,10 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
   let activeUploads = 0;
   let activeRequests = 0, abortedResponses = 0;
   const completed = [0, 0, 0, 0, 0];
-  const metrics = () => [
+  const metrics = (storageReady: boolean) => [
+    "# HELP vulnseal_storage_ready Current storage capacity and write/read probe succeeded (1), otherwise 0.",
+    "# TYPE vulnseal_storage_ready gauge",
+    `vulnseal_storage_ready ${storageReady ? 1 : 0}`,
     "# HELP vulnseal_http_responses_total Completed responses by status class, excluding metrics scrapes.",
     "# TYPE vulnseal_http_responses_total counter",
     ...completed.map((count, index) => `vulnseal_http_responses_total{status_class="${index + 1}xx"} ${count}`),
@@ -155,8 +158,10 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
     response.setHeader("cache-control", "no-store");
     response.setHeader("x-content-type-options", "nosniff");
     if (options.metricsEnabled && request.url === "/metrics" && request.method === "GET") {
+      let storageReady = false;
+      try { await checkReadiness(); storageReady = true; } catch { /* Report failure without leaking filesystem details. */ }
       response.writeHead(200, { "content-type": "text/plain; version=0.0.4; charset=utf-8" });
-      response.end(metrics());
+      response.end(metrics(storageReady));
       return;
     }
     if (options.allowedOrigin) {
