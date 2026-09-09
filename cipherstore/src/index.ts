@@ -9,8 +9,13 @@ const isEntrypoint = process.argv[1] !== undefined &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isEntrypoint) {
+  const integer = (name: string, fallback: number): number => {
+    const raw = process.env[name] ?? String(fallback);
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw))) throw new Error(`${name} must be a nonnegative safe integer`);
+    return Number(raw);
+  };
   const host = process.env.CIPHERSTORE_HOST ?? "127.0.0.1";
-  const port = Number.parseInt(process.env.CIPHERSTORE_PORT ?? "8787", 10);
+  const port = integer("CIPHERSTORE_PORT", 8787);
   if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
     throw new Error("CIPHERSTORE_PORT must be a valid TCP port");
   }
@@ -20,6 +25,9 @@ if (isEntrypoint) {
   const server = createCipherstoreServer({
     dataDirectory,
     allowedOrigin: process.env.CIPHERSTORE_ALLOWED_ORIGIN ?? "http://127.0.0.1:5173",
+    maxStoredBytes: integer("CIPHERSTORE_MAX_STORED_BYTES", 1024 * 1024 * 1024),
+    maxStoredBlobs: integer("CIPHERSTORE_MAX_STORED_BLOBS", 10_000),
+    maxConcurrentUploads: integer("CIPHERSTORE_MAX_CONCURRENT_UPLOADS", 16),
   });
   server.listen(port, host, () => {
     process.stdout.write(`VulnSeal cipherstore listening on http://${host}:${port}\n`);

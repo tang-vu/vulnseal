@@ -1,5 +1,16 @@
 # Validation report
 
+## Cipherstore capacity controls — 2026-09-09
+
+| Check | Command / environment | Observed result |
+| --- | --- | --- |
+| Consolidated validation | `npm run validate` | Exit 0; six workspace typechecks/builds; 24 files / 116 tests passed |
+| Storage capacity | Cipherstore HTTP/filesystem suite, 8 cases total | Concurrent distinct uploads cannot exceed byte or blob limits; identical re-uploads and GET still work at capacity; recreating the server against existing files preserves quota accounting; active upload limit returns 503 and is released when the held body finishes |
+| Client capacity messages | Two additional API client cases | HTTP 507 and 503 produce actionable messages and exactly one fetch each, with no automatic retry |
+| Production disclosure journeys | `npm run test:e2e -- e2e/vulnseal.spec.ts` | Exit 0; 10 passed in 43.5 seconds; desktop/mobile upload, read, guided transitions and encrypted recovery against the real ciphertext service |
+
+Quota tests use real temporary directories and HTTP connections. Restart coverage recreates the server within the test process; no cross-process reservation or replica coordination is claimed. The actual volume was not filled to trigger ENOSPC. Production hosting, retention policy, backup drills and monitoring remain open. See [cipherstore-operations.md](cipherstore-operations.md) for defaults and the one-writer-process requirement.
+
 ## Early journal preflight — 2026-09-09
 
 The role workspace now rejects missing browser autosave before deployment wallet initialization or report transaction API calls. The later durable checkpoint remains in place for storage failures arising during proof/balancing. File recovery and read-only operations remain available without autosave.

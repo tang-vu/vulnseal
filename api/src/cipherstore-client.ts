@@ -15,6 +15,8 @@ export class CipherstoreClient {
       headers: { "content-type": MEDIA_TYPE },
       body: serializedEnvelope,
     });
+    if (response.status === 507) throw new Error("Ciphertext storage is full. Keep your draft and contact the storage operator before retrying.");
+    if (response.status === 503) throw new Error("Ciphertext storage is temporarily busy or unavailable. Keep your draft and try again shortly.");
     if (!response.ok) throw new Error(`Cipherstore PUT failed with HTTP ${response.status}`);
   }
 

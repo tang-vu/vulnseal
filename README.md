@@ -53,6 +53,8 @@ The monorepo is intentionally small:
 
 See [architecture.md](docs/architecture.md) and [privacy-model.md](docs/privacy-model.md) for the exact trust boundaries.
 
+The ciphertext service enforces configurable aggregate storage and concurrent-upload limits. Its [operator guide](docs/cipherstore-operations.md) covers capacity errors, restart behavior and the requirement to use one writer process per data directory.
+
 ## Prerequisites
 
 - Node.js `>=24.11.1` (validated with `24.14.1`)

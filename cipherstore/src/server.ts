@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { link, mkdir, open, readFile, unlink } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
+import { checkCapacity, withDirectoryWrite } from "./capacity.js";
 
 const MAX_CIPHERTEXT_BYTES = 5 * 1024 * 1024;
 const MEDIA_TYPE = "application/vnd.vulnseal.ciphertext+json";
@@ -11,6 +12,9 @@ const digestPattern = /^\/v1\/blobs\/sha256:([0-9a-f]{64})$/;
 export type CipherstoreOptions = {
   readonly dataDirectory: string;
   readonly allowedOrigin?: string;
+  readonly maxStoredBytes?: number;
+  readonly maxStoredBlobs?: number;
+  readonly maxConcurrentUploads?: number;
 };
 
 const json = (response: ServerResponse, status: number, body: unknown): void => {
@@ -96,6 +100,14 @@ const storeImmutable = async (filename: string, body: Uint8Array): Promise<boole
 
 export const createCipherstoreServer = (options: CipherstoreOptions) => {
   const dataDirectory = path.resolve(options.dataDirectory);
+  const maxStoredBytes = options.maxStoredBytes ?? 1024 * 1024 * 1024;
+  const maxStoredBlobs = options.maxStoredBlobs ?? 10_000;
+  const maxConcurrentUploads = options.maxConcurrentUploads ?? 16;
+  for (const limit of [maxStoredBytes, maxStoredBlobs, maxConcurrentUploads]) {
+    if (!Number.isSafeInteger(limit) || limit < 0) throw new Error("Cipherstore limits must be nonnegative safe integers");
+  }
+  if (maxConcurrentUploads < 1) throw new Error("Cipherstore upload concurrency must be positive");
+  let activeUploads = 0;
   return createServer(async (request, response) => {
     response.setHeader("cache-control", "no-store");
     response.setHeader("x-content-type-options", "nosniff");
@@ -120,6 +132,12 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
     }
     const hexDigest = match[1];
     const filename = path.join(dataDirectory, `${hexDigest}.ciphertext.json`);
+    const uploading = request.method === "PUT";
+    if (uploading && activeUploads >= maxConcurrentUploads) {
+      response.setHeader("retry-after", "1"); request.resume();
+      json(response, 503, { error: "upload_capacity_busy" }); return;
+    }
+    if (uploading) activeUploads++;
     try {
       await mkdir(dataDirectory, { recursive: true });
       if (request.method === "PUT") {
@@ -134,7 +152,15 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
           json(response, 422, { error: "content_digest_mismatch" });
           return;
         }
-        const stored = await storeImmutable(filename, body);
+        const stored = await withDirectoryWrite(dataDirectory, async () => {
+          try {
+            const existing = await readFile(filename);
+            if (!existing.equals(Buffer.from(body))) throw new Error("IMMUTABLE_CONFLICT");
+            return false;
+          } catch (error) { if (errorCode(error) !== "ENOENT") throw error; }
+          await checkCapacity(dataDirectory, body.byteLength, maxStoredBytes, maxStoredBlobs);
+          return storeImmutable(filename, body);
+        });
         json(response, stored ? 201 : 200, { address: `sha256:${hexDigest}`, stored });
         return;
       }
@@ -163,7 +189,10 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
       if (code === "PAYLOAD_TOO_LARGE") json(response, 413, { error: "payload_too_large" });
       else if (code === "INVALID_ENVELOPE") json(response, 400, { error: "invalid_ciphertext_envelope" });
       else if (code === "IMMUTABLE_CONFLICT") json(response, 409, { error: "immutable_blob_conflict" });
+      else if (code === "STORAGE_CAPACITY_EXCEEDED" || ["ENOSPC", "EDQUOT"].includes(errorCode(error) ?? "")) json(response, 507, { error: "storage_capacity_exceeded" });
       else json(response, 500, { error: "storage_unavailable" });
+    } finally {
+      if (uploading) activeUploads--;
     }
   });
 };
