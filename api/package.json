@@ -7,6 +7,14 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./transaction-content": {
+      "types": "./dist/transaction-content.d.ts",
+      "import": "./dist/transaction-content.js"
+    },
+    "./replay-report-transaction": {
+      "types": "./dist/replay-report-transaction.d.ts",
+      "import": "./dist/replay-report-transaction.js"
+    },
     "./contract-history": {
       "types": "./dist/contract-history.d.ts",
       "import": "./dist/contract-history.js"

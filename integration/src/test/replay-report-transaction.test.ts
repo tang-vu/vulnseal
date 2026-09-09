@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile } from "node:fs/promises";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { replayReportTransaction } from "../replay-report-transaction.js";
 
 const root = new URL("../../../docs/evidence/", import.meta.url);
@@ -19,6 +19,14 @@ it("replays all six historical calls through the SDK VM and identifies the repor
     expect(Buffer.from(changed.after!.commitment).toString("hex")).toBe(changed.reportId);
     if (changed.before) expect(changed.after!.updatedSequence).toBeGreaterThan(changed.before.updatedSequence);
   }
+});
+it("runs the shared API replay without a Node Buffer global", () => {
+  let result: ReturnType<typeof replayReportTransaction>;
+  vi.stubGlobal("Buffer", undefined);
+  try { result = replayReportTransaction(input(6)); }
+  finally { vi.unstubAllGlobals(); }
+  expect(result.changedReports).toHaveLength(1);
+  expect(result.changedReports[0]!.after!.status).toBe(7);
 });
 it("refuses unrelated pre/post states, wrong subject/circuit and unsuccessful or ambiguous segment results", () => {
   const value = input(6);

@@ -1,5 +1,11 @@
 # Validation report
 
+## Shared API replay core without direct Node dependencies — 2026-09-09
+
+Raw transaction inspection and report replay now use exported API modules, with integration re-exports retaining the existing collector interfaces. The shared implementation uses Uint8Array/hex helpers and SDK serialization to compare the complete data state while holding other contract container fields fixed. It compares generated report fields explicitly and no longer imports `node:util` or uses Node Buffer. The affected CLI scripts now build the API dependency before integration.
+
+API and integration builds passed. All 21 API tests and 9 integration tests passed. The historical six-call replay and its wrong-state/subject/status cases exercise the new shared implementation; an additional case removes the Buffer global and still identifies the payout-authorization report transition. The updated `preprod:replay-transactions` command also rebuilt the API and replayed all six calls successfully against newly retrieved Preprod states, without rewriting fixtures or submitting a transaction. These checks establish the shared core's behavior under Node and the removal of its direct Node-only helpers. Actual browser/worker replay, bounded retrieval/orchestration in the UI and recovery decisions remain unverified and unfinished.
+
 ## Bounded predecessor discovery and replay — 2026-09-09
 
 The API now exposes a browser-compatible, bounded WebSocket history scan from a known deployment height. It validates contract/action/transaction metadata, requires a deployment at the start, refuses same-block or decreasing histories and non-success results, and returns the adjacent source-reported action before the exact target identifier. Timeout, explicit cancellation, malformed data and action limits fail without a guessed result; the scan releases its socket/subscription.
