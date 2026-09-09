@@ -47,7 +47,7 @@ const waitForWallet = async (timeoutMs = 1_500): Promise<InitialAPI> => {
     if (wallet) return wallet;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  throw new Error("Compatible Midnight Lace wallet not found");
+  throw new Error("Compatible Midnight Lace wallet not found. Install or enable Midnight Lace in this browser profile and allow access to this site. If it is already enabled, update the extension. Then reload this page and try again.");
 };
 
 const assertConnection = async (connected: ConnectedAPI, networkId: string): Promise<void> => {

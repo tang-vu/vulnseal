@@ -1,5 +1,13 @@
 # Validation report
 
+## Inspect native wallet extension availability — 2026-09-09
+
+A read-only recheck of the three currently reachable Chrome/Edge debugging contexts opened an owned `chrome://extensions/` tab in each. The browser extension API was available in all three; its inventory, including disabled and terminated entries, contained no extension whose name matched Lace or Midnight. Only matching extension metadata was projected; unrelated tabs and extension contents were not inspected. Owned tabs were closed and CDP connections disconnected. No installation, authorization, address request, wallet unlocking, signing or broadcast was performed. This narrows the earlier empty-connector finding for those specific profiles; it does not prove that another profile has no wallet.
+
+The missing-connector error now gives concrete recovery steps: install/enable Midnight Lace in the current profile, allow site access, update an already enabled extension and reload. The web app still cannot inspect installed extensions; its error reports only failure to discover a compatible connector.
+
+All **8 desktop/mobile role cases passed in 45.3 seconds**, including updated missing-wallet guidance for researcher join and vendor recovery. The final normal release build exited successfully: **8 circuits, 62 files, 62,621,212 bytes**, after the fresh compiler comparison at 12:11:48.759 UTC. The three original browser debugging endpoints remained running after inspection. Native-wallet verification still requires a profile exposing the connector.
+
 ## Retain and compare the selected retest patch — 2026-09-09
 
 Role-vault v10 adds a nullable selected patch commitment per attempt. New retest commands snapshot the actual command's patch before the encrypted pre-broadcast checkpoint; it cannot replace an already saved patch. Older entries migrate to null. The schema requires an explicit retest choice for non-null patches, and notes, attachment drafts, later attempts and receipts preserve the field. Versions 1–9 remain readable, but older releases cannot open v10. The wallet-free journal projection omits selected patch context along with notes and choice.

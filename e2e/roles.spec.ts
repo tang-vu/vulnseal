@@ -59,7 +59,7 @@ test("researcher invitations reject private fields and require a real wallet bef
   await expect(page.getByRole("alert")).toHaveText("Unsupported role document");
   await page.getByLabel("Public program invitation").setInputFiles({ name: "public.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(invitation)) });
   await page.getByRole("button", { name: "Connect Lace and join as researcher" }).click();
-  await expect(page.getByRole("alert")).toHaveText("Compatible Midnight Lace wallet not found");
+  await expect(page.getByRole("alert")).toContainText("Install or enable Midnight Lace in this browser profile and allow access to this site");
   await expect(page.getByRole("heading", { name: "Researcher workspace" })).toHaveCount(0);
 });
 
@@ -99,7 +99,7 @@ test("standalone vendor identity backup survives a closed tab and gates real dep
   await restored.getByRole("button", { name: "Enable encrypted browser autosave" }).click();
   await expect(restored.getByRole("button", { name: "Stop browser autosave" })).toBeVisible();
   await restored.getByRole("button", { name: "Connect Lace and deploy program" }).click();
-  await expect(restored.getByRole("alert")).toHaveText("Compatible Midnight Lace wallet not found");
+  await expect(restored.getByRole("alert")).toContainText("Then reload this page and try again");
   await expect(restored.getByText(/Finalized constructor/)).toHaveCount(0);
   if (process.env.VULNSEAL_CAPTURE_VISUALS === "1") {
     await restored.evaluate(() => { (document.activeElement as HTMLElement)?.blur(); window.scrollTo(0, 0); });
