@@ -18,6 +18,16 @@ const responses = (payload: unknown = fixture, height = block.height + 100, hash
 afterEach(() => vi.unstubAllGlobals());
 
 describe("independent public verification", () => {
+  it("stops oversized state evidence before decoding or RPC requests", async () => {
+    const cancel = vi.fn();
+    const fetcher = vi.fn(async () => new Response(new ReadableStream({ start(controller) {
+      controller.enqueue(new Uint8Array(16 * 1024 * 1024 + 1));
+    }, cancel })));
+    vi.stubGlobal("fetch", fetcher);
+    await expect(verifyPublicContract(action.address, endpoints)).rejects.toThrow("too large");
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(cancel).toHaveBeenCalledOnce();
+  });
   it("decodes actual captured Preprod state and verifies its block without wallet or ciphertext access", async () => {
     const fetch = responses();
     const result = await verifyPublicContract(action.address, endpoints);

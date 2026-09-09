@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readBoundedJson } from "./bounded-json.js";
 export type ObservedContractAction = { readonly kind: "ContractDeploy" | "ContractCall" | "ContractUpdate"; readonly address: string; readonly entryPoint: string | null };
 export type TransactionObservation = {
   readonly transactionId: string; readonly checkedAt: string; readonly indexerUrl: string;
@@ -47,7 +48,7 @@ export const observeTransaction = async (
   const post = async (url: string, body: unknown) => {
     const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: requestSignal, cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer" });
     if (!response.ok) throw new Error(`Transaction data service returned HTTP ${response.status}`);
-    return response.json();
+    return readBoundedJson(response, 1024 * 1024, requestSignal);
   };
   const payload = await post(endpoints.indexerUrl, { query, variables: { offset: { identifier: transactionId } } });
   if (payload.errors?.length || !Array.isArray(payload.data?.transactions)) throw new Error("Indexer could not answer the transaction query");

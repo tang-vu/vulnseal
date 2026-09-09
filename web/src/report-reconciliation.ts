@@ -2,25 +2,16 @@
 import { findPreviousContractAction } from "@vulnseal/api/contract-history";
 import { replayReportTransaction } from "@vulnseal/api/replay-report-transaction";
 import { contractStatusName } from "@vulnseal/shared";
+import { readBoundedJson } from "./bounded-json.js";
 import { observeTransaction } from "./transaction-verification.js";
 
 export type ReportCheckInput = { transactionId: string; contractAddress: string; circuit: string; programId: string; reportId: string; indexerUrl: string; rpcUrl: string; websocketUrl: string };
 export type ReportCheckResult = { checkedAt: string; reportId: string; before: string; after: string; blockHeight: number; previousBlockHeight: number; actionsRead: number };
 const post = async (url: string, body: unknown) => {
-  const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(20_000), credentials: "omit", cache: "no-store", referrerPolicy: "no-referrer" });
-  if (!response.ok || !response.body) throw new Error("Report evidence service is unavailable");
-  const reader = response.body.getReader(), chunks: Uint8Array[] = []; let length = 0;
-  try {
-    for (;;) {
-      const part = await reader.read(); if (part.done) break;
-      length += part.value.length;
-      if (length > 16 * 1024 * 1024) { void reader.cancel().catch(() => {}); throw new Error("Report evidence response is too large"); }
-      chunks.push(part.value);
-    }
-  } finally { reader.releaseLock(); }
-  const bytes = new Uint8Array(length); let offset = 0;
-  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  const signal = AbortSignal.timeout(20_000);
+  const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal, credentials: "omit", cache: "no-store", referrerPolicy: "no-referrer" });
+  if (!response.ok) throw new Error("Report evidence service is unavailable");
+  return readBoundedJson(response, 16 * 1024 * 1024, signal);
 };
 const query = async (input: ReportCheckInput, document: string, variables: unknown) => {
   const payload = await post(input.indexerUrl, { query: document, variables });

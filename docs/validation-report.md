@@ -1,5 +1,13 @@
 # Validation report
 
+## Bounded public evidence JSON — 2026-09-09
+
+Public contract lookup and transaction observation now use the same streamed JSON reader as report replay. Transaction metadata/RPC responses are capped at 1 MiB each; public contract-state and replay responses allow 16 MiB each. Limits count actual decoded bytes independently of Content-Length. Oversized and aborted bodies are cancelled, reader locks are released, and invalid UTF-8 is rejected before JSON parsing. Existing 20-second request signals remain in effect; replay retains its worker cancellation/overall deadline.
+
+The focused verification run passed **three test files / 20 tests**, including split multi-byte characters, exact byte boundaries, misleading Content-Length, oversized streams, stalled-body cancellation, pre-aborted reads and malformed input. Entry-point tests verify oversized indexer data stops both public lookup and transaction observation before any RPC request or published result. Web typechecking passed.
+
+The rebuilt production browser regression passed **eight desktop/mobile cases in 57.7 seconds** with two CI workers: captured public-state lookup and receipt import, actual worker report replay, report/program mismatch rejection and cancellation. This is a selected regression, not a new full workspace/browser run or live network/wallet ceremony. The response caps bound accepted input bytes, not total browser memory, JSON object overhead or synchronous JSON/WASM execution time. Larger legitimate state needs an explicit future retrieval/schema design; it is not silently accepted beyond the cap.
+
 ## Served web artifact comparison — 2026-09-09
 
 `npm run release:check-host -- http://127.0.0.1:4186` passed against a freshly started loopback Vite preview serving the previously checked production artifact: 62 inventoried files plus the root page, 63 HTTP requests and 62,523,111 decoded bytes. Every response matched the local artifact by length and SHA-256; HTML/JS/CSS/WASM MIME checks passed. The root page matched `index.html`. The owned preview process was stopped after verification. This is local HTTP evidence, not a public hosting or native-wallet result.

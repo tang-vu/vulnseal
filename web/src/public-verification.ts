@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readBoundedJson } from "./bounded-json.js";
 import { ContractState } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
 import { ledger, type Ledger } from "@vulnseal/contract";
 import { bytesToHex, contractStatusName, hexToBytes } from "@vulnseal/shared";
@@ -51,7 +52,7 @@ export const verifyPublicContract = async (
   const post = async (url: string, body: unknown) => {
     const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: requestSignal, cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer" });
     if (!response.ok) throw new Error(`Public data service returned HTTP ${response.status}`);
-    return response.json();
+    return readBoundedJson(response, 16 * 1024 * 1024, requestSignal);
   };
   const payload = await post(endpoints.indexerUrl, { query, variables: { address: contractAddress } });
   if (payload.errors?.length) throw new Error("The indexer could not answer the contract query");

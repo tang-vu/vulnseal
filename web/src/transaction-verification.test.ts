@@ -5,6 +5,16 @@ const id = "00315eaad1b87f436849790da0f0072be407dfdf9079b78f15e73c838b9ede2c19",
 const endpoints = { indexerUrl: "https://indexer.test/graphql", rpcUrl: "https://rpc.test" };
 const tx = { identifiers: [id], hash: "78".repeat(32), block: { height: 100, hash }, transactionResult: { status: "SUCCESS" } };
 afterEach(() => vi.unstubAllGlobals());
+it("stops oversized indexer evidence before RPC requests or an observation", async () => {
+  const cancel = vi.fn();
+  const fetcher = vi.fn(async () => new Response(new ReadableStream({ start(controller) {
+    controller.enqueue(new Uint8Array(1024 * 1024 + 1));
+  }, cancel })));
+  vi.stubGlobal("fetch", fetcher);
+  await expect(observeTransaction(id, endpoints)).rejects.toThrow("too large");
+  expect(fetcher).toHaveBeenCalledOnce();
+  expect(cancel).toHaveBeenCalledOnce();
+});
 const mock = (transactions: unknown, finalized = "0x64", canonical = hash) => {
   const fetcher = vi.fn(async (_url: unknown, init?: RequestInit) => {
     const request = JSON.parse(String(init?.body));

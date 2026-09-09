@@ -23,6 +23,8 @@ The startup error screen also offers export-only access to encrypted browser cop
 
 ## Work still required
 
+Public lookup, transaction observation and report replay now share a bounded streaming JSON reader with cancellation and strict UTF-8 decoding. Transaction responses allow 1 MiB each and state/replay responses 16 MiB each. Twenty focused tests and eight production desktop/mobile regressions passed. These client input bounds improve robustness against oversized evidence responses without authenticating indexer data or establishing safe retry.
+
 An explicit HTTP release check now compares the local inventory with each served file and the origin homepage, enforcing byte/hash equality, HTTP status, JS/CSS/WASM/HTML MIME types, redirect refusal and bounded downloads. All 62 files and the root page passed through loopback Vite preview; four packaging/HTTP tests passed. The same command can check a chosen HTTPS deployment, but no public host has been validated by this local evidence.
 
 The web release now has a separate packaging gate requiring each proving circuit's prover key, verifier key and binary ZKIR to match local compiler outputs. The production build and read-only manifest check passed for eight circuits and 62 files; synthetic rejection rules are included in CI. This establishes local package completeness, while compiler provenance/freshness, actual hosted asset availability and native-wallet release validation remain open. See [the release guide](web-release.md).
