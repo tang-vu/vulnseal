@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { decryptRoleVault, type RoleVault } from "./role-recovery.js";
@@ -7,6 +7,28 @@ const mocks = vi.hoisted(() => ({ list: vi.fn(), read: vi.fn(), write: vi.fn() }
 vi.mock("./role-storage.js", () => ({ listStoredRoles: mocks.list, readStoredRole: mocks.read, writeStoredRole: mocks.write }));
 import { LocalRoleStorage } from "./LocalRoleStorage.js";
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
+it("cancels an older delayed snapshot before checkpointing a transaction journal", async () => {
+  const vault: RoleVault = { version: 3, role: "vendor", network: "preprod", programId: "12".repeat(32), actorSecret: "34".repeat(32), contractAddress: null, reports: [], draft: null, submissionAttempts: [] };
+  mocks.list.mockResolvedValue([]);
+  mocks.write.mockImplementation(async (id: string, label: string, encrypted: string, revision: number | null) => ({ id, label, encrypted, revision: (revision ?? 0) + 1, updatedAt: new Date().toISOString() }));
+  let persist: ((value: RoleVault) => Promise<void>) | undefined;
+  const props = { disabled: false, onSaved: vi.fn(), onRestore: vi.fn(), onPersistence: (next: typeof persist) => { persist = next; } };
+  const view = render(<LocalRoleStorage {...props} vault={vault} />);
+  const user = userEvent.setup(), password = "No stale journal overwrite password";
+  await user.type(screen.getByLabelText("Browser copy password"), password);
+  await user.type(screen.getByLabelText("Confirm browser copy password"), password);
+  await user.click(screen.getByRole("button", { name: "Enable encrypted browser autosave" }));
+  await screen.findByText(/Saved encrypted browser copy/);
+  const older = { ...vault, contractAddress: "ab".repeat(32) };
+  view.rerender(<LocalRoleStorage {...props} vault={older} />);
+  expect(screen.getByText(/changes are waiting to be encrypted/)).toBeInTheDocument();
+  const checkpoint = { ...older, submissionAttempts: [{ transactionId: "cd".repeat(32), recordedAt: "2026-09-09T04:00:00.000Z" }] };
+  await act(async () => { await persist!(checkpoint); });
+  // Keep the older prop mounted beyond the debounce to expose any stale write.
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 600)); });
+  expect(mocks.write).toHaveBeenCalledTimes(2);
+  expect(await decryptRoleVault(mocks.write.mock.calls[1]![2], password)).toEqual(checkpoint);
+}, 15_000);
 it("autosaves a changed vault and marks it durable only after encrypted persistence succeeds", async () => {
   const vault: RoleVault = { version: 1, role: "vendor", network: "preprod", programId: "12".repeat(32), actorSecret: "34".repeat(32), contractAddress: null, reports: [] };
   mocks.list.mockResolvedValue([]);

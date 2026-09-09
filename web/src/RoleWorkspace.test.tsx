@@ -63,7 +63,7 @@ describe("independent role workspace", () => {
     const notes = screen.getByLabelText("Private decision, patch reference or retest notes");
     await user.type(notes, "Private retest evidence");
     expect(leavingIsBlocked()).toBe(true);
-    expect(screen.getByText(/Draft form edits and decision, patch or retest notes are only in this tab/)).toBeInTheDocument();
+    expect(screen.getByText(/Decision, patch or retest notes are only in this tab/)).toBeInTheDocument();
     await user.clear(notes);
     expect(leavingIsBlocked()).toBe(false);
     await user.click(screen.getByRole("button", { name: "Prepare report" }));
@@ -110,6 +110,18 @@ describe("independent role workspace", () => {
       await user.type(screen.getByLabelText(/^Reproduction steps/), "Synthetic reproduction");
       await user.type(screen.getByLabelText("Impact"), "Synthetic impact");
       await user.click(screen.getByRole("checkbox"));
+      if (title === "First independent report") {
+        vi.mocked(fetch).mockResolvedValueOnce(new Response("{}", { status: 500 }));
+        await user.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
+        await screen.findByRole("alert");
+        expect(screen.getByLabelText("Report title")).toHaveValue(title);
+        await user.click(screen.getByRole("button", { name: "Save role backup" }));
+        const recoveredDraft = await save();
+        expect(recoveredDraft.draft?.title).toBe(title);
+        expect(recoveredDraft.reports).toHaveLength(0);
+        await user.click(screen.getByRole("button", { name: "Prepare report" }));
+        await user.click(screen.getByRole("checkbox"));
+      }
       await user.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
       await screen.findByRole("button", { name: "Download single-role backup" });
       await user.click(screen.getByRole("button", { name: "Reports" }));
@@ -119,6 +131,8 @@ describe("independent role workspace", () => {
     }
     const saved = await save();
     expect(saved.reports).toHaveLength(2);
+    expect(saved.version).toBe(3);
+    expect(saved.draft).toBeNull();
     expect(new Set(saved.reports.map((entry) => entry.reportId)).size).toBe(2);
     expect(saved.actorSecret).toBe(mocks.join.mock.calls[0]![0].actorSecret);
     await enableJournal(user);

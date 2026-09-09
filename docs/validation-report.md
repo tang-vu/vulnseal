@@ -1,5 +1,15 @@
 # Validation report
 
+## Encrypted role drafts and offline recovery — 2026-09-09
+
+Role payload v3 includes one incomplete researcher draft and retains the submission journal. Legacy v1/v2 files still validate. Drafts preserve blank reproduction lines and whitespace; sealed reports retain canonical validation. File exports and opt-in encrypted browser copies carry the same draft. Explicit offline restore opens local material without Lace and requires a later verified connection before contract actions. See [ADR-0014](adr/0014-encrypted-role-drafts.md).
+
+The final web suite passed 18 files / 71 tests (`npm run test:run -w @vulnseal/web`), and the web typecheck passed. Coverage includes incomplete-draft encryption/round-trip, strict schema and size/type rejection, failed ciphertext upload retaining an exportable draft, successful preparation clearing the draft, existing journal persistence, and cancellation of an older delayed autosave before a newer pre-wallet checkpoint. That last regression keeps the older prop mounted beyond the debounce and verifies that only the newer journal is persisted.
+
+The initial 18-case browser selection passed 16 existing role/storage/attachment cases and failed the two new draft cases because their exact label selector omitted the reproduction field's inline help text. Correcting that test locator made both draft cases pass in 41.2 seconds including server startup/teardown; app timeouts were unchanged. After the delayed-save checkpoint fix, `npm run test:e2e -- e2e/role-drafts.spec.ts e2e/roles.spec.ts e2e/role-storage.spec.ts` rebuilt the production web app and passed all 16 desktop/mobile cases in 1.3 minutes. The draft cases recover exact unfinished text through real encrypted IndexedDB, a downloaded backup and a separate browser context, with no POST/PUT requests during those offline recovery journeys. This is browser-isolation evidence, not a physical cross-device or native-wallet ceremony.
+
+Only the latest confirmed encrypted save is recoverable. Pending debounce/encryption/writes can be lost on termination. Decision/patch/retest notes, receiving keys, attachment bytes and unfinished attachment-editor inputs remain outside the draft.
+
 ## Role workspace leave protection — 2026-09-09
 
 The separate role workspace installs a conditional `beforeunload` handler when ownership/report changes are not saved, an operation is active, private draft/transition text remains, or receiving keys are loaded. Inline notices identify text and keys excluded from role autosave. The handler is removed when no condition applies and on unmount. Receiving keys conservatively retain the warning even after key export; downloading a file cannot confirm its retention.

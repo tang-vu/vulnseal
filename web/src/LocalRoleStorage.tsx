@@ -19,17 +19,21 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved, onPersis
   const [writer, setWriter] = useState<RoleAutosave>();
   const [working, setWorking] = useState(false);
   const [pending, setPending] = useState(0);
+  const [scheduled, setScheduled] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const activeWriter = useRef<RoleAutosave | undefined>(undefined);
   const saved = useRef<RoleVault | undefined>(undefined);
   const savedCopyId = useRef<string | undefined>(undefined);
+  const autosaveTimer = useRef<number | undefined>(undefined);
   const latest = useRef({ vault, onRestore, onSaved }); latest.current = { vault, onRestore, onSaved };
   const mounted = useRef(true), busy = useRef(false);
   const persistenceListener = useRef(onPersistence); persistenceListener.current = onPersistence;
   useEffect(() => {
     persistenceListener.current?.(writer ? async (snapshot) => {
       if (!mounted.current || activeWriter.current !== writer) throw new Error("Encrypted browser autosave is unavailable; transaction was not submitted");
+      // A delayed older draft must never overwrite the new pre-wallet journal.
+      window.clearTimeout(autosaveTimer.current); autosaveTimer.current = undefined; setScheduled(false);
       setPending((value) => value + 1);
       try {
         const row = await writer.save(snapshot);
@@ -50,14 +54,21 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved, onPersis
   }, []);
   useEffect(() => {
     if (!writer || !vault || saved.current === vault) return;
-    const captured = vault; saved.current = captured; setPending((value) => value + 1); setError("");
-    void writer.save(captured).then((row) => {
-      if (!mounted.current || activeWriter.current !== writer) return;
-      if (latest.current.vault === captured) { latest.current.onSaved(captured); setMessage(`Saved encrypted browser copy · revision ${row.revision} · ${row.updatedAt}`); }
-    }).catch((cause) => {
-      if (!mounted.current || activeWriter.current !== writer) return;
-      activeWriter.current = undefined; setWriter(undefined); setError(cause instanceof Error ? cause.message : "Browser autosave failed");
-    }).finally(() => { if (mounted.current) setPending((value) => value - 1); });
+    const captured = vault;
+    setScheduled(true);
+    const timer = window.setTimeout(() => {
+      autosaveTimer.current = undefined; setScheduled(false);
+      saved.current = captured; setPending((value) => value + 1); setError("");
+      void writer.save(captured).then((row) => {
+        if (!mounted.current || activeWriter.current !== writer) return;
+        if (latest.current.vault === captured) { latest.current.onSaved(captured); setMessage(`Saved encrypted browser copy · revision ${row.revision} · ${row.updatedAt}`); }
+      }).catch((cause) => {
+        if (!mounted.current || activeWriter.current !== writer) return;
+        activeWriter.current = undefined; setWriter(undefined); setError(cause instanceof Error ? cause.message : "Browser autosave failed");
+      }).finally(() => { if (mounted.current) setPending((value) => value - 1); });
+    }, 400);
+    autosaveTimer.current = timer;
+    return () => { window.clearTimeout(timer); setScheduled(false); };
   }, [vault, writer]);
   const bind = (next: RoleAutosave, snapshot: RoleVault) => { activeWriter.current?.stop(); activeWriter.current = next; saved.current = snapshot; setWriter(next); };
   const run = async (event: FormEvent, action: () => Promise<void>) => {
@@ -71,8 +82,9 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved, onPersis
     <p>Keep a password-encrypted role vault on this device. Only the label, update time and revision are visible without the password. Keep a downloaded backup too: clearing browser data removes these copies.</p>
     {message && <p>{message}</p>}{pending > 0 && <p role="status">Saving encrypted browser copy… Keep this tab open until saved.</p>}
     {error && <p className="operation-notice error" role="status">{error}{vault && " Your open workspace is retained; download a file backup before closing."}</p>}
-    <fieldset className="workflow-controls" disabled={disabled || working || pending > 0}>
-      {writer ? <><p>Autosave is active for role identity, deployment address and prepared/received reports. Unprepared drafts, transition notes and receiving keys are not included.</p><button className="secondary-button" onClick={() => { writer.stop(); activeWriter.current = undefined; setWriter(undefined); setMessage("Autosave stopped. The encrypted browser copy remains stored."); }}>Stop browser autosave</button></> : vault ?
+    {scheduled && <p role="status">Draft or workspace changes are waiting to be encrypted. Keep this tab open until saved.</p>}
+    <fieldset className="workflow-controls" disabled={disabled || working || pending > 0 || scheduled}>
+      {writer ? <><p>Autosave is active for role identity, deployment address, prepared/received reports and the current report draft. Transition notes and receiving keys are not included.</p><button className="secondary-button" onClick={() => { writer.stop(); activeWriter.current = undefined; setWriter(undefined); setMessage("Autosave stopped. The encrypted browser copy remains stored."); }}>Stop browser autosave</button></> : vault ?
         <form onSubmit={(event) => void run(event, async () => {
           if (password !== confirmation) throw new Error("Browser-copy passwords do not match");
           const captured = vault; const encrypted = await encryptRoleVault(captured, password);
@@ -105,7 +117,7 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved, onPersis
         </form>}
     </fieldset>
     {writer && <p>Stop browser autosave before managing saved copies in this tab.</p>}
-    <RoleCopyCatalog disabled={disabled || working || pending > 0 || writer !== undefined} onDeleted={(id) => {
+    <RoleCopyCatalog disabled={disabled || working || pending > 0 || scheduled || writer !== undefined} onDeleted={(id) => {
       setRows((values) => values.filter((entry) => entry.id !== id));
       if (selected === id) setSelected("");
       if (savedCopyId.current === id) {

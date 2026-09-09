@@ -776,7 +776,7 @@ function CreateProgram({ mode, connected, operation, onConnect, onSubmit }: { re
   );
 }
 
-export function ReportWizard({ report, onChange, onSeal }: { readonly report: VulnerabilityReport; readonly onChange: (report: VulnerabilityReport) => void; readonly onSeal: () => void }) {
+export function ReportWizard({ report, onChange, onSeal, preserveDraftLines = false }: { readonly report: VulnerabilityReport; readonly onChange: (report: VulnerabilityReport) => void; readonly onSeal: () => void; readonly preserveDraftLines?: boolean }) {
   const [attachmentPending, setAttachmentPending] = useState(false);
   const [reproductionText, setReproductionText] = useState(() => report.reproductionSteps.join("\n"));
   const update = <K extends keyof VulnerabilityReport>(key: K, value: VulnerabilityReport[K]): void => onChange({ ...report, [key]: value });
@@ -789,7 +789,7 @@ export function ReportWizard({ report, onChange, onSeal }: { readonly report: Vu
         <label>Report title<input value={report.title} onChange={(event) => update("title", event.target.value)} required /></label>
         <div className="field-grid"><label>Affected asset<input value={report.affectedAsset} onChange={(event) => update("affectedAsset", event.target.value)} required /></label><label>Weakness<input value={report.weakness} onChange={(event) => update("weakness", event.target.value)} required /></label></div>
         <label>Executive summary<textarea rows={3} value={report.summary} onChange={(event) => update("summary", event.target.value)} required /></label>
-        <label>Reproduction steps<textarea rows={6} value={reproductionText} onChange={(event) => { setReproductionText(event.target.value); update("reproductionSteps", event.target.value.split("\n").filter((step) => step.trim().length > 0)); }} required /><small>One step per line. Never paste production credentials or third-party personal data.</small></label>
+        <label>Reproduction steps<textarea rows={6} value={reproductionText} onChange={(event) => { setReproductionText(event.target.value); update("reproductionSteps", event.target.value.split("\n").filter((step) => preserveDraftLines || step.trim().length > 0)); }} required /><small>One step per line. Never paste production credentials or third-party personal data.</small></label>
         <label>Impact<textarea rows={3} value={report.impact} onChange={(event) => update("impact", event.target.value)} required /></label>
         <label>Suggested remediation<textarea rows={3} value={report.suggestedRemediation} onChange={(event) => update("suggestedRemediation", event.target.value)} /></label>
         <label>Private researcher contact<input type="email" value={report.researcherContact} onChange={(event) => update("researcherContact", event.target.value)} /><small>Encrypted with the report; never added to public ledger state.</small></label>
