@@ -1,5 +1,11 @@
 # Validation report
 
+## Add full-artifact release verification workflow ? 2026-09-09
+
+The separate manual `Release verification` workflow now starts from checkout and performs full Compact 0.31.1 compilation, including fresh proving keys/binary ZKIR, before six-workspace validation, release packaging/comparison, web image construction and the existing desktop/mobile HTTP/container drill. Actions are pinned to the same exact commits as ordinary CI; permissions are limited to repository reads. Full compilation has a thirty-minute limit and the job ninety minutes. There is no skip-ZK or missing-key fallback, publication, image push or wallet operation. Ordinary PR CI remains unchanged.
+
+Local YAML parsing confirmed the manual trigger, minimal permissions and pinned action references. Compose configuration validation and the existing release's read-only check passed: **8 circuits, 62 files, 62,637,482 bytes**. This increment did not regenerate local keys, alter release bytes or rerun existing application suites. The new workflow has **not run remotely**, so fresh-key generation and the entire sequence on a clean GitHub runner remain unverified. The hosting/release guides explain that distinction. The older-CPU ADR's obsolete warning that the current skip-ZK wrapper deletes retained keys was corrected to match its staged/preserving implementation.
+
 ## Enforce ciphertext runtime scanning in CI ? 2026-09-09
 
 The ciphertext container job now runs `scripts/scan-container.sh` after its persistence drill and has a twenty-minute job deadline. The script resolves the selected local image before export, scans only that image's temporary archive with digest-pinned Trivy 0.74.0, passes all five severities to the nonzero vulnerability exit policy, and propagates Docker/scanner failures. It supplies no ignore-unfixed flag or ignore list. The archive mount is read-only, the scanner gets no Docker socket or source tree, and normal exit cleans up only the temporary archive/directory. Shell files now explicitly use LF line endings for Windows checkouts.

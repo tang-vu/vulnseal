@@ -26,4 +26,4 @@ Use only official code/images through two compatibility routes:
 
 All eight prover/verifier pairs and every lifecycle proof are real. The same official ARM64 proof-server image under emulation produced the successful Preprod lifecycle. ARM emulation is substantially slower. Generated keys remain ignored because they are approximately 40 MB and reproducible. CI or a modern x86 host should use the ordinary official binaries.
 
-The compiler recreates its managed output directory. Consequently, a later `compact:skip-zk` removes existing keys; regenerate them with the full command before any wallet-backed interaction.
+The underlying compiler recreates its requested output directory. The repository wrapper now stages full compilation and archives the previous installed artifacts before replacement. When retained keys exist, `compact:skip-zk` instead compares fresh bindings/textual ZKIR in isolation and preserves the installed directory; it rejects a mismatch. Regenerate with the full command when sources change. The manual release-verification workflow uses full compilation from a clean checkout and does not depend on this older-CPU fallback.
