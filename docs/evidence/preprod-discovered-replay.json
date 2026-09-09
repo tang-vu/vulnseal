@@ -1,0 +1,41 @@
+{
+  "checkedAt": "2026-09-09T06:45:46.254Z",
+  "indexerUrl": "https://indexer.preprod.midnight.network/api/v4/graphql",
+  "websocketUrl": "wss://indexer.preprod.midnight.network/api/v4/graphql/ws",
+  "scope": "Source-reported predecessor discovery followed by SDK VM replay. Not an authenticated history-completeness or inclusion proof; no retry or payment authorization. No transaction submitted.",
+  "deploymentHeight": 2371845,
+  "history": {
+    "previous": {
+      "kind": "ContractCall",
+      "address": "83c5aa340bd149b447c873fc2eecc4a9dadd183e5b26f9c3784e4c9acdaba9eb",
+      "entryPoint": "submitRetest",
+      "transactionHash": "a6dd702be56efb240d6c7eeab572495067d4d0493342bdb32eec1f1d9d38333c",
+      "identifiers": [
+        "00af884a2577748442df8c1f256aa3462c18771ae48e08954b8f62d5155e4b138c",
+        "006d248ece827765268077d3af13f3f201bd8132d864ca57bd1143705302cac204"
+      ],
+      "blockHeight": 2371904,
+      "blockHash": "5135465bdff24143c90a6db515dc9816f8d14013fc0efa898a59901ddfdbb4ff"
+    },
+    "target": {
+      "kind": "ContractCall",
+      "address": "83c5aa340bd149b447c873fc2eecc4a9dadd183e5b26f9c3784e4c9acdaba9eb",
+      "entryPoint": "authorizePayout",
+      "transactionHash": "8e02f5bd2405c40e7fc0e6577dda80c8a8d23c2f6667ea0de3fdfb3599d3a271",
+      "identifiers": [
+        "00c38b5be043bd22e3dce7a7406a2b4d3b61f06649aba32637a487acf79dab2513",
+        "00315eaad1b87f436849790da0f0072be407dfdf9079b78f15e73c838b9ede2c19"
+      ],
+      "blockHeight": 2371914,
+      "blockHash": "71acb36d1d46364ca4fca5b6f30ed9bf5f4538fd262dabc772adafa02a5e5585"
+    },
+    "actionsRead": 7
+  },
+  "reportChanges": [
+    {
+      "reportId": "9532de6702d6c00cab759d61e7424340904065ae6c7bda44ff562fb248ca74db",
+      "beforeStatus": 5,
+      "afterStatus": 7
+    }
+  ]
+}

@@ -7,6 +7,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./contract-history": {
+      "types": "./dist/contract-history.d.ts",
+      "import": "./dist/contract-history.js"
+    },
     "./role-session": {
       "types": "./dist/role-session.d.ts",
       "import": "./dist/role-session.js"

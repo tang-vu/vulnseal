@@ -26,7 +26,15 @@ The VM executes the guaranteed/fallible transcripts against the supplied prior s
 
 All six captured calls replayed successfully. Each changed one report, with status transitions absent → COMMITTED → TRIAGED → ACCEPTED → PATCH_READY → RETEST_PASSED → PAYOUT_AUTHORIZED. This replay does not transfer tokens or prove a payout. It verifies transcript execution conditional on the supplied source data, not signatures, proofs, authenticated block inclusion, deployed code identity, or the provenance of the previous state. It compares contract data, not maintenance authority, verifier definitions or token balances.
 
-A query at block 2371913 returned no contract action, even though there had been an earlier call. The collector therefore uses the known previous transaction identifier; it does not assume a block-offset lookup returns the latest earlier state. General previous-action discovery, intervening transactions, partial/multiple actions, current cost-model selection and browser integration remain open.
+A query at block 2371913 returned no contract action, even though there had been an earlier call. The original collector therefore uses the known previous transaction identifier; it does not assume a block-offset lookup returns the latest earlier state. Current cost-model selection, partial/multiple actions and browser integration remain open.
+
+## Bounded predecessor discovery
+
+The API's `findPreviousContractAction` subscribes to `contractActions` from the deployment **block** offset. Unlike the HTTP state query, this subscription accepts `BlockOffset`, not `ContractActionOffset`. It retains only the preceding action and stops when the exact requested identifier appears. It requires a deployment at the requested start height, the expected contract, strictly increasing block heights and successful action results. Same-block/unordered histories are refused pending more precise ordering support. Missing, failed, foreign, excessive or interrupted streams do not return a guessed predecessor.
+
+The default limits are 20 seconds, 1,000 actions and 65,536 characters per message; the caller can cancel. The scan closes its subscription/socket on completion or error, and sends no wallet or private report data. It uses standard WebSocket APIs and is exported independently of the ledger SDK. These are client scan limits, not a whole-process network-buffer ceiling. The stream's ordering/completeness is still trusted metadata, not cryptographically authenticated history.
+
+`npm run preprod:discover-replay -w @vulnseal/integration` selects the recorded historical payout-authorization target, obtains its deployment height through the indexer's call/deployment relationship, discovers its predecessor through the stream, fetches that predecessor's state by transaction hash, and replays the target. It does not select the predecessor from the stored lifecycle list. Add `-- --write-evidence` to retain the resulting metadata/report change. The live run consumed seven actions, discovered submitRetest at block 2371904 before authorizePayout at block 2371914, and reproduced the report's 5 → 7 transition. Evidence is in `docs/evidence/preprod-discovered-replay.json`. This command does not independently verify finality or history completeness and does not authorize retry.
 
 ## Remaining implementation and evidence
 

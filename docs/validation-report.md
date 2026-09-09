@@ -1,5 +1,13 @@
 # Validation report
 
+## Bounded predecessor discovery and replay — 2026-09-09
+
+The API now exposes a browser-compatible, bounded WebSocket history scan from a known deployment height. It validates contract/action/transaction metadata, requires a deployment at the start, refuses same-block or decreasing histories and non-success results, and returns the adjacent source-reported action before the exact target identifier. Timeout, explicit cancellation, malformed data and action limits fail without a guessed result; the scan releases its socket/subscription.
+
+An initial probe used the HTTP query's transaction offset type for the subscription and was rejected; the installed SDK schema confirms the subscription requires a block offset. The corrected live scan returned all seven historical contract actions. The packaged `preprod:discover-replay` command then used the actual new API, obtained the deployment height from the target's deployment relationship, discovered submitRetest as the predecessor, fetched its state by hash and replayed authorizePayout successfully. [The evidence](evidence/preprod-discovered-replay.json) records the seven-event scan and report transition at `2026-09-09T06:45:46.254Z`.
+
+API and integration builds passed. All API tests passed (3 files / 21 tests), including actual local WebSocket handshake/stream tests for predecessor selection, foreign/incomplete/same-block/unsuccessful history, action limits, deadline and cancellation. All integration tests passed (3 files / 8 tests), retaining raw-byte and SDK replay coverage. The history scan uses no wallet; the live command submitted no transaction. It still trusts indexer history completeness/order and does not independently authenticate inclusion, handle same-block/partial/multiple actions or expose a finished browser recovery workflow.
+
 ## SDK transcript replay against historical report states — 2026-09-09
 
 The new replay utility runs hash/identifier-bound raw calls through the actual ledger SDK VM, compares the complete resulting contract data state with the indexer-supplied post-state, and projects changed reports through the generated VulnSeal schema. The collector replayed all six historical calls successfully, identifying one changed report each and the expected absent → COMMITTED → TRIAGED → ACCEPTED → PATCH_READY → RETEST_PASSED → PAYOUT_AUTHORIZED chain. Historical states and results are stored in [the replay fixture](evidence/preprod-transcript-replay.json).

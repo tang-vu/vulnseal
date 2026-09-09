@@ -17,6 +17,7 @@
     "preprod:verify": "npm run build && node dist/preprod-verify.js",
     "preprod:inspect-transactions": "npm run build && node dist/preprod-transaction-content.js",
     "preprod:replay-transactions": "npm run build && node dist/preprod-replay-transactions.js",
+    "preprod:discover-replay": "npm run build -w @vulnseal/api && npm run build && node dist/preprod-discovered-replay.js",
     "test:run": "vitest run src/test",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   }
