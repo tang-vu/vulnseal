@@ -1,5 +1,13 @@
 # Validation report
 
+## Encrypted backup export during startup failure — 2026-09-09
+
+The root error screen now reuses the browser-copy catalog in export-only mode. Its React/storage imports do not require the Midnight SDK, wallet connection or decryption password. Deletion controls are available only when the normal workspace supplies its deletion callback. Downloads retain the stored ciphertext and existing password, with the existing revision check before export.
+
+`npm run test:run -w @vulnseal/web -- src/AppBoundary.test.tsx` passed (1 test). `CI=true npm run test:e2e -- e2e/bootstrap.spec.ts e2e/role-storage.spec.ts` rebuilt/typechecked the production web app and passed 16 desktop/mobile Chrome cases in 1.1 minutes with 2 workers. At both app entries, actual WASM requests remain blocked while the recovery catalog downloads a file; the test compares that file byte-for-byte with the previously saved real IndexedDB ciphertext and verifies deletion controls are absent. Removing the fault and reloading then permits password unlock of the original identity. Existing catalog deletion, separate-context restore, concurrent revision and journal recovery cases also passed.
+
+This is recovery of previously persisted role copies, not unsaved state recovery or a guarantee of offline availability. It still needs the lightweight bootstrap to load and browser storage to be readable. No live Lace transaction or physical-device recovery drill was performed in this increment.
+
 ## Application startup and render failure recovery — 2026-09-09
 
 The entry point now renders a lightweight React loading screen before dynamically loading the browser globals, Midnight network module and selected app/role entry. A root error boundary handles rejected module loading and descendant render failures with generic recovery guidance and explicit reload. It does not render exception contents or clear browser storage. The HTML root also carries loading/recovery instructions, including a paragraph for JavaScript-disabled browsers.

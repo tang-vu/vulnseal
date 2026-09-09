@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Component, type ReactNode } from "react";
+import { RoleCopyCatalog } from "./RoleCopyCatalog.js";
 
 export function AppLoading() {
   return <main id="main-content" className="page narrow-page" aria-busy="true">
@@ -18,6 +19,7 @@ export class AppBoundary extends Component<{ readonly children: ReactNode }, { f
       <p role="alert">An application component could not load or render. Check your connection and reload when ready.</p>
       <p>This recovery screen does not delete saved encrypted browser copies. Unsaved edits may not be recoverable. Avoid clearing site data; you may need those copies and their passwords to restore your workspace.</p>
       <button className="primary-button" onClick={() => window.location.reload()}>Reload VulnSeal</button>
+      <RoleCopyCatalog disabled={false} />
     </main>;
   }
 }

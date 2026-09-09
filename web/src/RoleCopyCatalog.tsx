@@ -2,8 +2,9 @@
 import { useRef, useState } from "react";
 import { deleteStoredRole, listStoredRoles, readStoredRole, type StoredRoleLabel } from "./role-storage.js";
 
-/** Catalog operations never decrypt a vault or install an actor identity. */
-export function RoleCopyCatalog({ disabled, onDeleted }: { readonly disabled: boolean; readonly onDeleted: (id: string) => void }) {
+/** Catalog operations never decrypt a vault or install an actor identity.
+ * Omit onDeleted for export-only recovery, including when the SDK cannot load. */
+export function RoleCopyCatalog({ disabled, onDeleted }: { readonly disabled: boolean; readonly onDeleted?: (id: string) => void }) {
   const [rows, setRows] = useState<StoredRoleLabel[]>([]);
   const [selected, setSelected] = useState("");
   const [confirmed, setConfirmed] = useState(false);
@@ -20,8 +21,8 @@ export function RoleCopyCatalog({ disabled, onDeleted }: { readonly disabled: bo
     finally { busy.current = false; setWorking(false); }
   };
   return <details>
-    <summary>Manage saved browser copies</summary>
-    <p>Download an encrypted copy before removing it from this device. Downloads keep the existing password and can be opened with Restore one role. A download does not verify that you remember the password.</p>
+    <summary>{onDeleted ? "Manage saved browser copies" : "Export saved browser copies"}</summary>
+    <p>{onDeleted ? "Download an encrypted copy before removing it from this device. " : "You can download saved encrypted copies even while the workspace cannot open. "}Downloads keep the existing password and can be opened with Restore one role. A download does not verify that you remember the password.</p>
     {message && <p role="status">{message}</p>}{error && <p role="alert">{error}</p>}
     <fieldset className="workflow-controls" disabled={disabled || working}>
       <button type="button" className="secondary-button" onClick={() => void run(async () => {
@@ -43,14 +44,14 @@ export function RoleCopyCatalog({ disabled, onDeleted }: { readonly disabled: bo
           document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
           setMessage(`Encrypted revision ${row.revision} downloaded. Confirm the file was saved and retain its password.`);
         })}>Download selected encrypted copy</button>
-        <p>Deleting removes only this browser copy. It does not remove downloaded backups, other copies, ciphertext service files or on-chain records. An open workspace stays in memory; its next autosave to this deleted copy will stop.</p>
+        {onDeleted && <><p>Deleting removes only this browser copy. It does not remove downloaded backups, other copies, ciphertext service files or on-chain records. An open workspace stays in memory; its next autosave to this deleted copy will stop.</p>
         <label className="check-row"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />I understand deleting this copy may remove my only saved authority and reports.</label>
         <button type="button" className="secondary-button" disabled={!confirmed} onClick={() => void run(async () => {
           await deleteStoredRole(row.id, row.revision);
           onDeleted(row.id);
           setRows((values) => values.filter((entry) => entry.id !== row.id)); setSelected(""); setConfirmed(false);
           setMessage(`Deleted browser copy ${row.label}, revision ${row.revision}. Other copies remain unchanged.`);
-        })}>Delete selected browser copy</button>
+        })}>Delete selected browser copy</button></>}
       </>}
     </fieldset>
   </details>;

@@ -19,6 +19,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 See [validation-report.md](validation-report.md) for executed commands and their results. Mocked wallet tests do not establish that the native Lace integration works end-to-end.
 
+The startup error screen also offers export-only access to encrypted browser copies without loading the Midnight SDK. Downloads preserve the stored encrypted bytes and password; a revision change requires refreshing the catalog. This provides access to persisted role backups during a workspace load failure, but cannot recover unsaved edits or operate when the bootstrap script itself is unavailable.
+
 ## Work still required
 
 | Requirement | Current evidence / gap | Completion evidence needed |
