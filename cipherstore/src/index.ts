@@ -31,6 +31,8 @@ if (isEntrypoint) {
     maxStoredBytes: integer("CIPHERSTORE_MAX_STORED_BYTES", 1024 * 1024 * 1024),
     maxStoredBlobs: integer("CIPHERSTORE_MAX_STORED_BLOBS", 10_000),
     maxConcurrentUploads: integer("CIPHERSTORE_MAX_CONCURRENT_UPLOADS", 16),
+    requestTimeoutMs: integer("CIPHERSTORE_REQUEST_TIMEOUT_MS", 30_000),
+    maxConnections: integer("CIPHERSTORE_MAX_CONNECTIONS", 64),
   });
   await mkdir(dataDirectory, { recursive: true });
   const release = await acquireDirectoryLease(dataDirectory);

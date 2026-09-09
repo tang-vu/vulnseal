@@ -15,6 +15,8 @@ export type CipherstoreOptions = {
   readonly maxStoredBytes?: number;
   readonly maxStoredBlobs?: number;
   readonly maxConcurrentUploads?: number;
+  readonly requestTimeoutMs?: number;
+  readonly maxConnections?: number;
 };
 
 const json = (response: ServerResponse, status: number, body: unknown): void => {
@@ -103,6 +105,10 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
   const maxStoredBytes = options.maxStoredBytes ?? 1024 * 1024 * 1024;
   const maxStoredBlobs = options.maxStoredBlobs ?? 10_000;
   const maxConcurrentUploads = options.maxConcurrentUploads ?? 16;
+  const requestTimeoutMs = options.requestTimeoutMs ?? 30_000;
+  const maxConnections = options.maxConnections ?? 64;
+  if (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs < 1 || requestTimeoutMs > 300_000) throw new Error("Cipherstore request timeout must be between 1 and 300000 milliseconds");
+  if (!Number.isSafeInteger(maxConnections) || maxConnections < 1 || maxConnections > 10_000) throw new Error("Cipherstore connection limit must be between 1 and 10000");
   for (const limit of [maxStoredBytes, maxStoredBlobs, maxConcurrentUploads]) {
     if (!Number.isSafeInteger(limit) || limit < 0) throw new Error("Cipherstore limits must be nonnegative safe integers");
   }
@@ -225,13 +231,23 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
     }
   };
   const operations = new Set<Promise<void>>();
-  const server = createServer((request, response) => {
+  const server = createServer({
+    requestTimeout: requestTimeoutMs,
+    headersTimeout: Math.min(10_000, requestTimeoutMs),
+    connectionsCheckingInterval: Math.min(1000, requestTimeoutMs),
+    keepAliveTimeout: 5000,
+    maxHeaderSize: 16 * 1024,
+  }, (request, response) => {
     const operation = handle(request, response).catch(() => {
       if (!response.headersSent && !response.destroyed) json(response, 500, { error: "storage_unavailable" });
       else response.destroy();
     });
     operations.add(operation); void operation.finally(() => operations.delete(operation));
   });
+  server.maxConnections = maxConnections;
+  server.maxRequestsPerSocket = 100;
+  // Also close silent sockets and stalled responses; requestTimeout bounds receipt.
+  server.setTimeout(requestTimeoutMs);
   return Object.assign(server, { drain: async () => { while (operations.size) await Promise.allSettled([...operations]); } });
 };
 

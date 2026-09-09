@@ -7,6 +7,8 @@ Run one cipherstore writer process per data directory. Use a persistent local fi
 | `CIPHERSTORE_MAX_STORED_BYTES` | `1073741824` (1 GiB) | Maximum combined size of committed ciphertext files |
 | `CIPHERSTORE_MAX_STORED_BLOBS` | `10000` | Maximum number of committed ciphertext files |
 | `CIPHERSTORE_MAX_CONCURRENT_UPLOADS` | `16` | Active PUT handlers, including body reads and queued writes |
+| `CIPHERSTORE_REQUEST_TIMEOUT_MS` | `30000` | Request-receipt and socket-inactivity timeout; integer 1–300000 ms |
+| `CIPHERSTORE_MAX_CONNECTIONS` | `64` | Concurrent TCP connections; integer 1–10000 |
 
 Set environment variables before starting `npm run start -w @vulnseal/cipherstore`; build first with `npm run build -w @vulnseal/cipherstore`. `.env.example` documents the settings but the Node entrypoint does not automatically load that file. Limits and port values reject malformed integers. Byte/count limits may be zero to stop new writes while retaining reads and idempotent duplicate uploads. Concurrency must be positive. The existing per-envelope limit remains 5 MiB.
 
@@ -17,6 +19,10 @@ Quota checks and publication are serialized for each resolved directory within t
 The client independently enforces the service's 5 MiB envelope limit. Oversized PUT bodies are rejected before hashing or fetching. GET bodies are read incrementally into a bounded byte buffer, counting the bytes exposed by Fetch after transport decompression rather than trusting `Content-Length`. Excess input cancels the reader; successful reads require valid UTF-8 and the expected digest. Byte-order marks and split multibyte characters are preserved for digest verification. PUT response bodies and unsuccessful GET response bodies are cancelled because their contents are not needed. This bounds application ciphertext accumulation, not the browser's total memory or internal network buffers.
 
 ## Capacity response
+
+The service bounds transport occupancy independently of upload admission. Complete request receipt has a 30-second default deadline, headers have the smaller of 10 seconds and the configured request deadline, and timeout checks run at most one second apart. Silent sockets and inactive responses also use the configured timeout. HTTP headers are limited to 16 KiB, the advertised keep-alive timeout to five seconds (with the additional Node socket timeout buffer), and each connection to 100 requests. These use [Node HTTP server controls](https://nodejs.org/docs/latest-v24.x/api/http.html#serverrequesttimeout); timer scheduling is not a hard real-time guarantee.
+
+A slow request can receive HTTP 408 or lose its socket. Connections above the configured ceiling are closed before entering the HTTP handler, so clients must not assume every refusal has a JSON body. Interrupted body reads release upload slots and do not publish partial ciphertext. A socket closing after a complete upload has been received is still an uncertain outcome: disk work may finish and publish the blob. Do not infer rollback or automatically reseal from a transport error. These process-wide controls do not implement per-user fairness or replace reverse-proxy rate limits. At the connection ceiling even health probes can be refused.
 
 Keep the report draft while resolving an upload error. An operator should inspect volume space and the two configured limits, increase capacity only if the volume can support it, and restart with the revised settings. Lowering a limit below existing usage does not delete files; reads and identical re-uploads continue, while new blobs are refused. Do not delete referenced ciphertext merely to make a new upload fit; existing disclosure and recovery workflows may depend on it.
 

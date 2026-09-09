@@ -1,5 +1,15 @@
 # Validation report
 
+## Ciphertext transport occupancy limits — 2026-09-09
+
+The server now configures complete-request and socket-inactivity deadlines (30 seconds by default), a header deadline capped at 10 seconds, frequent timeout checks and a 64-connection default ceiling. It also explicitly configures a 16 KiB header limit, five-second keep-alive timeout and 100 requests per socket. CLI and Compose expose validated request-timeout and connection-limit settings; zero cannot disable either limit. These controls bound retained transport occupancy, not per-user fairness, operating-system buffering or the duration of underlying filesystem work.
+
+The ciphertext build passed and all **four service test files / 18 tests** passed in 4.09 seconds. Real TCP tests continuously trickle headers/body, confirm closure within the deadline tolerance and verify that incomplete input leaves no committed file and a subsequent valid upload succeeds. They also test silent sockets, connection refusal before HTTP handling and invalid configuration. An initial test used a 150 ms timeout, assumed every closure included HTTP 408 and failed to consume a silent socket's readable side; correcting the socket handling and using a one-second test deadline resolved those harness assumptions. Production defaults were not relaxed to make the tests pass.
+
+The selected production browser regression passed **six desktop/mobile cases in 1.4 minutes**, covering normal attachment upload/recovery/decryption, oversized-response fallback and the existing stalled-upload client deadline. This is not a new full workspace/browser validation run. Transport errors after receiving a complete upload still do not prove rollback or make automatic retry safe.
+
+The updated Linux container image built successfully and passed the expanded container drill with a one-second CLI-configured request timeout: continuous body trickling was terminated, followed by successful ordinary uploads, quota/idempotency checks, writer exclusion, graceful restart and decryption of retained ciphertext. [The captured result](evidence/cipherstore-transport-drill.json) identifies the exact image. Disposable labelled resources were cleaned up. This adds cross-platform transport evidence; it is not a production load or fairness test.
+
 ## Ciphertext service container and deployment drill — 2026-09-09
 
 The new multi-stage image builds the ciphertext service from allowlisted source inputs and a digest-pinned Node 24.14.1 base. The runtime uses the `node` account and contains compiled service/backup modules without workspace dependencies. Compose configures a read-only root, persistent volume, dropped capabilities, no-new-privileges, process/memory limits, bounded logs, a readiness healthcheck and localhost-only publication. A separate CI job is configured to build the image and execute its drill; no remote CI run is claimed.

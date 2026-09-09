@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID, webcrypto } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
+import { createConnection } from "node:net";
 
 const image = "vulnseal-cipherstore:local";
 const id = randomUUID(), name = `vulnseal-container-test-${id}`, volume = `${name}-data`;
@@ -30,13 +31,26 @@ function removeOwned(kind, target) {
 }
 try {
   docker("volume", "create", "--label", label, volume);
-  docker("run", "--detach", "--name", name, "--label", label, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--memory", "512m", "--pids-limit", "64", "--mount", `type=volume,source=${volume},target=/data`, "--publish", "127.0.0.1::8787", "--env", "CIPHERSTORE_MAX_STORED_BLOBS=1", image);
+  docker("run", "--detach", "--name", name, "--label", label, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--memory", "512m", "--pids-limit", "64", "--mount", `type=volume,source=${volume},target=/data`, "--publish", "127.0.0.1::8787", "--env", "CIPHERSTORE_MAX_STORED_BLOBS=1", "--env", "CIPHERSTORE_REQUEST_TIMEOUT_MS=1000", image);
   await live();
   const inspection = JSON.parse(docker("inspect", name))[0];
   assert.equal(inspection.Config.User, "node");
   assert.equal(inspection.HostConfig.ReadonlyRootfs, true);
   assert.match(docker("exec", name, "id", "-u"), /^[1-9][0-9]*$/);
   assert.equal(docker("exec", name, "node", "healthcheck.mjs"), "");
+  // Continuous progress must not extend the complete-request receipt deadline.
+  const endpoint = new URL(baseUrl());
+  await new Promise((resolve, reject) => {
+    const socket = createConnection({ host: endpoint.hostname, port: Number(endpoint.port) });
+    let sent = 0, drip;
+    const deadline = setTimeout(() => { socket.destroy(); reject(new Error("Trickled container upload outlived its deadline")); }, 4000);
+    socket.resume(); socket.on("error", () => {});
+    socket.on("connect", () => {
+      socket.write(`PUT /v1/blobs/sha256:${"ab".repeat(32)} HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/vnd.vulnseal.ciphertext+json\r\nContent-Length: 10000\r\n\r\n`);
+      drip = setInterval(() => { if (!socket.destroyed) { socket.write("x"); sent++; } }, 50);
+    });
+    socket.on("close", () => { clearTimeout(deadline); clearInterval(drip); sent > 1 ? resolve() : reject(new Error("Container upload never began trickling")); });
+  });
   assert.equal(docker("exec", name, "node", "-e", "const fs=require('node:fs');if(fs.existsSync('/app/node_modules')||fs.existsSync('/app/.env'))process.exit(1)"), "");
   const key = await webcrypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
   const plaintext = new TextEncoder().encode("Synthetic container persistence drill");
@@ -66,7 +80,7 @@ try {
   const decrypted = await webcrypto.subtle.decrypt({ name: "AES-GCM", iv: Buffer.from(envelope.iv, "base64url"), additionalData: new TextEncoder().encode(envelope.aad) }, key, Buffer.from(envelope.ciphertext, "base64url"));
   assert.deepEqual(new Uint8Array(decrypted), plaintext);
   docker("stop", "--time", "20", name);
-  process.stdout.write(JSON.stringify({ capturedAt: new Date().toISOString(), imageId: docker("image", "inspect", image, "--format", "{{.Id}}"), nonRoot: true, readOnlyRoot: true, readyBeforeUpload: true, quotaRejectsNewBlob: true, fullStoreRemainsReadable: true, secondWriterRefused: true, gracefulRestart: true, persistedCiphertextDecrypted: true }) + "\n");
+  process.stdout.write(JSON.stringify({ capturedAt: new Date().toISOString(), imageId: docker("image", "inspect", image, "--format", "{{.Id}}"), nonRoot: true, readOnlyRoot: true, readyBeforeUpload: true, trickledUploadTerminated: true, quotaRejectsNewBlob: true, fullStoreRemainsReadable: true, secondWriterRefused: true, gracefulRestart: true, persistedCiphertextDecrypted: true }) + "\n");
 } finally {
   removeOwned("container", name);
   removeOwned("volume", volume);

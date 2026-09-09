@@ -1,0 +1,15 @@
+{
+  "capturedAt": "2026-09-09T07:47:57.828Z",
+  "imageId": "sha256:1200ddb6386bac1e2596a521f1aec0739046d032de7b1d38db1296fa5dec9cdf",
+  "evidenceKind": "Local Linux container drill using synthetic ciphertext and a one-second configured request timeout",
+  "nonRoot": true,
+  "readOnlyRoot": true,
+  "readyBeforeUpload": true,
+  "trickledUploadTerminated": true,
+  "quotaRejectsNewBlob": true,
+  "fullStoreRemainsReadable": true,
+  "secondWriterRefused": true,
+  "gracefulRestart": true,
+  "persistedCiphertextDecrypted": true,
+  "limits": "Not a load test, per-user rate limit, OS memory bound, public deployment or physical off-device recovery drill"
+}
