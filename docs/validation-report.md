@@ -1,5 +1,22 @@
 # Validation report
 
+## Consolidated recovery release checks — 2026-09-09
+
+At runtime commit `fa6fe57`, `npm run validate` passed all six workspace builds and typechecks, followed by 29 test files / 147 tests. This consolidated run includes the startup export, contextual submission journal, finalized deployment-address checkpoint and indexer contract-action comparison changes together. It ran on Windows with Node 24.14.1 and npm 11.11.0.
+
+| Workspace | Passing files | Passing tests |
+| --- | ---: | ---: |
+| shared | 1 | 12 |
+| contract | 1 | 13 |
+| api | 2 | 18 |
+| cipherstore | 3 | 14 |
+| integration | 1 | 4 |
+| web | 21 | 86 |
+
+`npm run audit:prod` reported 0 vulnerabilities. This run rebuilt dependency-ordered workspace artifacts using the installed dependencies and existing generated Compact artifacts/keys. It was not a fresh dependency installation, new Compact compilation/key generation, GitHub-hosted CI execution, or native Lace ceremony.
+
+The subsequent full `CI=true npm run test:e2e` run passed all 56 desktop/mobile Chrome cases in 3.0 minutes with 2 workers. The suite rebuilt the production web app, used the local ciphertext service, and covered all current browser journeys together, including backup export under failed WASM loading, v5 journal inspection, contract-action mismatch reporting, drafts/notes, workspace switching, attachment checks and handoff recovery. No retries or test exclusions were needed for this run. Network transaction scenarios in these browser tests remain fixtures/mocks; a passing suite does not establish native-wallet interoperability or production hosting readiness.
+
 ## Indexer-reported contract and circuit comparison — 2026-09-09
 
 Transaction status checks now query contract action types, addresses and call entry points, then compare them with local journal contract/circuit intent. Results distinguish one matching action, mismatches, ambiguous multiple matches, absent metadata and unknown intent. They list the source-reported actions without automatically installing a deployment address or claiming that a report was affected. Failed transaction status is not promoted to success by a matching action.
