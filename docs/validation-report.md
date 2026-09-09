@@ -1,5 +1,15 @@
 # Validation report
 
+## Receiving-key work after closing a workspace — 2026-09-09
+
+The disclosure panel's existing generation guard prevents late asynchronous results from downloading files or setting keys after unmount. New deterministic lifecycle tests pause actual component operations at key generation and backup encryption boundaries, close the component, then release success/failure. They verify no late download/key callback and no error leaking into a freshly opened panel; the fresh panel can still create its own key normally.
+
+Key generation now checks whether the panel is still current before starting backup derivation. This avoids beginning PBKDF/encryption work for an already closed workspace. An in-flight WebCrypto operation itself remains uncancellable, and this is not a forensic memory-erasure guarantee. The existing real-crypto handoff tests remain separate from these deliberately controlled async-boundary tests.
+
+Web typechecking and **eight focused tests** passed. The four desktop/mobile handoff and role-switching journeys passed in **58.8 seconds**, without retries or exclusions, preserving normal key restoration and disclosure decryption. Broader previous suites were not rerun for this lifecycle-only change.
+
+The final normal-configuration release build passed source/compiler comparison, six workspace builds and packaging: **eight circuits, 62 files, 62,590,305 bytes**. No key material, contract source, backup schema or external state was changed.
+
 ## Find saved reports by authenticated title — 2026-09-09
 
 Role report selection now decrypts titles/assets locally and offers case-insensitive filtering by those fields or full report ID. Report IDs remain visible so duplicate titles are distinguishable. Filtering does not select another report: the current selection remains available with an explicit outside-search label. Titles from failed authentication are never displayed; search state and title metadata are not added to backups. Sequential title reads stop starting more work when the component unmounts.

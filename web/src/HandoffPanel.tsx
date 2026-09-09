@@ -29,12 +29,12 @@ export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { reado
   const [message, setMessage] = useState("");
   const generation = useRef(0), busy = useRef(false);
   useEffect(() => () => { generation.current++; }, []);
-  const run = async (event: FormEvent | undefined, action: (commit: (fn: () => void) => void) => Promise<void>) => {
+  const run = async (event: FormEvent | undefined, action: (commit: (fn: () => void) => void, isCurrent: () => boolean) => Promise<void>) => {
     event?.preventDefault(); if (busy.current) return;
     busy.current = true; const pending = ++generation.current;
     setWorking(true); setError(""); setMessage("");
     const commit = (fn: () => void) => { if (generation.current === pending) fn(); };
-    try { await action(commit); }
+    try { await action(commit, () => generation.current === pending); }
     catch (cause) { commit(() => setError(cause instanceof Error ? cause.message : "Disclosure exchange failed")); }
     finally { commit(() => { busy.current = false; setWorking(false); }); }
   };
@@ -44,10 +44,12 @@ export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { reado
     <fieldset className="workflow-controls" disabled={working}>
       <section className="form-panel"><h2>1. Recipient: prepare a receiving key</h2>
         {!keys ? <>
-          <form onSubmit={(event) => void run(event, async (commit) => {
+          <form onSubmit={(event) => void run(event, async (commit, isCurrent) => {
             if (password !== confirmation) throw new Error("Recipient backup passwords do not match");
             if (password.length < 12) throw new Error("Use a recipient backup password of at least 12 characters");
-            const created = await createRecipient(); const saved = await backupRecipient(created, password);
+            const created = await createRecipient();
+            if (!isCurrent()) return;
+            const saved = await backupRecipient(created, password);
             commit(() => { download(saved, "vulnseal-recipient-backup.json"); onKeys(created); setPassword(""); setConfirmation(""); setMessage("Recipient backup downloaded. Keep it and its password private; share only the public receiving key."); });
           })}>
             <p>Create the key in the recipient's browser. The encrypted backup is required to receive packages after closing this tab.</p>
