@@ -1,5 +1,15 @@
 # Validation report
 
+## SDK transcript replay against historical report states — 2026-09-09
+
+The new replay utility runs hash/identifier-bound raw calls through the actual ledger SDK VM, compares the complete resulting contract data state with the indexer-supplied post-state, and projects changed reports through the generated VulnSeal schema. The collector replayed all six historical calls successfully, identifying one changed report each and the expected absent → COMMITTED → TRIAGED → ACCEPTED → PATCH_READY → RETEST_PASSED → PAYOUT_AUTHORIZED chain. Historical states and results are stored in [the replay fixture](evidence/preprod-transcript-replay.json).
+
+Initial probes exposed two integration assumptions: an empty block-offset query did not return the most recent earlier action, and ledger/onchain-runtime WASM state classes were not interchangeable. Using known transaction offsets and the encoded-state bridge resolved those issues. The indexer returned null segments on SUCCESS; the installed official schema/provider confirms segment details describe partial success and maps SUCCESS to SucceedEntirely. The utility accepts null segments only after checking SUCCESS, and rejects partial/failed status or ambiguous/failed supplied target segments.
+
+The integration build passed; all three integration test files / eight tests passed in 2.71 seconds. New offline tests execute all six genuine transcripts, assert exact changed report identities/statuses and increasing sequence values, and reject incorrect pre/post states, wrong contract/circuit, failed/partial status and missing/ambiguous target entries in a supplied segment list. No network transaction was submitted.
+
+This is a conditional historical VM replay, not proof/signature verification, authenticated inclusion, complete contract/token-state validation, general previous-action discovery or a browser recovery decision. The captured chain does not cover reject/close/failed-retest or multiple/partial calls. See [the investigation](transaction-content-investigation.md) for the precise boundary and remaining work.
+
 ## Raw transaction content investigation and fixtures — 2026-09-09
 
 The new read-only integration collector retrieved seven historical VulnSeal contract transactions from the official Preprod indexer, checked each against retained transaction hashes, deserialized them with the actual protocol SDK, and recomputed both hashes and identifiers. All seven passed; the constructor had no call entry and the six remaining transactions each had the expected call address/circuit. Public raw bytes and decoded call projections are retained in [the fixture](evidence/preprod-raw-transactions.json), with findings and remaining report-binding work in [the investigation](transaction-content-investigation.md).

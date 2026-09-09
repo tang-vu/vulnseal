@@ -16,6 +16,7 @@
     "preprod:lifecycle": "npm run build && node --env-file=.env.preprod dist/preprod-lifecycle.js",
     "preprod:verify": "npm run build && node dist/preprod-verify.js",
     "preprod:inspect-transactions": "npm run build && node dist/preprod-transaction-content.js",
+    "preprod:replay-transactions": "npm run build && node dist/preprod-replay-transactions.js",
     "test:run": "vitest run src/test",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   }

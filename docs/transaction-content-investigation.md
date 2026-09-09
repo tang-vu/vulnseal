@@ -16,9 +16,21 @@ The captured fixture has seven transactions: constructor, submitReport, beginTri
 
 This establishes that relevant data is available; searching for those bytes anywhere in a transcript would not prove the intended report was updated. Byte occurrences may be reads, unrelated values or data in another contract/segment. Current-state lookup alone also cannot attribute a change to one transaction when other transactions intervene.
 
+## SDK replay implemented for the captured successful calls
+
+`npm run preprod:replay-transactions -w @vulnseal/integration` now retrieves the historical contract state at each known transaction identifier and replays the next captured call with `QueryContext.runTranscript`. Add `-- --write-fixture` to retain the checked states/results in `docs/evidence/preprod-transcript-replay.json`. The default command only prints results. Both commands are read-only on the network.
+
+The implementation binds raw bytes to the retained hash/identifier, requires exactly one contract action with the requested address/circuit, and requires SUCCESS metadata. The official SDK maps SUCCESS to `SucceedEntirely`; the indexer schema supplies segment details for partial success, so a null segment list on SUCCESS is supported. If a segment list is supplied, the target segment must appear once with success. Partial or failed transactions are currently rejected rather than partially replayed.
+
+The VM executes the guaranteed/fallible transcripts against the supplied prior state using the initial cost model. Its complete resulting contract **data** state must equal the supplied subsequent data state. Only then are both states decoded with the generated VulnSeal ledger schema and changed report records returned. Ledger and onchain-runtime WASM objects are bridged through their encoded state representation; passing their classes interchangeably fails.
+
+All six captured calls replayed successfully. Each changed one report, with status transitions absent → COMMITTED → TRIAGED → ACCEPTED → PATCH_READY → RETEST_PASSED → PAYOUT_AUTHORIZED. This replay does not transfer tokens or prove a payout. It verifies transcript execution conditional on the supplied source data, not signatures, proofs, authenticated block inclusion, deployed code identity, or the provenance of the previous state. It compares contract data, not maintenance authority, verifier definitions or token balances.
+
+A query at block 2371913 returned no contract action, even though there had been an earlier call. The collector therefore uses the known previous transaction identifier; it does not assume a block-offset lookup returns the latest earlier state. General previous-action discovery, intervening transactions, partial/multiple actions, current cost-model selection and browser integration remain open.
+
 ## Remaining implementation and evidence
 
-- Interpret the relevant VM operations, or recognize a strictly specified supported transcript structure, and reject unsupported layouts rather than guessing from a byte match.
+- Extend the SDK replay beyond the captured successful single-call chain; no heuristic byte matching is needed for the implemented replay.
 - Bind the write path, map key, record commitment and contract/schema together; account for multiple calls and transaction segments.
 - Preserve distinctions between guaranteed/fallible effects and per-segment success. Matching a circuit name or decoding a proof-bearing object is not proof verification.
 - Exercise negative cases with unrelated report reads, changed map paths, duplicate writes/calls, partial failures and incompatible contract layouts.
