@@ -1,5 +1,13 @@
 # Validation report
 
+## Current release in the static hosting container — 2026-09-09
+
+The release from code revision **`48d41e6`** was rebuilt into `vulnseal-web:local` using the pinned Node/Caddy Dockerfile. Its in-image packaging gate passed for **8 circuits, 62 files, 62,637,482 bytes**. The disposable container drill then passed at **13:01:26.672 UTC** with image ID `sha256:b845cf4d52abd147431c1c724fd3c0949b7cf761771d9da32e94b639c71b6ad2`; the machine-readable result is [web-container-drill.json](evidence/web-container-drill.json).
+
+All release files and the root homepage matched over HTTP: **63 requests, 62,638,761 bytes** (the homepage is fetched separately from the 62-file inventory). Checks passed for MIME/cache/security headers, missing keys/chunks and sensitive paths returning 404, non-root execution, read-only root, desktop/mobile captured-state public lookup without page errors, graceful stop and matching homepage after restart. The command exited successfully after removing its own labelled container; a follow-up Docker listing found no retained web-test containers. The local image remains available.
+
+This refreshes hosting evidence for the current artifact rather than relying on the older image drill. It does not publish a service, provision TLS/DNS, scan the image for vulnerabilities, authenticate live chain state or exercise a native wallet. Existing two-release rollout evidence remains scoped to its own recorded images. No application source or release bytes changed during this hosting check.
+
 ## Recover an observed deployment address into the reconnect form — 2026-09-09
 
 An unbound, inactive role workspace can now explicitly select a candidate address from its recorded constructor attempt. The shortcut requires a finalized SUCCESS with exactly one reported action, which must be a deployment. It only fills the existing reconnect form and opens the reports tab; it does not save the address or connect the wallet. The existing join path must still check program and vendor authority before updating the vault. Expired sessions and the wallet-free inspector do not receive this shortcut. Indexer/RPC observations remain source-trusting.
