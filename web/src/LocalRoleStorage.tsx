@@ -32,18 +32,18 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved, onPersis
   const persistenceListener = useRef(onPersistence); persistenceListener.current = onPersistence;
   useEffect(() => {
     persistenceListener.current?.(writer ? async (snapshot) => {
-      if (!mounted.current || activeWriter.current !== writer) throw new Error("Encrypted browser autosave is unavailable; transaction was not submitted");
+      if (!mounted.current || activeWriter.current !== writer) throw new Error("Encrypted browser autosave is unavailable; recovery copy was not saved");
       // A delayed older draft must never overwrite the new pre-wallet journal.
       window.clearTimeout(autosaveTimer.current); autosaveTimer.current = undefined; setScheduled(false);
       setPending((value) => value + 1);
       try {
         const row = await writer.save(snapshot);
-        if (!mounted.current || activeWriter.current !== writer) throw new Error("Workspace closed during journal save; transaction was not submitted");
+        if (!mounted.current || activeWriter.current !== writer) throw new Error("Workspace closed during recovery save; confirm the saved copy before leaving");
         saved.current = snapshot;
-        setMessage(`Saved encrypted submission journal · revision ${row.revision}`);
+        setMessage(`Saved encrypted recovery checkpoint · revision ${row.revision}`);
       } catch (cause) {
         writer.stop(); activeWriter.current = undefined; setWriter(undefined);
-        setError(cause instanceof Error ? cause.message : "Submission journal save failed"); throw cause;
+        setError(cause instanceof Error ? cause.message : "Recovery checkpoint save failed"); throw cause;
       } finally { if (mounted.current) setPending((value) => value - 1); }
     } : undefined);
     return () => persistenceListener.current?.(undefined);

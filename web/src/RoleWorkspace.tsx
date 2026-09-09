@@ -195,7 +195,19 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
               const providers = await initializeBrowserProviders(vault.network, recordSubmission);
               const constructor = await programConstructor(hexToBytes(vault.programId), policy);
               const deployed = await duringSubmission({ circuit: "constructor", reportId: null }, () => VulnSealApi.deploy(providers, createVulnSealPrivateState(hexToBytes(vault.actorSecret)), constructor));
-              const updated = { ...currentVault.current!, contractAddress: deployed.api.contractAddress }; setVault(updated); setReceipt(deployed.evidence);
+              setReceipt(deployed.evidence); setTab("backup");
+              const updated = await validateRoleVault({ ...currentVault.current!, contractAddress: deployed.api.contractAddress });
+              try {
+                const persist = persistJournal.current;
+                if (!persist) throw new Error("Encrypted browser autosave is unavailable");
+                await persist(updated);
+                setSaved(updated);
+              } catch (cause) {
+                setSaved(undefined);
+                throw new Error(`Program deployment finalized, but its address could not be saved to browser storage. Keep this tab open and download an updated role backup before leaving. Do not deploy again. ${cause instanceof Error ? cause.message : "Recovery save failed"}`);
+              } finally {
+                currentVault.current = updated; setVault(updated);
+              }
               const connected = await RoleSession.attach(deployed.api, { role: "vendor", programId: hexToBytes(vault.programId), actorSecret: hexToBytes(vault.actorSecret) }); setSession(connected); setSnapshot(await connected.readPublicState()); setTab("backup");
             });
           }}><h2>Deploy vendor program</h2>{([ ["name", "Program name"], ["primaryScope", "Primary scope"], ["additionalScope", "Additional scope"], ["rewardPolicy", "Reward policy"] ] as const).map(([name, label]) => <label key={name}>{label}{name === "rewardPolicy" ? <textarea name={name} defaultValue={defaultProgram[name]} required rows={4} /> : <input name={name} defaultValue={defaultProgram[name]} required={name !== "additionalScope"} />}</label>)}<label>Response days<select name="responseDays" defaultValue="7"><option>2</option><option>7</option><option>14</option></select></label><label>Disclosure days<select name="disclosureDays" defaultValue="90"><option>30</option><option>60</option><option>90</option></select></label><button className="primary-button" disabled={!backedUp}>Connect Lace and deploy program</button></form>}

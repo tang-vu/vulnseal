@@ -1,5 +1,13 @@
 # Validation report
 
+## Durable deployment address before follow-up reads — 2026-09-09
+
+Role deployment now awaits an encrypted checkpoint containing the returned contract address before session attachment/public reads. Previously the address relied on the routine 400 ms autosave debounce while follow-up network work had already begun. The finalized receipt remains visible; a failed address write retains the updated vault in memory, opens the backup form, keeps the saved gate false and explicitly warns that deployment finalized and must not be repeated. Storage callback wording is now neutral about broadcast because it serves both pre-wallet and post-deployment checkpoints.
+
+`npm run build -w @vulnseal/web` passed including TypeScript checking and production asset generation. The focused deployment, submission-journal and storage component suites passed all 3 files / 5 tests in 16.99 seconds. New cases decrypt the pre-wallet journal, require the encrypted address to be present before the mocked follow-up attachment, inject a subsequent indexer failure, and separately inject an address-save failure. The latter preserves the prior encrypted identifier journal, does not attach, retains the live address/receipt, and exports a decryptable file with the address and identifier.
+
+These tests use mocked network/session and IndexedDB adapters with real backup encryption. They do not establish native Lace deployment recovery, crash safety before the address checkpoint completes, or durable finalized receipt history. Existing transaction-identifier reconciliation is still needed if the page closes before that checkpoint.
+
 ## Local operation/report context in submission recovery — 2026-09-09
 
 New role submissions persist their circuit name and report identifier alongside the pre-wallet transaction identifier. Deployment uses a null report identifier. Payload version 5 retains drafts, working notes and prior entries; legacy entries migrate with explicit unknown intent. Strict validation rejects foreign report identifiers, role-inappropriate circuits, duplicate transaction identifiers, and additional metadata fields. The workspace and wallet-free inspector distinguish locally recorded intent from observed public transaction status. See [ADR 0017](adr/0017-submission-intent-context.md).
