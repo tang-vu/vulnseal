@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# Combine with cipherstore.yml; this explicitly enables its operator endpoint.
+services:
+  cipherstore:
+    environment:
+      CIPHERSTORE_METRICS_ENABLED: "1"
+  prometheus:
+    image: prom/prometheus@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=24h
+      - --storage.tsdb.retention.size=256MB
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PUBLISHED_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    user: "65534:65534"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 512m
+    stop_grace_period: 30s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  prometheus-data:

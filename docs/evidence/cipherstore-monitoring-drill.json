@@ -1,0 +1,13 @@
+{
+  "capturedAt": "2026-09-09T14:44:32.646Z",
+  "prometheusImage": "sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0",
+  "cipherstoreImage": "sha256:95aaedbc2c46a992e4858bbbc97a8446a67c83bb9f891067cbb0222dc5ab623b",
+  "ruleTests": true,
+  "realScrape": true,
+  "errorCounterScraped": true,
+  "outageDetected": true,
+  "recoveryDetected": true,
+  "nonRoot": true,
+  "readOnlyRoot": true,
+  "externalNotifications": false
+}

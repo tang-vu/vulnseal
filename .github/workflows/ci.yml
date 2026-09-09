@@ -84,3 +84,5 @@ jobs:
         run: node scripts/test-cipherstore-container.mjs
       - name: Reject runtime vulnerabilities and end-of-life OS
         run: sh scripts/scan-container.sh
+      - name: Verify internal metrics collection and alert rules
+        run: node scripts/test-cipherstore-monitoring.mjs

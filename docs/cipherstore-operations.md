@@ -28,7 +28,23 @@ The response uses [Prometheus text exposition 0.0.4](https://prometheus.io/docs/
 
 Counters reset whenever the server instance is recreated. A completed response means Node finished writing it, not that the peer acknowledged it or storage was durable. Closed unfinished responses increment the abort counter once; upload work may remain active briefly after the socket closes. Requests rejected before the HTTP callback (such as incomplete headers or excess TCP connections) are not counted. Gauges do not measure stored capacity or filesystem free space; continue probing readiness and monitoring the host/volume separately. `5xx` includes storage-quota refusals and readiness failures, not just unexpected server errors.
 
-From the host with metrics explicitly enabled, inspect `http://127.0.0.1:8787/metrics`. Configure your collector to scrape that reachable private listener. Monitor changes in server-error/abort rates and sustained upload occupancy alongside `/readyz`; do not delete data or automatically retry uploads in response to an alert. No collector, dashboard, external alert delivery or production service-level objective is configured by this feature.
+From the host with metrics explicitly enabled, inspect `http://127.0.0.1:8787/metrics`. Configure your collector to scrape that reachable private listener. Monitor changes in server-error/abort rates and sustained upload occupancy alongside `/readyz`; do not delete data or automatically retry uploads in response to an alert. The optional collector below provides a local query/alert interface; external alert delivery and a production service-level objective remain unconfigured.
+
+### Internal collector and local alerts
+
+The optional [monitoring Compose overlay](../infra/cipherstore-monitoring.yml) runs digest-pinned Prometheus 3.14.0, enables cipherstore metrics explicitly and scrapes the service over the Compose network every 15 seconds. Start it using the same project name as your existing ciphertext store so its volume remains attached:
+
+```text
+docker compose -p vulnseal-cipherstore -f infra/cipherstore.yml -f infra/cipherstore-monitoring.yml up --build -d
+```
+
+The Prometheus interface is at `http://127.0.0.1:9090`; `PROMETHEUS_PUBLISHED_PORT` changes the loopback port. Check `/-/ready`, then query `up{job="cipherstore"}` and `vulnseal_http_responses_total` in the UI. A working scrape is not proof that the store is writable; retain `/readyz` checks. The overlay does not authenticate the UI or metric endpoint, so keep the published interfaces local or provide a protected operator boundary. It configures no Alertmanager, notification destination or remote-write service.
+
+The collector runs non-root with a read-only root, read-only configuration, a dedicated named metrics volume, dropped capabilities, memory/process/log limits, 24-hour retention and a 256 MB TSDB retention target. This target is not a hard filesystem quota; reserve volume headroom. Preserve the Compose project name and avoid `down --volumes` on a real store. These settings follow the official [Docker installation guidance](https://prometheus.io/docs/prometheus/latest/installation/).
+
+Two [alert rules](../infra/monitoring/cipherstore-rules.yml) are visible in the Prometheus Alerts page. `CipherstoreMetricsUnavailable` fires after scrapes fail for two minutes. `CipherstoreServerErrors` fires when the five-minute 5xx rate remains positive for two minutes; the lookback means recent errors can keep it active after the immediate fault ends. This includes quota/readiness errors and does not justify deleting ciphertext or retrying transactions. Thresholds are initial operator defaults, not a measured SLO. Prometheus [alert rule evaluation](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/) supplies the pending/firing states; delivery outside the UI requires separately configured notification infrastructure.
+
+Run `node scripts/test-cipherstore-monitoring.mjs` from the repository root after building `vulnseal-cipherstore:local`. On Windows/WSL, set `VULNSEAL_DOCKER_WSL_DISTRO=Ubuntu` as for the container drill. This command uses its own random Compose project, random loopback ports and disposable volumes. It runs `promtool` configuration/rule tests, verifies a real scrape and a recorded 404 counter, stops/restarts its cipherstore and observes scrape failure/recovery, then removes only that test project. It does not stop the operator's deployed store. CI is configured to run it; configuration does not prove a remote CI run. Synthetic rule tests establish the two-minute firing logic; the shorter live outage verifies scrape transitions rather than waiting for real-time alert firing. Neither this drill nor the overlay establishes collector image vulnerability clearance or off-device metric durability.
 
 ## Capacity response
 

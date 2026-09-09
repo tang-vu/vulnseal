@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+groups:
+  - name: cipherstore
+    rules:
+      - alert: CipherstoreMetricsUnavailable
+        expr: up{job="cipherstore"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cipherstore metrics cannot be scraped
+          description: Check the service, metrics setting and internal network. Do not delete ciphertext or automatically retry transactions.
+      - alert: CipherstoreServerErrors
+        expr: sum by (job, instance) (rate(vulnseal_http_responses_total{job="cipherstore",status_class="5xx"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cipherstore has recent HTTP server errors
+          description: Inspect readiness, capacity and storage. This includes quota and readiness refusals; existing ciphertext may remain readable.

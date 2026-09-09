@@ -1,5 +1,15 @@
 # Validation report
 
+## Collect ciphertext metrics and validate local alerts -- 2026-09-09
+
+An optional Compose overlay now runs digest-pinned **Prometheus 3.14.0**, enables cipherstore metrics, and scrapes the internal service every fifteen seconds. It publishes the collector only on loopback, runs non-root/read-only with resource/log bounds, and uses a named TSDB volume with 24-hour/256 MB retention targets. The default ciphertext-only Compose file still leaves metrics disabled. No Alertmanager, remote-write target or external notification destination is configured.
+
+Two alert rules cover unavailable scrapes and a positive recent HTTP 5xx rate, each with a two-minute pending period. Pinned `promtool` accepted the configuration and rule files. Synthetic rule tests verify pending/firing behavior for both alerts and resolution of the unavailable-scrape alert. The first integrated run exposed `promtool` trying to create test storage under read-only `/tmp`; its test-only `TMPDIR` now points into the disposable metrics volume. The failed invocation terminated and cleaned up before the corrected run.
+
+The complete corrected monitoring drill passed at **14:44:32.646 UTC**, then exited successfully after removing its own Compose project/volumes. It validated rules, verified real collection of a 404 counter, loaded both rules through the API, checked non-root/read-only runtime settings, stopped cipherstore and observed `up=0`, then restarted it and observed `up=1`. A follow-up listing found no retained monitoring-test containers. [Evidence](evidence/cipherstore-monitoring-drill.json) records the exact collector and ciphertext image identifiers. CI is configured to run the same drill but has not executed remotely.
+
+The live outage was shorter than the rule's pending period; synthetic `promtool` tests, not that outage, establish the two-minute firing behavior. No external alert delivery, custom dashboard, public deployment, collector image vulnerability clearance, measured SLO or off-device metric durability is claimed. Application and contract source, release bytes and proving keys are unchanged. See [internal monitoring instructions](cipherstore-operations.md#internal-collector-and-local-alerts).
+
 ## Add opt-in aggregate ciphertext metrics -- 2026-09-09
 
 `CIPHERSTORE_METRICS_ENABLED=1` now exposes `GET /metrics` in Prometheus text 0.0.4 format; the default 0 returns 404. CLI and Compose wiring are included. Metrics track completed responses across five fixed status classes, aborted responses, active requests and active upload handlers. Scrapes exclude themselves. No request path, blob digest, IP, origin, program identifier or report content becomes a label. The endpoint is on the same listener, without authentication or browser CORS access headers; the operator guide requires a controlled listener/proxy boundary before enabling it.
