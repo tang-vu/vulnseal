@@ -1,5 +1,13 @@
 # Validation report
 
+## Compare saved patch context after report replay — 2026-09-09
+
+Report replay now returns the public patch commitment. The local saved-context comparison supports `anchorPatch` by hashing the attempt's exact note text and applying the retained Compact contract's domain-separated persistent-hash layout with the report ID. No private notes enter the worker payload. Missing or malformed commitments fail comparison; existing snapshots, journal states and retry controls are unchanged. Retest intent and full transaction argument reconstruction remain open.
+
+All **8 focused comparison/worker-boundary tests passed in 4.13 seconds**, and web typechecking passed. A new simulator test creates, triages and accepts a report, executes the generated `anchorPatch` circuit, then checks local computation against that circuit result. It also verifies whitespace/report changes alter the commitment and invalid IDs are rejected. A component case verifies success, changed notes and missing evidence. No proving keys or contract source changed.
+
+All **4 desktop/mobile report-replay cases passed in 44.3 seconds**. The production worker's historical payout record retains the patch commitment matching the synthetic `release:preprod-wave-1-demo` reference used by the original lifecycle runner. This verifies the added public field against captured evidence; it is not a new on-chain call. The final normal release build exited successfully: **8 circuits, 62 files, 62,602,912 bytes**, with a fresh compiler comparison at 11:40:10.648 UTC. Full web/browser suites were not rerun in this increment.
+
 ## Bound browser ZK artifact downloads — 2026-09-09
 
 Inspection of the installed SDK found a five-minute HTTP timeout for proof-server calls, but no deadline or size limit in `FetchZkConfigProvider`. Browser provider wiring now supplies a fetch adapter that buffers each artifact under a two-minute header/body deadline and a 64 MiB decompressed-byte cap, rejects redirects, cancels error/oversized/timed-out bodies and discards late responses. HTTP and HTML diagnostics remain handled by the SDK. The largest current retained key is 9,979,674 bytes, below the cap. This is a per-artifact transport bound, not release authentication or an overall proof deadline; the installed proof provider catches artifact errors and can use server-side keys instead.

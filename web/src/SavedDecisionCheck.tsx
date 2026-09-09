@@ -3,10 +3,11 @@ import { useEffect, useState } from "react";
 import { bytesToHex, sha256, utf8 } from "@vulnseal/shared";
 import type { ReportNotes } from "./role-recovery.js";
 import type { ReplayedPublicValues } from "./report-reconciliation.js";
+import { savedPatchCommitment } from "./patch-comparison.js";
 
 export function SavedDecisionCheck({ circuit, reportId, notes, values }: { circuit: string; reportId: string; notes?: ReportNotes | null | undefined; values?: ReplayedPublicValues | undefined }) {
   const [comparison, setComparison] = useState<{ mismatches: string[]; checked: string[]; error?: string }>();
-  const supported = ["acceptReport", "rejectReport", "authorizePayout"].includes(circuit);
+  const supported = ["acceptReport", "rejectReport", "authorizePayout", "anchorPatch"].includes(circuit);
   useEffect(() => {
     let active = true; setComparison(undefined);
     if (!supported || !notes || !values) return;
@@ -14,7 +15,11 @@ export function SavedDecisionCheck({ circuit, reportId, notes, values }: { circu
       if (notes.reportId !== reportId) throw new Error("Saved notes refer to a different report; no decision comparison was made.");
       const checked: string[] = [], mismatches: string[] = [];
       const compare = (label: string, expected: string, observed: string) => { checked.push(label); if (expected !== observed) mismatches.push(label); };
-      if (circuit !== "authorizePayout") compare("decision text digest", bytesToHex(await sha256(utf8(notes.text))), values.decisionDigest);
+      if (circuit === "anchorPatch") {
+        if (!values.patchCommitment || !/^[a-f0-9]{64}$/.test(values.patchCommitment)) throw new Error("No valid replayed patch commitment is available for comparison.");
+        compare("patch commitment", await savedPatchCommitment(reportId, notes.text), values.patchCommitment);
+      }
+      if (circuit === "acceptReport" || circuit === "rejectReport") compare("decision text digest", bytesToHex(await sha256(utf8(notes.text))), values.decisionDigest);
       if (circuit === "acceptReport") compare("severity tier", notes.tier, values.severity);
       if (circuit === "authorizePayout") compare("reward tier", notes.tier, values.rewardTier);
       if (active) setComparison({ checked, mismatches });

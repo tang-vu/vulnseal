@@ -4,6 +4,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { encryptRoleVault, withSubmissionAttempt } from "../web/src/role-recovery.js";
 import { recoveryFixture } from "../web/src/test/recovery-fixture.js";
+import { savedPatchCommitment } from "../web/src/patch-comparison.js";
 
 const raw = JSON.parse(await readFile("docs/evidence/preprod-raw-transactions.json", "utf8"));
 const states = JSON.parse(await readFile("docs/evidence/preprod-transcript-replay.json", "utf8")).states;
@@ -49,6 +50,7 @@ test("production worker replays historical report effects and rejects a differen
   expect(result.result).toMatchObject({ before: "RETEST_PASSED", after: "PAYOUT_AUTHORIZED", actionsRead: 7 });
   expect(result.result.publicValues).toMatchObject({ decisionDigest: createHash("sha256").update("accepted:p2").digest("hex"), severity: "3", rewardTier: "3" });
   expect(result.result.publicValues.ciphertextDigest).toBe("37ba2e7521ce64fa255ddef4655750609674ba1a8a16c179bb6435eff982eff9");
+  expect(result.result.publicValues.patchCommitment).toBe(await savedPatchCommitment(input.reportId, "release:preprod-wave-1-demo"));
   expect((await run({ ...input, reportId: "ff".repeat(32) })).error).toContain("did not change exactly the report");
 });
 test("journal report checking is explicit, rejects a different program, and can be cancelled", async ({ page }) => {

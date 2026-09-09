@@ -10,6 +10,8 @@ Each proving-key, verifier-key or ZKIR download has a two-minute deadline includ
 
 Saved-report selection shows authenticated private titles alongside full report IDs. **Find saved reports** filters locally by title, affected asset or ID, ignoring case. The selected report remains available even when it falls outside the search; filtering never changes the selection or starts a report action. Duplicate titles remain distinguishable by ID. Titles are decrypted sequentially on this device, never requested from a service, and discarded with the selector when the workspace is closed or locked. Invalid ciphertext is not used as title metadata; its ID remains selectable for inspection. Search state is not added to backup files.
 
+For a saved **Anchor patch** attempt, report reconciliation also compares the attempt's exact private note text against the replayed public patch commitment, including its report binding. Later edits are not substituted for the saved snapshot. A match provides additional comparison evidence; it does not authenticate the backup, verify all transaction arguments or make another submission safe.
+
 Open **Open role workspace** from the demo, or visit `/#roles`. Use a separate browser profile for each participant. The workspace requires a compatible Lace connector and configured Midnight proof/indexer services for transactions; it has no guided transaction mode.
 
 1. **Vendor:** prepare a vendor identity, download its encrypted role backup and enable encrypted browser autosave. Open **Reports**, review program policy fields, and deploy. Save the updated role backup containing the contract address. Download the public program invitation and share it through your agreed channel.
