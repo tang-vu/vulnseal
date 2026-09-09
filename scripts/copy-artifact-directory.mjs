@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 /** Mirror generated files; overlay copying can retain keys from an older build. */
-export function copyArtifactDirectory(workspace, source, target, { optional = false } = {}) {
+export function copyArtifactDirectory(workspace, source, target, { optional = false, prepare = () => {} } = {}) {
   const root = fs.realpathSync(workspace);
   const inside = (value) => {
     const relative = path.relative(root, value);
@@ -34,6 +34,9 @@ export function copyArtifactDirectory(workspace, source, target, { optional = fa
   try {
     if (present) fs.cpSync(source, staged, { recursive: true, errorOnExist: true, force: false });
     else fs.mkdirSync(staged);
+    // Synchronous preparation must finish before replacing the installed output.
+    prepare(staged);
+    inspect(staged);
     if (previous) fs.renameSync(target, backup);
     try { fs.renameSync(staged, target); }
     catch (error) {

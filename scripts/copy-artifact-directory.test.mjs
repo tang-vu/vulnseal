@@ -35,18 +35,25 @@ test("redirected sources and escaping targets are rejected before touching exist
   assert.throws(() => copyArtifactDirectory(root, source, path.join(source, "nested")), /disjoint/);
 });
 
-test("copy and installation errors retain the prior output", (context) => {
-  for (const failure of ["copy", "install"]) {
+test("copy, preparation and installation errors retain the prior output", (context) => {
+  for (const failure of ["copy", "prepare", "install"]) {
     const root = fs.mkdtempSync(path.join(tmpdir(), "vulnseal-copy-test-"));
     const source = path.join(root, "source"), target = path.join(root, "dist/keys");
     fs.mkdirSync(source); fs.mkdirSync(target, { recursive: true });
     fs.writeFileSync(path.join(source, "new"), "new"); fs.writeFileSync(path.join(target, "retained"), "old");
     if (failure === "copy") context.mock.method(fs, "cpSync", () => { throw new Error("Synthetic copy failure"); });
-    else {
+    else if (failure === "install") {
       const rename = fs.renameSync; let calls = 0;
       context.mock.method(fs, "renameSync", (...args) => { if (++calls === 2) throw new Error("Synthetic install failure"); return rename(...args); });
     }
-    assert.throws(() => copyArtifactDirectory(root, source, target), /Synthetic/);
+    assert.throws(() => copyArtifactDirectory(root, source, target, {
+      prepare(staged) {
+        if (failure === "prepare") {
+          fs.writeFileSync(path.join(staged, "partial-map"), "unfinished");
+          throw new Error("Synthetic preparation failure");
+        }
+      },
+    }), /Synthetic/);
     assert.equal(fs.readFileSync(path.join(target, "retained"), "utf8"), "old");
     assert.deepEqual(fs.readdirSync(path.dirname(target)), ["keys"]);
     context.mock.restoreAll();

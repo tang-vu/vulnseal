@@ -1,5 +1,13 @@
 # Validation report
 
+## Stage source-map preparation before artifact installation -- 2026-09-09
+
+Review found that the previous map-embedding step ran after replacing `dist/managed`. It now runs synchronously inside the artifact copier's staging directory, before the retained target is moved. The staged tree is inspected again before installation. Parsing, source binding or map-write failures therefore leave the previous managed artifact directory in place. The pure map transformation preserves input mapping fields and does not mutate the compiler map.
+
+All **eight release-tool tests passed in 0.45 seconds** after the final change. The failure regression now covers partial staged preparation as well as copy and installation errors, verifying the retained output and staging cleanup. The actual contract build passed. Read-only release verification passed with **8 circuits, 62 files, 62,642,750 bytes**; runtime code, proving material and browser release bytes are unchanged.
+
+The guarantee covers the managed artifact directory on reported preparation/install errors. It does not make the entire TypeScript build transactional, prevent concurrent external file mutation or provide crash-atomic multi-directory replacement. Full application/browser suites were not repeated for this packaging-order correction.
+
 ## Make distributed contract source maps self-contained for project source -- 2026-09-09
 
 Investigation of the repeated compiler-map warning confirmed that `src/vulnseal.compact` resolves correctly in the checkout, while `compiler/standard-library.compact` is referenced but not emitted by the installed compiler. The original map has no embedded sources. The artifact-copy build now embeds the exact public project contract source in the distributed map's `sourcesContent`, retaining every original mapping field and leaving unavailable standard-library content null. The installed compiler output remains unchanged, preserving the independent source-freshness comparison.
