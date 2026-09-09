@@ -3,6 +3,31 @@ import { validateContentDigest } from "@vulnseal/shared";
 
 const MEDIA_TYPE = "application/vnd.vulnseal.ciphertext+json";
 export const CIPHERSTORE_REQUEST_TIMEOUT_MS = 20_000;
+export const MAX_CIPHERSTORE_BYTES = 5 * 1024 * 1024;
+
+const readCiphertext = async (response: Response): Promise<string> => {
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  let buffer = new Uint8Array(64 * 1024), length = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value.byteLength > MAX_CIPHERSTORE_BYTES - length) {
+        void reader.cancel().catch(() => {});
+        throw new Error("Cipherstore response exceeds the 5 MiB ciphertext limit. Keep your local backup and contact the storage operator.");
+      }
+      const required = length + value.byteLength;
+      if (required > buffer.byteLength) {
+        const next = new Uint8Array(Math.min(MAX_CIPHERSTORE_BYTES, Math.max(required, buffer.byteLength * 2)));
+        next.set(buffer.subarray(0, length)); buffer = next;
+      }
+      buffer.set(value, length); length = required;
+    }
+    try { return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(buffer.subarray(0, length)); }
+    catch { throw new Error("Cipherstore returned invalid UTF-8 ciphertext"); }
+  } finally { reader.releaseLock(); }
+};
 
 export class CipherstoreClient {
   constructor(private readonly baseUrl: string, private readonly timeoutMs = CIPHERSTORE_REQUEST_TIMEOUT_MS) {
@@ -25,6 +50,7 @@ export class CipherstoreClient {
   }
 
   async put(address: string, serializedEnvelope: string): Promise<void> {
+    if (serializedEnvelope.length > MAX_CIPHERSTORE_BYTES || new TextEncoder().encode(serializedEnvelope).byteLength > MAX_CIPHERSTORE_BYTES) throw new Error("Ciphertext exceeds the 5 MiB upload limit. Keep your draft and reduce the report size.");
     if (!(await validateContentDigest(serializedEnvelope, address))) {
       throw new Error("Ciphertext does not match its content address");
     }
@@ -35,6 +61,8 @@ export class CipherstoreClient {
         body: serializedEnvelope,
         signal,
       });
+      // PUT status is sufficient; do not buffer an arbitrary response body.
+      void response.body?.cancel().catch(() => {});
       if (response.status === 507) throw new Error("Ciphertext storage is full. Keep your draft and contact the storage operator before retrying.");
       if (response.status === 503) throw new Error("Ciphertext storage is temporarily busy or unavailable. Keep your draft and try again shortly.");
       if (!response.ok) throw new Error(`Cipherstore PUT failed with HTTP ${response.status}`);
@@ -44,8 +72,12 @@ export class CipherstoreClient {
   async get(address: string): Promise<string> {
     return this.request("GET", async (signal) => {
       const response = await fetch(`${this.baseUrl}/v1/blobs/${address}`, { signal });
-      if (!response.ok) throw new Error(`Cipherstore GET failed with HTTP ${response.status}`);
-      const serialized = await response.text();
+      if (!response.ok) {
+        void response.body?.cancel().catch(() => {});
+        throw new Error(`Cipherstore GET failed with HTTP ${response.status}`);
+      }
+      // Count decoded transport bytes, regardless of Content-Length or compression.
+      const serialized = await readCiphertext(response);
       if (!(await validateContentDigest(serialized, address))) {
         throw new Error("Cipherstore returned content with an invalid digest");
       }

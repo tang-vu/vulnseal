@@ -57,6 +57,8 @@ The ciphertext service enforces configurable aggregate storage and concurrent-up
 
 Ciphertext uploads/downloads have a 20-second client deadline. A stalled request returns recovery guidance instead of leaving the UI waiting indefinitely. Upload timeout does not prove the server discarded the ciphertext; keep the draft and backups. The client does not retry automatically.
 
+The client also enforces the 5 MiB ciphertext limit independently of the server. Downloads are read incrementally and rejected when oversized, invalid UTF-8 or inconsistent with their digest. Where the workspace already holds a valid local encrypted copy, vendor review can fall back to that copy.
+
 ## Prerequisites
 
 - Node.js `>=24.11.1` (validated with `24.14.1`)

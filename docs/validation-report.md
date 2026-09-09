@@ -1,5 +1,15 @@
 # Validation report
 
+## Bounded ciphertext response reading — 2026-09-09
+
+The client now independently enforces the service's 5 MiB envelope limit. PUT rejects excessive UTF-8 byte length before digest work/fetch. GET incrementally reads into a bounded growable byte buffer and cancels excess input without trusting `Content-Length`; decoding rejects malformed UTF-8 and preserves BOM/multibyte bytes before digest validation. Unneeded PUT/error response bodies are cancelled. The existing request deadline covers the streamed body read.
+
+The API build and 18 API tests passed, including exact-limit input, excessive/multibyte uploads without fetch, oversize streaming with a misleading length header, cancellation/unlocking of the reader, malformed UTF-8, digest mismatch, split UTF-8/BOM round-trip and the existing body-read timeout. The web suite passed all 19 files / 77 tests. Production browser testing (`e2e/cipherstore-timeout.spec.ts` and `e2e/vulnseal.spec.ts`) passed all 14 desktop/mobile cases in 1.2 minutes, including a 5 MiB + 1 response that falls back to the authenticated local ciphertext and leaves vendor review usable.
+
+After the final BOM-preservation adjustment, the API build/tests passed again, and a rebuilt production app passed both targeted oversized-response browser cases in 48.6 seconds including startup/teardown.
+
+The stream unit checks establish client byte limits and cancellation. The browser fallback case establishes integrated recovery from an oversized invalid response; fallback alone would not distinguish size refusal from digest refusal. No whole-process memory ceiling, decompression-bomb benchmark or production storage-server compromise drill is claimed.
+
 ## Consolidated release gate and ciphertext request deadlines — 2026-09-09
 
 On Windows with Node 24.14.1 and npm 11.11.0, the initial consolidated `npm run validate` passed all six workspace builds/typechecks and 27 files / 132 tests. `npm run audit:prod` reported 0 production dependency vulnerabilities. The first full E2E run with `CI=true` (2 workers) passed 41 of 42 cases; desktop handoff exceeded the 5-second sealing assertion while its PUT had no captured response. The recurrence at two workers contradicts treating worker limits alone as a verified remedy. The trace identifies an unfinished request, not its underlying cause.
