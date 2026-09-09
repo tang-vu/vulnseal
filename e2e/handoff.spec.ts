@@ -26,7 +26,8 @@ test("a separate recipient restores its own key and opens an encrypted disclosur
     await page.getByRole("button", { name: /Seal a vulnerability/ }).click();
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /Encrypt & seal/ }).click();
-    await expect(page.getByRole("heading", { name: "Your report is sealed" })).toBeVisible();
+    // Uploads have a 20-second client deadline; allow the operation to settle.
+    await expect(page.getByRole("heading", { name: "Your report is sealed" })).toBeVisible({ timeout: 25_000 });
     await page.getByRole("button", { name: "Private exchange" }).click();
     await page.getByLabel("Recipient public key file").setInputFiles(publicPath);
     await expect(page.getByRole("button", { name: "Download encrypted disclosure" })).toBeDisabled();

@@ -1,5 +1,17 @@
 # Validation report
 
+## Consolidated release gate and ciphertext request deadlines — 2026-09-09
+
+On Windows with Node 24.14.1 and npm 11.11.0, the initial consolidated `npm run validate` passed all six workspace builds/typechecks and 27 files / 132 tests. `npm run audit:prod` reported 0 production dependency vulnerabilities. The first full E2E run with `CI=true` (2 workers) passed 41 of 42 cases; desktop handoff exceeded the 5-second sealing assertion while its PUT had no captured response. The recurrence at two workers contradicts treating worker limits alone as a verified remedy. The trace identifies an unfinished request, not its underlying cause.
+
+Review found that `CipherstoreClient` had no request deadline. PUT and GET now use an AbortController with a 20-second default; the GET deadline includes reading the response body. Timeout errors retain uncertainty about whether an upload reached storage and explain recovery without automatic retry. Successful/error completion clears the timer. The handoff sealing assertion now allows 25 seconds for the network operation to settle, while its other assertions retain their existing timeout.
+
+After that change, `npm run validate` again exited 0: all six builds/typechecks and 27 files / 135 tests passed. Added API cases cover aborted PUT, stalled GET response body, no retry, timer cleanup and invalid timeout settings. The new production browser timeout case holds a PUT through the real 20-second deadline and checks that the UI shows recovery guidance, no sealed receipt appears and the draft remains available for review.
+
+The final full `CI=true npm run test:e2e` run exited 0 with all 44 desktop/mobile Chrome cases passing in 3.5 minutes, using 2 workers and fresh service startup. Both actual client-deadline cases passed (22.7 and 22.9 seconds including page setup). No automatic retries were enabled. The longer handoff assertion allows the bounded network operation to finish; this result is not proof that the underlying upload latency was fixed or that the previous 5-second target is met.
+
+These are local checks with existing installed dependencies/generated Compact artifacts. They do not establish fresh GitHub Actions execution, native Lace operation, production load performance or the root cause of the initial upload delay. Audit results cover production dependency advisories, not all source risks.
+
 ## Browser storage visibility and quota recovery — 2026-09-09
 
 The encrypted-copy section now exposes timestamped origin-wide usage/quota estimates and browser-reported persistent/best-effort/unknown retention. It reads status automatically, but calls `persist()` only from the explicit request button. Missing capabilities, partial failures and denial do not become claims of protected storage. The panel never reads or decrypts a role copy. Quota errors from database opening or writes provide backup-first recovery guidance; write request errors are captured before transaction error propagation.

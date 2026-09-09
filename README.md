@@ -55,6 +55,8 @@ See [architecture.md](docs/architecture.md) and [privacy-model.md](docs/privacy-
 
 The ciphertext service enforces configurable aggregate storage and concurrent-upload limits. Its [operator guide](docs/cipherstore-operations.md) covers capacity errors, restart behavior and the requirement to use one writer process per data directory.
 
+Ciphertext uploads/downloads have a 20-second client deadline. A stalled request returns recovery guidance instead of leaving the UI waiting indefinitely. Upload timeout does not prove the server discarded the ciphertext; keep the draft and backups. The client does not retry automatically.
+
 ## Prerequisites
 
 - Node.js `>=24.11.1` (validated with `24.14.1`)
