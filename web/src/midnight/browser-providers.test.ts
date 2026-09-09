@@ -26,6 +26,26 @@ describe("wallet network binding", () => {
     expect(getNetworkId()).toBe("preprod");
   });
 
+  it("skips malformed or unsupported injected connectors before choosing a callable v4 wallet", async () => {
+    const connected = wallet(), valid = window.midnight!.lace!;
+    const invalidConnect = vi.fn();
+    window.midnight = {
+      empty: null,
+      primitive: "not an API",
+      malformedVersion: { apiVersion: "4invalid.0.0", connect: invalidConnect },
+      incompleteVersion: { apiVersion: "4", connect: invalidConnect },
+      oldVersion: { apiVersion: "3.0.0", connect: invalidConnect },
+      missingConnect: { apiVersion: "4.0.1" },
+      wrongConnect: { apiVersion: "4.0.1", connect: "not callable" },
+      lace: valid,
+    } as never;
+    await initializeBrowserProviders("preprod");
+    expect(valid.connect).toHaveBeenCalledExactlyOnceWith("preprod");
+    expect(invalidConnect).not.toHaveBeenCalled();
+    expect(connected.getConfiguration).toHaveBeenCalledOnce();
+    expect(connected.submitTransaction).not.toHaveBeenCalled();
+  });
+
   it("fetches proving material from the current release directory", async () => {
     const previous = window.location.href;
     const fetcher = vi.spyOn(window, "fetch").mockImplementation(async () => new Response(new Uint8Array([1, 2, 3])));

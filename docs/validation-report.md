@@ -1,5 +1,13 @@
 # Validation report
 
+## Native connector availability and robust discovery — 2026-09-09
+
+The current environment was rechecked for a usable native browser session. Three running Chrome/Edge debug endpoints were reachable. In each existing browser context, an owned temporary tab loaded the local VulnSeal role page and checked `window.midnight` after two seconds: all returned an empty connector list. The probe did not call `connect`, request addresses, inspect unrelated tabs, unlock a wallet, sign or submit. Owned tabs and the temporary local preview were closed; the three existing browser endpoints remained running. This establishes no exposed connector in those sampled pages, not proof that an extension is uninstalled or that another browser/profile cannot expose one. Native Lace verification remains open.
+
+Discovery previously dereferenced null injected entries and accepted malformed major-version prefixes or entries without a callable `connect`. It now skips these entries and selects a callable version-4 connector with a version-shaped string. The regression presents null/primitive, malformed/unsupported versions and missing/non-callable methods before a valid connector, and asserts only the valid connector is used without submission. This test uses mocks and is not substituted for native-wallet evidence.
+
+The wallet-provider suite passed **eight tests**, and web typechecking passed. The final normal-configuration release build passed fresh source/compiler comparison, six workspace builds and packaging: **eight circuits, 62 files, 62,590,646 bytes**. No signing, wallet transaction, key regeneration or public deployment occurred. Broader previous unit/browser suites were not rerun for this discovery-only fix.
+
 ## Receiving-key work after closing a workspace — 2026-09-09
 
 The disclosure panel's existing generation guard prevents late asynchronous results from downloading files or setting keys after unmount. New deterministic lifecycle tests pause actual component operations at key generation and backup encryption boundaries, close the component, then release success/failure. They verify no late download/key callback and no error leaking into a freshly opened panel; the fresh panel can still create its own key normally.

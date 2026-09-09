@@ -34,8 +34,9 @@ const connectorMajor = 4;
 
 const compatibleWallet = (): InitialAPI | undefined =>
   Object.values(window.midnight ?? {}).find((candidate): candidate is InitialAPI => {
-    if (candidate === undefined || typeof candidate.apiVersion !== "string") return false;
-    return Number.parseInt(candidate.apiVersion.split(".")[0] ?? "0", 10) === connectorMajor;
+    if (candidate === null || typeof candidate !== "object" || typeof candidate.apiVersion !== "string" || typeof candidate.connect !== "function") return false;
+    const version = /^(\d+)\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.exec(candidate.apiVersion);
+    return version !== null && version[1] === String(connectorMajor);
   });
 
 const waitForWallet = async (timeoutMs = 1_500): Promise<InitialAPI> => {
