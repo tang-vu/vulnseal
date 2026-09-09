@@ -32,7 +32,7 @@ export function RecoveryJournal() {
       } else { encrypted = (await readStoredRole(selected)).encrypted; }
       const vault = await decryptRoleVault(encrypted, password);
       if (token !== generation.current) return;
-      setView({ programId: vault.programId, network: vault.network, contractAddress: vault.contractAddress, attempts: vault.submissionAttempts ?? [] });
+      setView({ programId: vault.programId, network: vault.network, contractAddress: vault.contractAddress, attempts: (vault.submissionAttempts ?? []).map(({ transactionId, recordedAt, intent, finalization }) => ({ transactionId, recordedAt, intent: intent ?? null, finalization: finalization ?? null })) });
       setPassword("");
     } catch (cause) { if (token === generation.current) setError(cause instanceof Error ? cause.message : "Could not inspect the recovery journal"); }
     finally { if (token === generation.current) setWorking(false); }

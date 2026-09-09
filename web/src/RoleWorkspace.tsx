@@ -8,7 +8,7 @@ import { createVulnSealPrivateState, pureCircuits } from "@vulnseal/contract";
 import { bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, randomBytes, sealReport, sha256, utf8, validateEnvironment, type VulnerabilityReport } from "@vulnseal/shared";
 import { initializeBrowserProviders } from "./midnight/browser-providers.js";
 import { defaultProgram, programConstructor, readProgramForm } from "./program.js";
-import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, parseInvitation, validateRoleVault, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withFinalizedSubmission, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
+import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, parseInvitation, validateRoleVault, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withSubmissionNotes, withFinalizedSubmission, type ReportNotes, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
 import { joinRoleVault } from "./role-network.js";
 import { HandoffPanel } from "./HandoffPanel.js";
 import { validateDisclosure, type Disclosure, type RecipientKeys } from "./handoff.js";
@@ -45,21 +45,23 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const [saved, setSaved] = useState<RoleVault>();
   const currentVault = useRef(vault); currentVault.current = vault;
   const persistJournal = useRef<((value: RoleVault) => Promise<void>) | undefined>(undefined);
+  const submissionNotes = useRef<ReportNotes | null>(null);
   const submissionIntent = useRef<SubmissionIntent | undefined>(undefined);
   const requireJournal = () => {
     if (!persistJournal.current) throw new Error("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
   };
-  const duringSubmission = async <T,>(intent: SubmissionIntent, action: () => Promise<T>): Promise<T> => {
+  const duringSubmission = async <T,>(intent: SubmissionIntent, action: () => Promise<T>, notes: ReportNotes | null = null): Promise<T> => {
     if (submissionIntent.current) throw new Error("Another submission is active");
-    submissionIntent.current = intent;
-    try { return await action(); } finally { submissionIntent.current = undefined; }
+    submissionIntent.current = intent; submissionNotes.current = notes;
+    try { return await action(); } finally { submissionIntent.current = undefined; submissionNotes.current = null; }
   };
   const recordSubmission = async (transactionId: string) => {
     const current = currentVault.current, persist = persistJournal.current;
     if (!current || !persist) throw new Error("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
     if (current.submissionAttempts?.some((entry) => entry.transactionId === transactionId)) throw new Error("This transaction is already recorded. Reconcile its identifier before trying again.");
     if (!submissionIntent.current) throw new Error("Submission intent is missing. No transaction was sent.");
-    const updated = await withSubmissionAttempt(current, transactionId, submissionIntent.current);
+    let updated = await withSubmissionAttempt(current, transactionId, submissionIntent.current);
+    if (submissionNotes.current) updated = await withSubmissionNotes(updated, transactionId, submissionNotes.current);
     await persist(updated);
     currentVault.current = updated; setVault(updated); setSaved(updated);
   };
@@ -123,7 +125,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
     const command = typeof input === "function" ? await input() : input;
     setSnapshot(undefined); setReceipt(undefined);
     const id = command.kind === "submitReport" ? pureCircuits.deriveReportCommitment(Uint8Array.from(command.report.programId), Uint8Array.from(command.report.canonicalDigest), Uint8Array.from(command.report.salt)) : command.reportId;
-    const result = await duringSubmission({ circuit: command.kind, reportId: bytesToHex(id) }, () => session.execute(command)); setReceipt(result);
+    const result = await duringSubmission({ circuit: command.kind, reportId: bytesToHex(id) }, () => session.execute(command), { reportId: bytesToHex(id), text: detail, tier }); setReceipt(result);
     let updated = currentVault.current!;
     try {
       updated = await withFinalizedSubmission(updated, result);
@@ -172,7 +174,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
       })} />
       {vault && <section className="form-panel"><h2>Submission journal</h2>
         <p>Real role submissions require encrypted browser autosave. The transaction identifier is saved before calling the wallet. A recorded attempt is not proof of broadcast, success or finality; check the wallet or indexer before retrying after an interruption.</p>
-        {vault.submissionAttempts?.length ? <ul>{vault.submissionAttempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt} · outcome requires reconciliation<SubmissionIntentView entry={entry} /><TransactionCheck network={vault.network} transactionId={entry.transactionId} contractAddress={vault.contractAddress} circuit={entry.intent?.circuit} />{vault.contractAddress && entry.intent?.reportId && <ReportEffectCheck network={vault.network} transactionId={entry.transactionId} contractAddress={vault.contractAddress} programId={vault.programId} reportId={entry.intent.reportId} circuit={entry.intent.circuit} />}</li>)}</ul> : <p>No recorded submission attempts.</p>}
+        {vault.submissionAttempts?.length ? <ul>{vault.submissionAttempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt} · outcome requires reconciliation<SubmissionIntentView entry={entry} includePrivateNotes /><TransactionCheck network={vault.network} transactionId={entry.transactionId} contractAddress={vault.contractAddress} circuit={entry.intent?.circuit} />{vault.contractAddress && entry.intent?.reportId && <ReportEffectCheck network={vault.network} transactionId={entry.transactionId} contractAddress={vault.contractAddress} programId={vault.programId} reportId={entry.intent.reportId} circuit={entry.intent.circuit} />}</li>)}</ul> : <p>No recorded submission attempts.</p>}
       </section>}
       <fieldset className="workflow-controls" disabled={working}>
         {!vault ? <>
@@ -231,7 +233,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
           {vault.contractAddress && tab === "reports" && <section className="form-panel"><h2>Program reports</h2>{session && <button className="secondary-button" onClick={() => run(load)}>Refresh ledger</button>}{session && vault.role === "vendor" && <button className="secondary-button" onClick={() => download(JSON.stringify({ format: "vulnseal-program-invitation", version: 1, network: vault.network, contractAddress: vault.contractAddress, programId: vault.programId }), "vulnseal-program-invitation.json")}>Download public program invitation</button>}
             <label>Workspace report<select value={selectedId} onChange={(event) => { setSelectedId(event.target.value); setReceipt(undefined); }}><option value="">Choose a saved report</option>{vault.reports.map((entry) => <option value={entry.reportId} key={entry.reportId}>{entry.reportId}</option>)}</select></label>
             {chosen && <><p className="public-value">Report: {chosen.reportId}</p><SelectedRoleReport key={chosen.reportId} disclosure={chosen} /><p>{snapshot ? status ?? "Prepared locally; absent from the current ledger snapshot" : "Refresh ledger state before continuing. A prior transaction may still require reconciliation."}</p>
-              <p>Working notes and the selected tier are saved privately per report in encrypted backups and browser autosave. They are editable, not verified transaction history. Only an explicit transaction publishes its corresponding digest or tier.</p>
+              <p>Working notes and the selected tier are saved privately per report in encrypted backups and browser autosave. Each report submission also keeps a snapshot in its journal entry, so later edits preserve that earlier context. These are local notes, not verified transaction arguments. Only an explicit transaction publishes its corresponding digest or tier.</p>
               <label>Private decision, patch reference or retest notes<textarea value={detail} onChange={(event) => updateNotes(event.target.value, tier)} /></label><label>Public severity / reward tier<select value={tier} onChange={(event) => updateNotes(detail, event.target.value)}><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
               <fieldset className="workflow-controls" disabled={!backedUp || !snapshot || !session}>
                 {session && vault.role === "researcher" && !record && <button className="primary-button" onClick={() => write(async () => {

@@ -25,7 +25,8 @@ it("blocks unjournaled submission, saves before an uncertain result, and restore
     await checkpoint(txId);
     const durable = await decryptRoleVault(row!.encrypted, password);
     expect(durable.submissionAttempts?.[0]?.transactionId).toBe(txId);
-    expect(durable.version).toBe(5);
+    expect(durable.version).toBe(8);
+    expect(durable.submissionAttempts?.[0]?.notes).toEqual({ reportId: vault.reports[0]!.reportId, text: "Retain these private working notes", tier: "4" });
     expect(durable.submissionAttempts?.[0]?.intent).toEqual({ circuit: "beginTriage", reportId: vault.reports[0]!.reportId });
     expect(durable.reportNotes?.[0]?.text).toBe("Retain these private working notes");
     expect(screen.getByRole("button", { name: "Lock and switch workspace" })).toBeDisabled();
@@ -73,4 +74,5 @@ it("blocks unjournaled submission, saves before an uncertain result, and restore
   await screen.findByText(new RegExp(txId));
   expect(broadcast).toHaveBeenCalledOnce();
   expect(screen.getByText(/Recorded intent: beginTriage/)).toHaveTextContent(vault.reports[0]!.reportId);
+  expect(screen.getByText("Private notes saved with this attempt")).toBeInTheDocument();
 }, 30_000);

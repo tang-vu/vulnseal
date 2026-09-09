@@ -57,7 +57,7 @@ describe("independent role workspace", () => {
     expect(screen.getByRole("button", { name: "Lock and switch workspace" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Download single-role backup" })).toBeEnabled();
     const attempted = await decryptRoleVault(vi.mocked(writeStoredRole).mock.calls.at(-1)![2], "Workspace journal password");
-    expect(attempted.version).toBe(6);
+    expect(attempted.version).toBe(8);
     expect(attempted.submissionAttempts![0]!.finalization?.blockHeight).toBe("900");
   }, 15_000);
   it("persists operation/report intent before wallet failure and clears the active callback context afterwards", async () => {

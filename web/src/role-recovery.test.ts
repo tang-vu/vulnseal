@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { decryptRoleVault, encryptRoleVault, parseInvitation, validateRoleVault, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withFinalizedSubmission, type RoleVault } from "./role-recovery.js";
 import { recoveryFixture } from "./test/recovery-fixture.js";
+import { withSubmissionNotes } from "./role-recovery.js";
 
 export const roleFixture = async (role: "researcher" | "vendor" = "researcher"): Promise<RoleVault> => {
   const { snapshot } = await recoveryFixture();
@@ -143,4 +144,32 @@ describe("single-role encrypted recovery", () => {
     expect(parseInvitation(JSON.stringify(invitation))).toEqual(invitation);
     expect(() => parseInvitation(JSON.stringify({ ...invitation, actorSecret: "45".repeat(32) }))).toThrow("Unsupported role document");
   });
+});
+
+it("preserves per-attempt private notes across edits, migrations and encrypted recovery", async () => {
+  const original = await roleFixture();
+  const reportId = original.reports[0]!.reportId, txId = "cd".repeat(32);
+  const intent = { circuit: "submitReport" as const, reportId };
+  const old = await withSubmissionAttempt(original, "ab".repeat(32), intent);
+  const pending = await withSubmissionAttempt(old, txId, intent);
+  const notes = { reportId, text: "Original private context\nwith spacing  ", tier: "2" };
+  let vault = await withSubmissionNotes(pending, txId, notes);
+  expect(vault.version).toBe(8);
+  expect(vault.submissionAttempts![0]!.notes).toBeNull();
+  expect(vault.submissionAttempts![1]!.notes).toEqual(notes);
+  vault = withReportNotes(vault, { ...notes, text: "Later edit", tier: "4" });
+  vault = withAttachmentDraft(withRoleDraft(vault, null), { filename: "pending.txt", mediaType: "", size: "", digest: "" });
+  vault = await withFinalizedSubmission(vault, { txId, circuit: "submitReport", blockHeight: "900" });
+  vault = await withSubmissionAttempt(vault, "ef".repeat(32), intent);
+  expect(vault.version).toBe(8);
+  expect(vault.submissionAttempts![1]!.notes).toEqual(notes);
+  expect(vault.submissionAttempts![2]!.notes).toBeNull();
+  const encrypted = await encryptRoleVault(vault, "Private submission note password");
+  expect(encrypted).not.toContain(notes.text);
+  expect(await decryptRoleVault(encrypted, "Private submission note password")).toEqual(vault);
+  await expect(withSubmissionNotes(vault, txId, { ...notes, text: "Replacement" })).rejects.toThrow("cannot be replaced");
+  await expect(withSubmissionNotes(vault, txId, { ...notes, reportId: "ff".repeat(32) })).rejects.toThrow("match");
+  for (const invalid of [{ ...notes, text: "x".repeat(65537) }, { ...notes, tier: "5" }, { ...notes, extra: true }]) await expect(withSubmissionNotes(vault, txId, invalid)).rejects.toThrow();
+  const mutated = { ...vault, submissionAttempts: vault.submissionAttempts!.map((entry) => ({ ...entry, notes: { ...notes, reportId: "ff".repeat(32) } })) };
+  await expect(validateRoleVault(mutated)).rejects.toThrow("match");
 });

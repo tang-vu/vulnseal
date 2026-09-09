@@ -1,5 +1,17 @@
 # Validation report
 
+## Private notes retained per submission attempt — 2026-09-09
+
+Role-vault v8 adds an exact-schema, report-bound private working-note/tier snapshot to journal entries. Report submissions capture it before the existing encrypted checkpoint; checkpoint failure still prevents the wallet call. Legacy attempts migrate to null snapshots, and normal draft/note/attachment/receipt edits preserve the captured context. The wallet-free inspector explicitly strips private notes from its React projection. The unlocked workspace displays snapshots in collapsed sections labelled as local working context rather than verified arguments.
+
+The focused run passed **four files / 23 tests**, including schema migration, encrypted round-trip, preservation after edits and finalization, replacement/oversize/report-mismatch rejection, and the decrypted pre-broadcast component checkpoint. The initial typecheck caught a missing helper closing brace; it was fixed before typechecking passed. Existing version assertions were updated for v8 report submissions.
+
+The production browser regression passed **eight desktop/mobile cases in 1.1 minutes**. It covers v2/v5/v6 journal compatibility and the expanded v8 note journey: edit current notes, export encrypted data, reopen browser storage, read the unchanged historical snapshot, and inspect the same file without revealing private notes in the wallet-free view. These are synthetic backups and mocked wallet/network services, not native Lace transactions or immutable/audited history. See [ADR-0020](adr/0020-private-submission-notes.md) for limits.
+
+The subsequent complete web suite passed **23 files / 104 tests in 52.41 seconds**, consolidating the preceding submission deadline with v8 recovery. This is a complete web test run, not a new full root/browser total.
+
+The final `release:build` passed all six workspace builds and restored the normal release configuration after E2E. Its read-only manifest check passed for eight circuits, 62 files and 62,533,926 bytes. Existing compiler outputs were reused; no new container/public deployment is claimed.
+
 ## Wallet submission response deadline — 2026-09-09
 
 The browser provider now limits its connector submission response wait to two minutes, starting only after the durable identifier checkpoint. Expiry raises `SubmissionOutcomeUnknown` with the original identifier. It does not retry, infer failure or cancel a broadcast already handed to Lace. A signal check after the final authorization read prevents a late authorization response from initiating a new broadcast after the wait has ended. Late connector success/failure remains detached from the completed result.

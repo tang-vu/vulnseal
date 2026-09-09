@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { pureCircuits } from "@vulnseal/contract";
 import { bytesToHex, hexToBytes } from "@vulnseal/shared";
 import { recoveryFixture } from "../web/src/test/recovery-fixture.js";
-import { decryptRoleVault, encryptRoleVault } from "../web/src/role-recovery.js";
+import { decryptRoleVault, encryptRoleVault, withSubmissionAttempt, withSubmissionNotes } from "../web/src/role-recovery.js";
 
 test("private notes stay with their reports across offline switching and encrypted recovery", async ({ page, context }, testInfo) => {
   const { snapshot, sealed } = await recoveryFixture();
@@ -12,7 +12,10 @@ test("private notes stay with their reports across offline switching and encrypt
   const first = { network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: snapshot.report!.id, envelope: snapshot.report!.envelope, key: snapshot.report!.key, salt: snapshot.report!.salt };
   const secondSalt = "67".repeat(32);
   const second = { ...first, salt: secondSalt, reportId: bytesToHex(pureCircuits.deriveReportCommitment(hexToBytes(first.programId), Uint8Array.from(sealed.canonicalReportDigest), hexToBytes(secondSalt))) };
-  const initial = await encryptRoleVault({ version: 1, role: "vendor", network: "preprod", contractAddress: first.contractAddress, programId: first.programId, actorSecret: snapshot.vendorSecret, reports: [first, second] }, password);
+  const transactionId = "cd".repeat(32);
+  const historical = { reportId: first.reportId, text: "Private context from the original attempt", tier: "2" };
+  const attempted = await withSubmissionAttempt({ version: 1, role: "vendor", network: "preprod", contractAddress: first.contractAddress, programId: first.programId, actorSecret: snapshot.vendorSecret, reports: [first, second] }, transactionId, { circuit: "beginTriage", reportId: first.reportId });
+  const initial = await encryptRoleVault(await withSubmissionNotes(attempted, transactionId, historical), password);
   await page.goto("/#roles");
   await page.getByLabel("Restore backups without connecting Lace").check();
   await page.getByLabel("Single-role backup file").setInputFiles({ name: "two-reports.json", mimeType: "application/json", buffer: Buffer.from(initial) });
@@ -51,7 +54,8 @@ test("private notes stay with their reports across offline switching and encrypt
   const encrypted = await readFile(path, "utf8");
   expect(encrypted).not.toContain(firstText);
   const recovered = await decryptRoleVault(encrypted, password);
-  expect(recovered.version).toBe(4);
+  expect(recovered.version).toBe(8);
+  expect(recovered.submissionAttempts![0]!.notes).toEqual(historical);
   expect(recovered.reportNotes).toEqual([{ reportId: first.reportId, text: firstText, tier: "4" }, { reportId: second.reportId, text: secondText, tier: "1" }]);
   await page.close();
   const fresh = await context.newPage();
@@ -63,5 +67,15 @@ test("private notes stay with their reports across offline switching and encrypt
   await expect(fresh.getByLabel("Private decision, patch reference or retest notes")).toHaveValue(firstText);
   await fresh.getByLabel("Workspace report").selectOption(second.reportId);
   await expect(fresh.getByLabel("Private decision, patch reference or retest notes")).toHaveValue(secondText);
+  await fresh.getByText("Private notes saved with this attempt").click();
+  await expect(fresh.getByText(historical.text, { exact: true })).toBeVisible();
+  const inspector = await context.newPage();
+  await inspector.goto("/#roles");
+  await inspector.getByLabel("Journal backup file").setInputFiles({ name: "history.json", mimeType: "application/json", buffer: Buffer.from(encrypted) });
+  await inspector.getByLabel("Journal backup password").fill(password);
+  await inspector.getByRole("button", { name: "Read recovery journal" }).click();
+  await expect(inspector.getByText(new RegExp(transactionId))).toBeVisible();
+  await expect(inspector.getByText(historical.text, { exact: true })).toHaveCount(0);
+  await expect(inspector.getByText("Private notes saved with this attempt")).toHaveCount(0);
   await expect(fresh.getByLabel("Public severity / reward tier")).toHaveValue("1");
 });
