@@ -1,5 +1,13 @@
 # Validation report
 
+## Make distributed contract source maps self-contained for project source -- 2026-09-09
+
+Investigation of the repeated compiler-map warning confirmed that `src/vulnseal.compact` resolves correctly in the checkout, while `compiler/standard-library.compact` is referenced but not emitted by the installed compiler. The original map has no embedded sources. The artifact-copy build now embeds the exact public project contract source in the distributed map's `sourcesContent`, retaining every original mapping field and leaving unavailable standard-library content null. The installed compiler output remains unchanged, preserving the independent source-freshness comparison.
+
+All **eight release-tool tests passed in 0.39 seconds**, including a new isolated-directory test for exact Unicode source content, unchanged mappings/original map and rejection of an unrelated source. Direct inspection of the actual distributed map verified its embedded contract text against the current source and all original mapping fields against the retained compiler map. The normal release build passed following fresh source comparison at **14:22:06.723 UTC**: **8 circuits, 62 files, 62,642,750 bytes**. Browser release bytes, contract logic and keys are unchanged; only the intermediate distributed contract map gains source content.
+
+This improves debugging from a copied build without the original checkout. It does not supply the compiler's unavailable standard-library source or claim to eliminate every missing-source warning. Full application/browser suites were not repeated for this map-only packaging change; the preceding consolidated results remain scoped to `a4ee100`.
+
 ## Consolidated validation after demo recovery v4 -- 2026-09-09
 
 At code revision **`a4ee100`**, `npm run validate` passed all six workspace builds/typechecks and **276 tests across 50 files**: shared 13, contract 25, API 29, ciphertext storage 18, integration 9 and web 182. The contract suite completed in 68.47 seconds and web's 37 files in 79.11 seconds. This run includes the newer role deployment timeout/address-selection cases, combined-demo leave guard and v4 uncertain-transition recovery. No test was retried.
