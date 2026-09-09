@@ -1,0 +1,59 @@
+{
+  "recordedAt": "2026-09-09T15:56:44.728086+00:00",
+  "applicationRevision": "55c7784b765f7391f271efd6d8a025f50c172ad9",
+  "validate": {
+    "exitCode": 0,
+    "workspaceBuilds": 6,
+    "workspaceTypechecks": 6,
+    "testFiles": 52,
+    "tests": 288,
+    "workspaces": {
+      "shared": 13,
+      "contract": 25,
+      "api": 32,
+      "cipherstore": 21,
+      "integration": 9,
+      "web": 188
+    }
+  },
+  "tools": {
+    "release": 8,
+    "environment": 3,
+    "compiler": 5,
+    "allExitCodes": 0
+  },
+  "ordinaryBrowser": {
+    "command": "CI=1 npm run test:e2e",
+    "exitCode": 0,
+    "passed": 76,
+    "duration": "4.3m",
+    "automaticRetries": 0
+  },
+  "replicationBrowser": {
+    "command": "CI=1 npm run test:e2e:replication",
+    "firstRun": {
+      "exitCode": 1,
+      "passed": 2,
+      "failed": 2,
+      "reason": "Five-second batch assertion expired while sequential durable writes were still completing."
+    },
+    "correction": "Only the batch test wait limits changed: 45 seconds for two-report partial completion, 65 seconds for three-report completion, 150 seconds total. Behavioral assertions unchanged.",
+    "finalRun": {
+      "exitCode": 0,
+      "passed": 4,
+      "durationSeconds": 59,
+      "automaticRetries": 0
+    }
+  },
+  "normalRelease": {
+    "exitCode": 0,
+    "sourceComparisonAt": "2026-09-09T15:55:39.609Z",
+    "circuits": 8,
+    "files": 62,
+    "bytes": 62646994
+  },
+  "limits": [
+    "No native Lace transactions, fresh proving-key generation, remote CI or public hosting verification.",
+    "Previously recorded runtime security findings remain unresolved."
+  ]
+}

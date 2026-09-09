@@ -56,6 +56,9 @@ test("two stores retain identical ciphertext; a partial upload blocks completion
 });
 
 test("offline workspace backfill stops on partial replication and retries identical saved envelopes", async ({ page, context }) => {
+  // Batches are sequential and each store request has a 20-second deadline.
+  // Durable local writes can exceed Playwright's default five-second assertion.
+  test.setTimeout(150_000);
   const { snapshot } = await recoveryFixture();
   const password = "Replicated private role backup";
   const reports = [snapshot.report!, (await recoveryFixture({ ...recoveryDraft, title: "Second saved report" })).snapshot.report!, (await recoveryFixture({ ...recoveryDraft, title: "Third saved report" })).snapshot.report!];
@@ -85,7 +88,7 @@ test("offline workspace backfill stops on partial replication and retries identi
   await expect(page.getByText(/0 of 2 stores returned verified ciphertext/)).toBeVisible();
   expect(writes).toHaveLength(0);
   await page.getByRole("button", { name: "Upload all saved ciphertext (3)" }).click();
-  await expect(page.getByRole("alert")).toContainText("1 of 3 saved reports acknowledged. Stopped at the selected report");
+  await expect(page.getByRole("alert")).toContainText("1 of 3 saved reports acknowledged. Stopped at the selected report", { timeout: 45_000 });
   await expect(page.getByLabel("Workspace report")).toHaveValue(reports[1]!.id);
   expect(writes).toHaveLength(4);
   expect(writes.some((entry) => entry.body === reports[2]!.envelope)).toBe(false);
@@ -95,7 +98,7 @@ test("offline workspace backfill stops on partial replication and retries identi
   expect(writes).toHaveLength(4);
   partial = false;
   await page.getByRole("button", { name: "Upload all saved ciphertext (3)" }).click();
-  await expect(page.getByText(/3 of 3 saved reports acknowledged by all configured stores/)).toBeVisible();
+  await expect(page.getByText(/3 of 3 saved reports acknowledged by all configured stores/)).toBeVisible({ timeout: 65_000 });
   expect(writes).toHaveLength(10);
   await page.getByRole("button", { name: "Check stored copies" }).click();
   await expect(page.getByText(/2 of 2 stores returned verified ciphertext/)).toBeVisible();

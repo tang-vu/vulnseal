@@ -1,5 +1,15 @@
 # Validation report
 
+## Consolidated validation after bounded reads and recovery waits -- 2026-09-09
+
+At application revision **55c7784**, `npm run validate` completed with **exit 0**: all six workspace builds/typechecks and **288 tests across 52 files** passed. Counts are shared 13, contract 25, API 32, cipherstore 21, integration 9 and web 188. The separate compiler/release/environment commands passed **16 tool tests** (5/8/3). The ordinary Chrome desktop/Pixel 7 suite passed **76 cases in 4.3 minutes** with two CI workers and no automatic retries.
+
+The first two-store replication run passed two cases but failed both backfill cases at a five-second alert assertion. Retained trace inspection showed the first report's actual PUTs taking about 3.6-3.9 seconds before the next report began; the UI was still working. Each store request permits twenty seconds and batch reports run sequentially. The test now allows 45 seconds for two-report partial completion, 65 seconds for three-report success and 150 seconds total. No product behavior, payload/count assertions, request deadline or automatic retry was changed. After that test-only correction, all **four replication cases passed in 59.0 seconds**. The failed run is not counted as successful.
+
+After browser testing, the normal release was rebuilt to replace the artifact configured for test storage endpoints. Fresh source comparison at **15:55:39.609 UTC** and the final release build/check passed: **8 circuits, 62 files, 62,646,994 bytes**. [Consolidated evidence](evidence/consolidated-55c7784.json) records the commands, counts, failure and correction. Full workspace tests were not repeated after the replication-test timeout-only edit.
+
+This establishes the current local deterministic/browser baseline. It does not resolve collector/web UNKNOWN findings, native Lace execution, fresh full-key generation, remote CI, current hosting-image/rollout verification, public deployment, independent audit or the remaining roadmap. Source-map compiler warnings and terminal color warnings remain; neither caused a failed application test.
+
 ## Bound public-state reads without changing transaction outcomes -- 2026-09-09
 
 `VulnSealApi.readPublicState` now stops waiting after **20 seconds**, returns a read-timeout error and clears its timer on all completion paths. It does not retry, submit a transaction or change finality. A late provider response is never decoded or returned to the timed-out caller. An explicit later call can obtain fresh state. This applies to API consumers including post-finality demo refresh, restoration's ledger read and role-session authority checks; connection/join and SDK-internal operations outside this method remain separate.
