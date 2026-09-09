@@ -24,6 +24,39 @@ The byte quota counts matching committed `.ciphertext.json` regular files, not f
 
 ## Deployment limits
 
+### Container deployment
+
+The repository includes a multi-stage [Dockerfile](../infra/cipherstore.Dockerfile) and [Compose configuration](../infra/cipherstore.yml). The Node 24.14.1 Debian base is pinned by registry digest. Build inputs are allowlisted by the Dockerfile-specific ignore file; local secrets, data, Git history and generated contract artifacts are excluded. The runtime image contains the compiled service and backup CLI without workspace dependencies or build tools. It runs as the image's `node` user; Compose adds a read-only root filesystem, a named `/data` volume, dropped capabilities, no-new-privileges, process/memory limits and bounded container logs.
+
+From the repository root:
+
+```text
+docker compose -p vulnseal-cipherstore -f infra/cipherstore.yml config --quiet
+docker compose -p vulnseal-cipherstore -f infra/cipherstore.yml up --build -d --wait
+docker compose -p vulnseal-cipherstore -f infra/cipherstore.yml ps
+docker compose -p vulnseal-cipherstore -f infra/cipherstore.yml logs --tail 100 cipherstore
+docker compose -p vulnseal-cipherstore -f infra/cipherstore.yml stop
+```
+
+The default published address is `127.0.0.1:8787`. Set `CIPHERSTORE_PUBLISHED_PORT` to change the host port and `CIPHERSTORE_ALLOWED_ORIGIN` to the exact browser origin; these can be supplied through your shell or Compose's `--env-file`. Capacity settings listed above are also forwarded. CORS is not authentication. This configuration supplies no public TLS endpoint, reverse proxy, user authentication or per-user rate limit; configure those at the hosting boundary before public exposure. Do not treat it as a complete hosted production release.
+
+[The environment example](../infra/cipherstore.env.example) lists all forwarded settings. For a custom file, insert `--env-file <path>` after `docker compose` in the commands above. When invoking Linux Docker through a Windows/WSL wrapper, Windows shell environment variables may not be forwarded to WSL. Use an explicit Compose env file, or set variables inside the Linux invocation, and inspect the resulting published port with `docker compose ... port cipherstore 8787` before directing traffic to it.
+
+The named volume persists across container recreation. Keep the Compose project name stable to reuse it; changing the project name ordinarily creates another volume. Do not use `down --volumes` for a store you need to retain. A fresh named volume inherits the image's `/data` ownership. Existing bind mounts require appropriate ownership and hard-link support; this configuration does not automatically chown an existing store. The six-minute stop grace period allows normal Node request draining; forced termination can still leave the directory lease, which requires the stopped-writer inspection described below.
+
+The container healthcheck runs `/readyz` every 30 seconds with a five-second fetch deadline. A full volume becomes unhealthy while existing ciphertext remains readable; Docker does not restart a process merely because its healthcheck is unhealthy. `restart: unless-stopped` covers process exits only. Alert on unhealthy status and inspect capacity/storage rather than deleting data or automatically restarting a full store. The image and host still need vulnerability scans, base-image updates and external monitoring.
+
+Run the isolated verification after building the image:
+
+```text
+docker build -f infra/cipherstore.Dockerfile -t vulnseal-cipherstore:local .
+node scripts/test-cipherstore-container.mjs
+```
+
+On Windows, the drill uses `docker.exe` directly. If Docker is available only inside WSL, set `VULNSEAL_DOCKER_WSL_DISTRO` to that distribution's name before running the script (for example, `$env:VULNSEAL_DOCKER_WSL_DISTRO='Ubuntu'` in PowerShell). This invokes `wsl.exe --exec docker` with argument arrays; it does not execute a shell wrapper. Localhost forwarding from WSL to the host must work for the HTTP checks.
+
+The drill uses a uniquely named, labelled test container and volume, a random localhost port and synthetic AES-GCM ciphertext. It checks non-root/read-only configuration, readiness, idempotent uploads, quota rejection, retained reads, the second-writer lease, graceful restart and authenticated decryption of the retained bytes. It removes only its own labelled resources when finished. CI is configured to run this drill; a locally successful run is not evidence that the remote CI job has executed. This is not a physical off-device backup or production-volume recovery test.
+
 The write queue is process-local. The service CLI now also acquires an exclusive `.vulnseal-writer.lock` directory before listening, resolving the data directory through `realpath`. Backup creation takes the same lease on its source and restoration holds it on its new destination. A cooperating second CLI or backup operation fails while the lease exists. Library embedders using `createCipherstoreServer` directly must acquire `acquireDirectoryLease` themselves, then close the server, await `server.drain()` and release the lease when stopping. The CLI performs this ordering for SIGINT/SIGTERM and releases a lease if initial listen fails.
 
 This is cooperative exclusion, not a database lock against arbitrary filesystem writers. Directory contents remain operator-controlled. Do not share a data directory with processes bypassing the lease or assume this supplies distributed replica coordination. For multiple writers, use a storage backend or volume quota that enforces atomic reservations across them. Scanning each write trades throughput for simple restart-safe accounting and is not a high-throughput storage index.

@@ -1,0 +1,25 @@
+# Allow only build inputs; secrets, data, local artifacts and .git never enter context.
+**
+!package.json
+!package-lock.json
+!tsconfig.base.json
+!LICENSE
+!packages/
+!packages/shared/
+!packages/shared/package.json
+!contract/
+!contract/package.json
+!api/
+!api/package.json
+!cipherstore/
+!cipherstore/package.json
+!cipherstore/tsconfig.json
+!cipherstore/src/
+!cipherstore/src/*.ts
+cipherstore/src/*.test.ts
+!integration/
+!integration/package.json
+!web/
+!web/package.json
+!infra/
+!infra/cipherstore-healthcheck.mjs

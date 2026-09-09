@@ -1,5 +1,15 @@
 # Validation report
 
+## Ciphertext service container and deployment drill — 2026-09-09
+
+The new multi-stage image builds the ciphertext service from allowlisted source inputs and a digest-pinned Node 24.14.1 base. The runtime uses the `node` account and contains compiled service/backup modules without workspace dependencies. Compose configures a read-only root, persistent volume, dropped capabilities, no-new-privileges, process/memory limits, bounded logs, a readiness healthcheck and localhost-only publication. A separate CI job is configured to build the image and execute its drill; no remote CI run is claimed.
+
+`docker compose -f infra/cipherstore.yml config --quiet` and the actual image build passed. The build context was 242.18 kB; Docker reported a 79,379,398-byte linux/amd64 image. The first smoke invocation could not resolve the host's `.cmd` Docker wrapper from Node. Explicit executable/WSL argument routing fixed this without using a shell. The resulting container drill passed non-root/read-only checks, initial readiness, idempotent uploads, full-store rejection with continued reads/liveness, second-writer refusal, graceful restart and authenticated decryption of retained synthetic AES-GCM ciphertext. Its uniquely labelled container and volume were removed after the successful run.
+
+A separate disposable Compose project also started healthy. The first attempt showed that PowerShell environment variables were not forwarded by this host's WSL wrapper, so its requested random port had not been applied; that HTTP check did not establish readiness. Explicitly setting the variable inside WSL recreated the container at `127.0.0.1:32770`, where `/readyz` returned `status: ready`. Inspection confirmed user `node`, read-only root, init enabled, 512 MiB memory and 64-process limits. The operator guide now explains env-file/WSL handling. Evidence is retained in [cipherstore-container-drill.json](evidence/cipherstore-container-drill.json).
+
+These are local container/volume checks, not a hosted production release, OS-image vulnerability scan, physical off-device backup, load test or forced-shutdown drill. TLS, authentication/rate limits, external monitoring and production-volume recovery remain deployment work. No application behavior changed, and this section does not claim a new full workspace/browser validation run.
+
 ## Pending attachment input recovery — 2026-09-09
 
 The full `CI=true npm run test:e2e` run passed **all 62 desktop/mobile cases in 3.4 minutes**, with two workers and no exclusions or retries. This includes the updated attachment recovery journeys and all prior startup, role, receipt, storage and workflow cases.

@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+services:
+  cipherstore:
+    image: vulnseal-cipherstore:local
+    build:
+      context: ..
+      dockerfile: infra/cipherstore.Dockerfile
+    ports:
+      - "127.0.0.1:${CIPHERSTORE_PUBLISHED_PORT:-8787}:8787"
+    environment:
+      CIPHERSTORE_ALLOWED_ORIGIN: ${CIPHERSTORE_ALLOWED_ORIGIN:-http://127.0.0.1:5173}
+      CIPHERSTORE_MAX_STORED_BYTES: ${CIPHERSTORE_MAX_STORED_BYTES:-1073741824}
+      CIPHERSTORE_MAX_STORED_BLOBS: ${CIPHERSTORE_MAX_STORED_BLOBS:-10000}
+      CIPHERSTORE_MAX_CONCURRENT_UPLOADS: ${CIPHERSTORE_MAX_CONCURRENT_UPLOADS:-16}
+    volumes:
+      - ciphertext:/data
+    read_only: true
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 512m
+    stop_grace_period: 6m
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  ciphertext:

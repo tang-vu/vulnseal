@@ -55,6 +55,8 @@ See [architecture.md](docs/architecture.md) and [privacy-model.md](docs/privacy-
 
 The ciphertext service enforces configurable aggregate storage and concurrent-upload limits. Its [operator guide](docs/cipherstore-operations.md) covers capacity errors, restart behavior and the requirement to use one writer process per data directory.
 
+An optional [container deployment](docs/cipherstore-operations.md#container-deployment) runs the service as a non-root user with a persistent volume, read-only root filesystem and readiness healthcheck. The included container drill verifies synthetic encrypted data across restart. Public TLS, access controls, monitoring and off-device backups still require deployment-specific configuration.
+
 Ciphertext uploads/downloads have a 20-second client deadline. A stalled request returns recovery guidance instead of leaving the UI waiting indefinitely. Upload timeout does not prove the server discarded the ciphertext; keep the draft and backups. The client does not retry automatically.
 
 The client also enforces the 5 MiB ciphertext limit independently of the server. Downloads are read incrementally and rejected when oversized, invalid UTF-8 or inconsistent with their digest. Where the workspace already holds a valid local encrypted copy, vendor review can fall back to that copy.
