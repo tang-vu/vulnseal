@@ -65,6 +65,8 @@ Startup now shows a loading screen before the Midnight components finish downloa
 
 For a network-capable web release, use the [release artifact gate](docs/web-release.md). It requires every proving circuit's key/ZKIR files and records their hashes in a build manifest; an ordinary demo build does not establish this completeness.
 
+The checked artifact can be packaged in the [web hosting container](docs/web-hosting.md), with localhost Compose configuration and a repeatable HTTP/browser drill.
+
 ## Prerequisites
 
 - Node.js `>=24.11.1` (validated with `24.14.1`)

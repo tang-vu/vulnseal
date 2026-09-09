@@ -1,0 +1,14 @@
+{
+  "capturedAt": "2026-09-09T08:16:56.681Z",
+  "imageId": "sha256:40691eae6af6a404ed3dc6ab0461fbe2bdb079c24c2fe9de7668b4475c32c609",
+  "origin": "http://127.0.0.1:32774",
+  "files": 62,
+  "requests": 63,
+  "bytes": 62527957,
+  "nonRoot": true,
+  "readOnlyRoot": true,
+  "headersChecked": true,
+  "missingFilesReturn404": true,
+  "desktopAndMobilePublicLookup": "passed against captured fixture; no wallet or live network",
+  "gracefulRestart": true
+}

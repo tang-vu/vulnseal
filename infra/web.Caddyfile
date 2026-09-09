@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Apache-2.0
+{
+	admin off
+	auto_https off
+	persist_config off
+}
+
+:8080 {
+	root * /srv
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		X-Frame-Options DENY
+		Content-Security-Policy "frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+		Cache-Control "no-cache"
+	}
+	# Routes use URL fragments; missing files must stay 404, including proving assets.
+	@binary path *.prover *.verifier *.bzkir
+	header @binary Content-Type application/octet-stream
+	file_server
+}

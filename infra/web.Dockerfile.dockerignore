@@ -1,0 +1,20 @@
+# Only public release/compiler inputs enter this build context.
+**
+!scripts/
+!scripts/check-web-release.mjs
+!contract/
+!contract/src/
+!contract/src/vulnseal.compact
+!contract/src/managed/
+!contract/src/managed/vulnseal/
+!contract/src/managed/vulnseal/compiler/
+!contract/src/managed/vulnseal/compiler/contract-info.json
+!contract/src/managed/vulnseal/keys/
+!contract/src/managed/vulnseal/keys/*
+!contract/src/managed/vulnseal/zkir/
+!contract/src/managed/vulnseal/zkir/*
+!web/
+!web/dist/
+!web/dist/**
+!infra/
+!infra/web.Caddyfile

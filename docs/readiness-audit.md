@@ -23,6 +23,8 @@ The startup error screen also offers export-only access to encrypted browser cop
 
 ## Work still required
 
+The checked web artifact now has a digest-pinned static hosting image and localhost Compose configuration. A local container drill passed full HTTP asset comparison, MIME/cache/security headers, missing-file responses, non-root/read-only execution, captured-state lookup in desktop/mobile browsers and graceful restart. This provides a runnable hosting artifact; public TLS/DNS/ingress, endpoint configuration, monitoring, full CSP validation, rolling-upgrade asset retention and native-wallet verification remain open. See [web hosting](web-hosting.md).
+
 Public lookup, transaction observation and report replay now share a bounded streaming JSON reader with cancellation and strict UTF-8 decoding. Transaction responses allow 1 MiB each and state/replay responses 16 MiB each. Twenty focused tests and eight production desktop/mobile regressions passed. These client input bounds improve robustness against oversized evidence responses without authenticating indexer data or establishing safe retry.
 
 An explicit HTTP release check now compares the local inventory with each served file and the origin homepage, enforcing byte/hash equality, HTTP status, JS/CSS/WASM/HTML MIME types, redirect refusal and bounded downloads. All 62 files and the root page passed through loopback Vite preview; four packaging/HTTP tests passed. The same command can check a chosen HTTPS deployment, but no public host has been validated by this local evidence.

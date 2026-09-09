@@ -1,5 +1,15 @@
 # Validation report
 
+## Checked static web container — 2026-09-09
+
+`npm run release:build` passed all six workspace builds and generated a release with eight proving circuits, 62 files and 62,526,683 bytes. The new multi-stage web image requires a manifest and reruns the packaging gate on copied local compiler/release inputs before copying only the static artifact into a digest-pinned Caddy runtime. Its initial Docker context was 104.38 MB. Image building and Caddy configuration validation passed.
+
+The first runtime drill failed because the upstream Caddy binary retained a low-port binding file capability: execution with all container capabilities dropped returned `operation not permitted`. Removing that unnecessary capability in the image fixed execution on port 8080; non-root/read-only/no-new-privileges settings were retained. The corrected drill passed the complete HTTP hash/MIME comparison (63 requests, including the root page), cache/security header checks, 404s for missing keys/scripts/private paths and directory listing, non-root/read-only inspection, healthcheck command and graceful restart. [Captured image/result evidence](evidence/web-container-drill.json) identifies the exact tested image. The uniquely labelled test container was removed.
+
+A separate uniquely named Compose project passed `up --no-build --wait`: Docker reported healthy at localhost port 32776. Inspection confirmed UID/GID 65532, a read-only root, init enabled, 268,435,456-byte memory limit and 64-process ceiling. That Compose container and network were removed after the check. Compose configuration validation also passed; no existing service was replaced.
+
+Desktop Chrome and emulated Pixel 7 each loaded the production app through Caddy and verified captured public contract state with no page errors. External requests were intercepted; this is actual browser/SDK execution against fixtures, not a live chain or native wallet. The image ships a limited frame/base/object CSP, not a complete resource allowlist. No public host, TLS ingress, image vulnerability scan, CDN consistency or upgrade compatibility is established by these local checks. See [the hosting procedure](web-hosting.md).
+
 ## Bounded public evidence JSON — 2026-09-09
 
 Public contract lookup and transaction observation now use the same streamed JSON reader as report replay. Transaction metadata/RPC responses are capped at 1 MiB each; public contract-state and replay responses allow 16 MiB each. Limits count actual decoded bytes independently of Content-Length. Oversized and aborted bodies are cancelled, reader locks are released, and invalid UTF-8 is rejected before JSON parsing. Existing 20-second request signals remain in effect; replay retains its worker cancellation/overall deadline.

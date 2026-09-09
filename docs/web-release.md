@@ -29,6 +29,8 @@ After packaging, retain normal build/test/audit results, verify all required ass
 
 ## Verify files through the serving origin
 
+For the checked container packaging and local hosting procedure, see [web hosting](web-hosting.md).
+
 After uploading the complete artifact to your chosen host, retain the matching local compiler outputs and `web/dist`, then run:
 
 ```text
