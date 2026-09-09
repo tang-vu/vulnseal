@@ -39,6 +39,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     const record = { commitment: reportId, ciphertextDigest: sealed.ciphertextDigest, researcherKey: pureCircuits.deriveResearcherKey(programId, reportId, hexToBytes(snapshot.researcherSecret)), status: 4, severity: 4n, patchCommitment: new Uint8Array(32).fill(7), retestCommitment: new Uint8Array(32), payoutReceipt: new Uint8Array(32) };
     const ledger = { ...await programConstructor(programId, snapshot.policy), ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(snapshot.vendorSecret)), reports: { member: () => true, lookup: () => record } };
     const api = {
+      contractAddress: networkSnapshot.contractAddress,
       readPublicState: vi.fn().mockResolvedValueOnce({ ledger: { ...ledger, ownerKey: new Uint8Array(32) } }).mockResolvedValue({ ledger }),
       usePrivateState: vi.fn().mockResolvedValue(undefined),
       submitRetest: vi.fn().mockImplementation(async () => { record.status = 5; record.retestCommitment.fill(8); return { circuit: "submitRetest", txId: "restored-retest", blockHeight: "901" }; }),
@@ -56,6 +57,20 @@ describe("browser network workflow with mocked wallet and finalized API results"
     expect(screen.queryByText("Your report is sealed")).not.toBeInTheDocument();
     fireEvent.submit(screen.getByRole("button", { name: "Restore encrypted backup" }).closest("form")!);
     await screen.findByText("Recovered report · ledger checked");
+    let downloaded: Blob | undefined;
+    const createUrl = vi.fn((blob: Blob) => { downloaded = blob; return "blob:public-receipt"; });
+    vi.stubGlobal("URL", class extends URL { static override createObjectURL = createUrl; static override revokeObjectURL = vi.fn(); });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    try {
+      await user.click(screen.getByRole("button", { name: "Download public receipt" }));
+      const serializedReceipt = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result)); reader.onerror = reject;
+        reader.readAsText(downloaded!);
+      });
+      expect(JSON.parse(serializedReceipt)).toEqual({ kind: "vulnseal-public-receipt", version: 1, network: "preprod", contractAddress: networkSnapshot.contractAddress, reportId: snapshot.report!.id, ciphertextDigest: Array.from(sealed.ciphertextDigest, (byte) => byte.toString(16).padStart(2, "0")).join("") });
+      expect(click).toHaveBeenCalledOnce();
+    } finally { click.mockRestore(); }
     expect(mocks.join.mock.calls[1]![1]).toBe(networkSnapshot.contractAddress);
     expect(mocks.connect).toHaveBeenCalledWith("preprod");
     await user.click(screen.getAllByRole("button", { name: /Resolve/ })[0]!);

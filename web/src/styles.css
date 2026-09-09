@@ -387,4 +387,7 @@ input:focus, textarea:focus, select:focus { border-color: #536839; }
 .hash-row code { overflow-wrap: anywhere; }
 .hash-row > [role="status"] { flex-basis: 100%; color: var(--warning); font-size: 11px; }
 .recovery-page .form-panel { margin-top: 20px; }
+.public-lookup .panel { margin-top: 20px; }
+.public-value { overflow-wrap: anywhere; }
+.public-lookup dd { margin: 6px 0 18px; }
 button:disabled { cursor: wait; opacity: .55; }

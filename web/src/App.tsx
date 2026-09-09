@@ -27,6 +27,8 @@ import { workflowTimeline, workflowStatement, type WorkflowEvent, type WorkflowT
 import { defaultProgram, readProgramForm, programConstructor, severityLabel, type ProgramPolicy } from "./program.js";
 import { encryptRecovery, decryptRecovery, verifyRecoveryLedger, type RecoverySnapshot } from "./recovery.js";
 import { RecoveryPanel } from "./RecoveryPanel.js";
+import { PublicLookup } from "./PublicLookup.js";
+import { parsePublicReceipt } from "./public-verification.js";
 
 type Screen =
   | "home"
@@ -39,6 +41,7 @@ type Screen =
   | "resolution"
   | "verify"
   | "recovery"
+  | "lookup"
   | "privacy";
 type Persona = "researcher" | "vendor" | "verifier";
 type RuntimeMode = "guided-local" | "midnight";
@@ -127,7 +130,7 @@ function EmptyState({ title, detail, action }: {
 }
 
 function App() {
-  const [screen, setScreen] = useState<Screen>("home");
+  const [screen, setScreen] = useState<Screen>(() => window.location.hash.startsWith("#verify?") ? "lookup" : "home");
   const [persona, setPersona] = useState<Persona>("researcher");
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>(env.mode);
   const [vendorSecret, setVendorSecret] = useState(() => randomBytes(32));
@@ -524,6 +527,16 @@ function App() {
     } finally { busy.current = false; setOperation({ state: "idle" }); }
   };
 
+  const exportPublicReceipt = (): void => {
+    if (!api || !reportId || !sealed || busy.current) return;
+    const receipt = parsePublicReceipt(JSON.stringify({ kind: "vulnseal-public-receipt", version: 1, network: activeNetwork, contractAddress: api.contractAddress, reportId: bytesToHex(reportId), ciphertextDigest: bytesToHex(sealed.ciphertextDigest) }));
+    const url = URL.createObjectURL(new Blob([JSON.stringify(receipt, null, 2)], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url; link.download = "vulnseal-public-receipt.json";
+    document.body.append(link); link.click(); link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   const importRecovery = async (serialized: string, password: string): Promise<void> => {
     if (busy.current || reportId || api) throw new Error("Restore in a fresh tab to preserve this active session");
     busy.current = true;
@@ -587,6 +600,8 @@ function App() {
         return <PrivacyModel />;
       case "recovery":
         return <RecoveryPanel onExport={exportRecovery} onImport={importRecovery} canImport={!reportId && !api} />;
+      case "lookup":
+        return <PublicLookup />;
     }
   })();
 
@@ -619,14 +634,15 @@ function App() {
           </button>
         </div>
       </header>
-      {runtimeMode === "guided-local" && (
+      {runtimeMode === "guided-local" && screen !== "lookup" && (
         <div className="truth-banner" role="status">
           <span>Guided local mode</span>
           Web Crypto and Compact commitment calculation are real. Workflow changes are not Midnight transactions. Network submissions require Lace and a deployed program.
         </div>
       )}
-      {runtimeMode === "midnight" && !networkReady && <div className="truth-banner" role="status"><span>Network setup required</span>Connect Lace and create a program before submitting a report. <button className="secondary-button" onClick={() => changeScreen("create", "vendor")}>Set up program</button></div>}
-      <div className="session-actions"><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("recovery")}>Private recovery</button>{reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("receipt")}>Submission receipt</button>}{needsRefresh && <button className="primary-button" disabled={operation.state === "working"} onClick={() => void retryPublicRead()}>Refresh public commitments</button>}</div>
+      {screen === "lookup" && <div className="truth-banner"><span>Read-only public lookup</span>No private report material, wallet connection, or transaction submission is used here.</div>}
+      {runtimeMode === "midnight" && !networkReady && screen !== "lookup" && <div className="truth-banner" role="status"><span>Network setup required</span>Connect Lace and create a program before submitting a report. <button className="secondary-button" onClick={() => changeScreen("create", "vendor")}>Set up program</button></div>}
+      <div className="session-actions"><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("lookup", "verifier")}>Independent verifier</button><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("recovery")}>Private recovery</button>{reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("receipt")}>Submission receipt</button>}{api && reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={exportPublicReceipt}>Download public receipt</button>}{needsRefresh && <button className="primary-button" disabled={operation.state === "working"} onClick={() => void retryPublicRead()}>Refresh public commitments</button>}</div>
       {operation.state === "error" && screen !== "seal" && (
         <div className="global-operation" role="alert">
           <strong>{operation.label}</strong>

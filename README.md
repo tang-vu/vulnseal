@@ -162,7 +162,11 @@ The lifecycle runner synchronizes the wallet, persists only an AES-256-GCM-encry
 4. Switch to **Vendor**, triage and accept the report, then anchor a patch commitment.
 5. Return as **Researcher**, bind private retest evidence to that report and patch and disclose only pass/fail.
 6. As **Vendor**, authorize the configured reward tier.
-7. Open **Public verifier** to show the commitment-to-resolution trail without the exploit.
+7. Open **Public verifier** to show the session's commitment-to-resolution trail without the exploit.
+
+For an independent current-state check, open **Independent verifier**, select the network, enter a contract address and optionally a report commitment, then choose **Load public state**. No wallet is required. Network report sessions expose **Download public receipt**; another browser can import that public JSON file and query the ledger. After selecting and verifying a report, copy its public verification link to share the same lookup. Private recovery files are separate and must not be shared.
+
+The lookup checks the indexer's successful contract action against RPC finality and block hash, plus an optional expected ciphertext digest. It trusts those data sources and does not authenticate deployed circuit code, reconstruct history, prove exploit validity or prove payment. Preprod endpoints are built in; local lookup uses `VITE_INDEXER_HTTP_URL` and `VITE_RPC_URL` when the app is configured locally. See [ADR-0007](docs/adr/0007-independent-public-lookup.md).
 
 The production-ready narration is in [demo-script.md](docs/demo-script.md).
 

@@ -47,12 +47,12 @@ export const validateEnvironment = (
       ["http:", "https:"],
     ),
     indexerHttpUrl: url(
-      input.VITE_INDEXER_HTTP_URL ?? "http://127.0.0.1:8088/api/v1/graphql",
+      input.VITE_INDEXER_HTTP_URL ?? "http://127.0.0.1:8088/api/v4/graphql",
       "VITE_INDEXER_HTTP_URL",
       ["http:", "https:"],
     ),
     indexerWsUrl: url(
-      input.VITE_INDEXER_WS_URL ?? "ws://127.0.0.1:8088/api/v1/graphql/ws",
+      input.VITE_INDEXER_WS_URL ?? "ws://127.0.0.1:8088/api/v4/graphql/ws",
       "VITE_INDEXER_WS_URL",
       ["ws:", "wss:"],
     ),
