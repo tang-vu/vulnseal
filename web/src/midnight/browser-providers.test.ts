@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getNetworkId, setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { initializeBrowserProviders } from "./browser-providers.js";
+import { WALLET_SUBMISSION_TIMEOUT_MS } from "./submission.js";
 
 const wallet = () => {
   const connected = {
@@ -16,7 +17,7 @@ const wallet = () => {
 };
 
 describe("wallet network binding", () => {
-  afterEach(() => { delete window.midnight; });
+  afterEach(() => { delete window.midnight; vi.useRealTimers(); });
 
   it("changes the SDK network from undeployed to the connected network", async () => {
     wallet();
@@ -58,5 +59,24 @@ describe("wallet network binding", () => {
       name: "SubmissionOutcomeUnknown", transactionId: txId,
     });
     expect(connected.submitTransaction).toHaveBeenCalledExactlyOnceWith("010203");
+  });
+
+  it("does not broadcast when a delayed authorization check finishes after the submission deadline", async () => {
+    vi.useFakeTimers();
+    const connected = wallet();
+    const checkpoint = vi.fn().mockResolvedValue(undefined);
+    const providers = await initializeBrowserProviders("preprod", checkpoint);
+    let authorize!: (status: { status: string; networkId: string }) => void;
+    connected.getConnectionStatus.mockResolvedValueOnce({ status: "connected", networkId: "preprod" }).mockImplementationOnce(() => new Promise((resolve) => { authorize = resolve; }));
+    const txId = "12".repeat(32);
+    const tx = { identifiers: () => [txId], serialize: () => Uint8Array.of(1, 2, 3) };
+    const result = providers.midnightProvider.submitTx(tx as never).catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(WALLET_SUBMISSION_TIMEOUT_MS);
+    expect(await result).toMatchObject({ name: "SubmissionOutcomeUnknown", transactionId: txId });
+    expect(checkpoint).toHaveBeenCalledExactlyOnceWith(txId);
+    authorize({ status: "connected", networkId: "preprod" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(connected.submitTransaction).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

@@ -109,8 +109,9 @@ export const initializeBrowserProviders = async (
     midnightProvider: {
       submitTx: async (transaction: FinalizedTransaction): Promise<TransactionId> => {
         await assertConnection(connected, networkId);
-        return submitIdentifiedTransaction(transaction, async (serialized) => {
+        return submitIdentifiedTransaction(transaction, async (serialized, signal) => {
           await assertConnection(connected, networkId);
+          signal.throwIfAborted();
           return connected.submitTransaction(serialized);
         }, beforeSubmit);
       },

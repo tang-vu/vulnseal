@@ -1,5 +1,13 @@
 # Validation report
 
+## Wallet submission response deadline — 2026-09-09
+
+The browser provider now limits its connector submission response wait to two minutes, starting only after the durable identifier checkpoint. Expiry raises `SubmissionOutcomeUnknown` with the original identifier. It does not retry, infer failure or cancel a broadcast already handed to Lace. A signal check after the final authorization read prevents a late authorization response from initiating a new broadcast after the wait has ended. Late connector success/failure remains detached from the completed result.
+
+Focused submission/provider tests passed **two files / 14 tests**; the encrypted role-journal component regression passed **one test** in 13.90 seconds. Cases cover hanging responses, late success and rejection, late authorization with no broadcast, checkpoint-before-timer ordering and timer cleanup. Web typechecking passed. These use fake timers and mocked connectors, plus real journal encryption in the component regression; they do not establish native Lace execution. Browser suspension can delay timers, and this change does not bound connection, balancing/proving, local checkpoint I/O or later SDK finality polling. See [the recovery procedure](role-workspace.md).
+
+`npm run release:build` passed all six workspace builds and generated the current manifest; the subsequent read-only release check passed for eight circuits, 62 files and 62,528,006 bytes. The previous complete 172-test / 62-browser run remains the consolidated baseline. No new full browser run or container rebuild is claimed for this provider change.
+
 ## Consolidated release validation — 2026-09-09
 
 At application commit `e32cca3`, `npm run validate` passed all six workspace builds and typechecks followed by **35 test files / 172 tests**: shared 12, contract 13, API 21, ciphertext service 18, integration 9 and web 99. The complete web suite passed in 52.85 seconds. This consolidates attachment drafts, transport limits, release tooling, bounded evidence reads and static hosting changes with the existing recovery/replay implementation. Generated Compact sourcemap warnings remain visible; no assertion was skipped to suppress them.

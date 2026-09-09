@@ -23,6 +23,8 @@ The startup error screen also offers export-only access to encrypted browser cop
 
 ## Work still required
 
+The wallet submission response now has a two-minute deadline after the durable identifier checkpoint. Expiry retains the identifier as an unknown outcome and does not retry; late authorization cannot start a broadcast after expiry, and a late connector result cannot turn the finished call into success. This bounds that application wait, not the actual wallet/network operation, initial connection, proving/balancing or SDK finality polling. Native Lace behavior and semantic retry remain unverified.
+
 The checked web artifact now has a digest-pinned static hosting image and localhost Compose configuration. A local container drill passed full HTTP asset comparison, MIME/cache/security headers, missing-file responses, non-root/read-only execution, captured-state lookup in desktop/mobile browsers and graceful restart. This provides a runnable hosting artifact; public TLS/DNS/ingress, endpoint configuration, monitoring, full CSP validation, rolling-upgrade asset retention and native-wallet verification remain open. See [web hosting](web-hosting.md).
 
 Public lookup, transaction observation and report replay now share a bounded streaming JSON reader with cancellation and strict UTF-8 decoding. Transaction responses allow 1 MiB each and state/replay responses 16 MiB each. Twenty focused tests and eight production desktop/mobile regressions passed. These client input bounds improve robustness against oversized evidence responses without authenticating indexer data or establishing safe retry.
