@@ -55,21 +55,35 @@ const assertConnection = async (connected: ConnectedAPI, networkId: string): Pro
   if (status.networkId !== networkId) throw new Error("Wallet is connected to a different Midnight network");
 };
 
-const connect = async (networkId: string): Promise<ConnectedAPI> => {
-  const connected = await (await waitForWallet()).connect(networkId);
-  await assertConnection(connected, networkId);
-  return connected;
+export const WALLET_SETUP_TIMEOUT_MS = 120_000;
+const prepareConnection = async (networkId: string) => {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error("Wallet setup timed out. Lace may still show a connection request; review it before reconnecting. No transaction was submitted by this setup.");
+      controller.abort(error); reject(error);
+    }, WALLET_SETUP_TIMEOUT_MS);
+  });
+  const prepare = async () => {
+    const wallet = await waitForWallet(); controller.signal.throwIfAborted();
+    const connected = await wallet.connect(networkId); controller.signal.throwIfAborted();
+    await assertConnection(connected, networkId); controller.signal.throwIfAborted();
+    const config = await connected.getConfiguration(); controller.signal.throwIfAborted();
+    if (!config.proverServerUri) throw new Error("Wallet has no proof-server configuration");
+    if (config.networkId !== networkId) throw new Error("Wallet configuration does not match the requested Midnight network");
+    const addresses = await connected.getShieldedAddresses(); controller.signal.throwIfAborted();
+    return { connected, config: { ...config, proverServerUri: config.proverServerUri }, addresses };
+  };
+  try { return await Promise.race([prepare(), timeout]); }
+  finally { clearTimeout(timer); }
 };
 
 export const initializeBrowserProviders = async (
   networkId: string,
   beforeSubmit?: (transactionId: TransactionId) => Promise<void>,
 ): Promise<VulnSealProviders> => {
-  const connected = await connect(networkId);
-  const config = await connected.getConfiguration();
-  if (!config.proverServerUri) throw new Error("Wallet has no proof-server configuration");
-  if (config.networkId !== networkId) throw new Error("Wallet configuration does not match the requested Midnight network");
-  const addresses = await connected.getShieldedAddresses();
+  const { connected, config, addresses } = await prepareConnection(networkId);
   setNetworkId(networkId);
   const zkConfigProvider = new FetchZkConfigProvider<VulnSealCircuitKeys>(
     new URL(".", window.location.href).href,

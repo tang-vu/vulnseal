@@ -1,5 +1,15 @@
 # Validation report
 
+## Bound initial wallet setup — 2026-09-09
+
+Initial provider setup now has one two-minute deadline across discovery, connector authorization, status, configuration and shielded-address reads. Each await is followed by a cancellation check before another connector method can run. SDK network selection occurs only after the bounded setup resolves successfully. Timeout clears the caller's pending state, does not submit or retry, and warns that the extension may still own an outstanding connection prompt. It cannot cancel that prompt or cover later proving/balancing/finality.
+
+All **24 wallet-provider/role-workspace tests passed in 55.54 seconds**. Four deadline cases separately stall connection, status, configuration and addresses, then release a late response and assert no additional connector calls, no SDK network change, no submission and no remaining timer. A new explicit setup can subsequently succeed. Web typechecking passed. These are mocked connector responses, not native Lace evidence.
+
+The new desktop/mobile browser cases passed in **37.7 seconds** using a deliberately stalled injected connector and Playwright's virtual clock. They verify that the role form is disabled while setup is pending, becomes available after the deadline, and does not read authorization status or enter a researcher workspace when the old connector resolves afterwards. These two cases expand the ordinary suite from 66 to 68; the entire expanded suite was not rerun in this increment.
+
+The final artifact passed the read-only `release:check`: **8 circuits, 62 files, 62,592,677 bytes**. The release build's fresh source check at 11:17:14.722 UTC matched the retained compiler output; proving keys were not regenerated. The build process's terminal output was unavailable after session recovery, so this records the subsequent artifact check rather than an independently captured build exit status.
+
 ## Native connector availability and robust discovery — 2026-09-09
 
 The current environment was rechecked for a usable native browser session. Three running Chrome/Edge debug endpoints were reachable. In each existing browser context, an owned temporary tab loaded the local VulnSeal role page and checked `window.midnight` after two seconds: all returned an empty connector list. The probe did not call `connect`, request addresses, inspect unrelated tabs, unlock a wallet, sign or submit. Owned tabs and the temporary local preview were closed; the three existing browser endpoints remained running. This establishes no exposed connector in those sampled pages, not proof that an extension is uninstalled or that another browser/profile cannot expose one. Native Lace verification remains open.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getNetworkId, setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { initializeBrowserProviders } from "./browser-providers.js";
+import { initializeBrowserProviders, WALLET_SETUP_TIMEOUT_MS } from "./browser-providers.js";
 import { WALLET_SUBMISSION_TIMEOUT_MS } from "./submission.js";
 
 const wallet = () => {
@@ -18,6 +18,33 @@ const wallet = () => {
 
 describe("wallet network binding", () => {
   afterEach(() => { delete window.midnight; vi.useRealTimers(); });
+
+  it.each(["connect", "status", "configuration", "addresses"])("bounds stalled %s setup and ignores late responses", async (stage) => {
+    vi.useFakeTimers();
+    const connected = wallet();
+    setNetworkId("undeployed");
+    let finish!: (value: any) => void;
+    const pending = new Promise<any>((resolve) => { finish = resolve; });
+    if (stage === "connect") vi.mocked(window.midnight!.lace!.connect).mockReturnValue(pending);
+    if (stage === "status") connected.getConnectionStatus.mockReturnValue(pending);
+    if (stage === "configuration") connected.getConfiguration.mockReturnValue(pending);
+    if (stage === "addresses") connected.getShieldedAddresses.mockReturnValue(pending);
+    const result = initializeBrowserProviders("preprod").catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(WALLET_SETUP_TIMEOUT_MS);
+    expect(await result).toMatchObject({ message: expect.stringContaining("Wallet setup timed out") });
+    expect(getNetworkId()).toBe("undeployed");
+    const calls = [connected.getConnectionStatus.mock.calls.length, connected.getConfiguration.mock.calls.length, connected.getShieldedAddresses.mock.calls.length];
+    finish(stage === "connect" ? connected : stage === "status" ? { status: "connected", networkId: "preprod" } : stage === "configuration" ? { networkId: "preprod", proverServerUri: "http://127.0.0.1:6300" } : { shieldedCoinPublicKey: "01".repeat(32), shieldedEncryptionPublicKey: "02".repeat(32) });
+    await vi.advanceTimersByTimeAsync(0);
+    expect([connected.getConnectionStatus.mock.calls.length, connected.getConfiguration.mock.calls.length, connected.getShieldedAddresses.mock.calls.length]).toEqual(calls);
+    expect(getNetworkId()).toBe("undeployed");
+    expect(connected.submitTransaction).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+    wallet();
+    await initializeBrowserProviders("preprod");
+    expect(getNetworkId()).toBe("preprod");
+    expect(vi.getTimerCount()).toBe(0);
+  });
 
   it("changes the SDK network from undeployed to the connected network", async () => {
     wallet();

@@ -25,6 +25,32 @@ test("closing an unsaved role can be cancelled, then closes without a warning af
   expect(unexpectedDialog).toBe(false);
 });
 
+test("stalled wallet setup releases the role form and ignores late authorization", async ({ page }) => {
+  await page.clock.install();
+  await page.addInitScript(() => {
+    const state = window as any;
+    state.setupCalls = 0; state.statusCalls = 0;
+    state.midnight = { lace: { apiVersion: "4.0.1", connect: () => {
+      state.setupCalls++;
+      return new Promise((resolve) => { state.finishSetup = () => resolve({ getConnectionStatus: () => { state.statusCalls++; return Promise.resolve({ status: "connected", networkId: "preprod" }); } }); });
+    } } };
+  });
+  await page.goto("/#roles");
+  const invitation = { format: "vulnseal-program-invitation", version: 1, network: "preprod", contractAddress: "ab".repeat(32), programId: "12".repeat(32) };
+  await page.getByLabel("Public program invitation").setInputFiles({ name: "public.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(invitation)) });
+  const join = page.getByRole("button", { name: "Connect Lace and join as researcher" });
+  await join.click();
+  await page.waitForFunction(() => (window as any).setupCalls === 1);
+  await expect(join).toBeDisabled();
+  await page.clock.fastForward(120_000);
+  await expect(page.getByRole("alert")).toContainText("Wallet setup timed out");
+  await expect(join).toBeEnabled();
+  await page.evaluate(() => (window as any).finishSetup());
+  await page.clock.runFor(1);
+  expect(await page.evaluate(() => (window as any).statusCalls)).toBe(0);
+  await expect(page.getByRole("heading", { name: "Researcher workspace" })).toHaveCount(0);
+});
+
 test("researcher invitations reject private fields and require a real wallet before joining", async ({ page }) => {
   await page.goto("/#roles");
   const invitation = { format: "vulnseal-program-invitation", version: 1, network: "preprod", contractAddress: "ab".repeat(32), programId: "12".repeat(32) };
