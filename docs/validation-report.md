@@ -1,5 +1,15 @@
 # Validation report
 
+## Consolidated validation after demo recovery v4 -- 2026-09-09
+
+At code revision **`a4ee100`**, `npm run validate` passed all six workspace builds/typechecks and **276 tests across 50 files**: shared 13, contract 25, API 29, ciphertext storage 18, integration 9 and web 182. The contract suite completed in 68.47 seconds and web's 37 files in 79.11 seconds. This run includes the newer role deployment timeout/address-selection cases, combined-demo leave guard and v4 uncertain-transition recovery. No test was retried.
+
+All **15 tool tests** passed through `test:compiler-check` (five), `test:release` (seven) and `test:web-environment` (three), covering compiler staging/retained keys, release and served-file rejection, artifact copying and environment configuration. The complete ordinary browser suite passed **76 desktop/mobile Chrome cases in 3.9 minutes**, with CI's two workers and no retries. The separate two-service replication suite passed **four cases in 48.7 seconds**, including partial writes, corrupt replica rejection and exact-envelope backfill retry.
+
+After those test-specific browser builds, the normal `release:build` completed successfully following fresh compiler comparison at **14:18:43.594 UTC**: **8 circuits, 62 files, 62,642,750 bytes**. Contract sources and proving keys were unchanged. The readiness table now references this consolidated baseline rather than the earlier 260-test/74-browser-case run. No production implementation changed in this verification increment.
+
+This is local generated-circuit, application and loopback-browser/service evidence. It does not execute the GitHub workflows, regenerate proving keys, exercise native Lace, deploy publicly, authenticate external chain state or establish off-device durability. Existing hosting image/scan evidence remains scoped to its recorded artifacts. Remaining roadmap and pending-transaction durability requirements are unchanged.
+
 ## Preserve uncertain demo transitions through recovery -- 2026-09-09
 
 Combined-demo report transitions now record uncertainty before private-state setup and clear it only after a successful API result. The marker covers triage, accept/reject, patch, retest, payout authorization and closure. Any setup/API error leaves subsequent transaction actions blocked; reset is guarded and its receipt button disabled. Private recovery stays usable after the call returns. A successful transaction followed by a failed public read uses the existing refresh-required path, without retaining false transaction uncertainty. Error labels now say interrupted rather than asserting rejection.
