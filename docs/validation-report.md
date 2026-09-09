@@ -1,5 +1,11 @@
 # Validation report
 
+## Deployment-specific confirmation timeout recovery — 2026-09-09
+
+Two new component cases exercise the actual vendor-identity/autosave/deployment UI with injected provider initialization and a delayed deployment result. Both decrypt the browser checkpoint and verify a retained constructor intent and transaction identifier while the contract address remains unknown. After expiring the application confirmation wait, backup and locking stay available, deployment is disabled, and reconnect controls are absent. Late success must not persist the returned address/receipt or attach a role session; late failure must not replace recovery guidance. Programmatically submitting the disabled deployment form is also rejected before another provider initialization or deployment call.
+
+The two new cases initially passed in 10.83 seconds. Final diff review caught that their file had replaced the existing deployment regression file; the original file was restored unchanged and the timeout cases moved to a separate file. The final combined run passed **all four deployment cases across two files in 18.24 seconds**, followed by web typechecking. Read-only release verification passed: **8 circuits, 62 files, 62,635,122 bytes**. No production code or release bytes changed. This closes the missing deployment-specific component regression, while native Lace deployment, live finality expiry and recovering an observed address from external evidence remain unverified. Full suites were not rerun for these two tests; the preceding consolidated baseline remains scoped to `bfea932`.
+
 ## Consolidated validation after journal and timeout changes — 2026-09-09
 
 At code revision **`bfea932`**, one complete `npm run validate` passed all six workspace builds/typechecks and **260 tests across 48 files**: shared 13, contract 25, API 29, ciphertext storage 18, integration 9 and web 166. The contract suite completed in 70.67 seconds and web's 35 files in 81.41 seconds. This includes the expanded transition/actor matrix, tier bounds, v10 recovery, journal pagination/capacity and proof/confirmation deadlines. No test was retried.
