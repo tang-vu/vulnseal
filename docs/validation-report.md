@@ -1,5 +1,13 @@
 # Validation report
 
+## Contract transition and actor matrix — 2026-09-09
+
+The generated-contract simulator now exposes `closeReport`, and a workflow-model suite exercises **270 fresh-fixture scenarios**: ten reachable stages (including separate rejected/paid closure histories), nine operations and owner/researcher/stranger actors. A separate allowed-edge table determines whether each action must succeed. Duplicate submission is attempted at every stage. Each fixture also contains another researcher's report to test isolation.
+
+Rejected actions must leave the public ledger projection unchanged: policy/scalar fields, every report record, receipt count and report-receipt membership. Accepted actions must reach the expected status, increment sequence once, preserve immutable report identifiers/ciphertext/owner binding/creation sequence, and leave the other report unchanged. Patch anchoring clears stale retest evidence; payout authorization adds a receipt. This includes all outgoing attempts from both closed histories and patch replacement after failed retest. These are generated-circuit simulator checks, not proof verification, live ledger execution, exhaustive argument fuzzing or a proof of network-level rollback semantics.
+
+The full contract suite passed **23 tests across two files in 66.74 seconds**, including the ten matrix tests, without reruns. Contract typechecking and read-only release verification passed. No production contract source, generated bindings or proving keys changed; the artifact remains **8 circuits, 62 files, 62,628,271 bytes**. Full web/browser suites were not rerun for this test-only change.
+
 ## Page and search long recovery journals — 2026-09-09
 
 The unlocked workspace and wallet-free inspector now share a ten-entry journal view, newest saved entries first, with local transaction/report/circuit search. Private notes are not search inputs. All attempts remain in encrypted storage; this is not pruning or archival. Page/filter changes unmount hidden entries and therefore invoke existing transaction/replay cancellation cleanup. Replaced journal data resets paging, and closing the journal discards query state.

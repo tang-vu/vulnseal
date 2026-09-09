@@ -143,4 +143,8 @@ export class VulnSealSimulator {
     this.circuitContext = result.context;
     return result.result;
   }
+
+  closeReport(reportId: Uint8Array): void {
+    this.circuitContext = this.contract.impureCircuits.closeReport(this.circuitContext, reportId).context;
+  }
 }
