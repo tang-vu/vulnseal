@@ -21,7 +21,7 @@
     "release:check": "node scripts/check-web-release.mjs",
     "release:check-host": "node scripts/check-web-host.mjs",
     "test:release": "node --test scripts/check-web-release.test.mjs scripts/check-web-host.test.mjs",
-    "test:web-environment": "node --test scripts/check-web-environment.test.mjs",
+    "test:web-environment": "node --test scripts/check-web-environment.test.mjs scripts/cipherstore-dev.test.mjs",
     "compact": "npm run compact --workspace @vulnseal/contract",
     "compact:skip-zk": "npm run compact:skip-zk --workspace @vulnseal/contract",
     "compact:check-source": "node scripts/check-contract-source.mjs",

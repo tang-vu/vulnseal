@@ -95,6 +95,8 @@ Open `http://127.0.0.1:5173`. Guided Local mode performs real canonicalization, 
 
 The browser reads public `VITE_*` settings from the repository-root `.env`, `.env.local`, and mode-specific files such as `.env.production` / `.env.production.local`. Shell variables take precedence. Move any earlier `web/.env*` configuration to the repository root; it is no longer the browser's env directory. Restart development or rebuild the static release after changes. Vite validates the effective mode, network and configured storage/proof/indexer URLs before serving or building; malformed ciphertext destinations fail before existing build output is replaced. This checks configuration syntax, not service reachability or TLS deployment. Non-`VITE_*` values are not exposed through Vite's browser environment.
 
+`npm run demo` also starts the ciphertext development launcher. It reads only `CIPHERSTORE_*` settings from root `.env`, `.env.local`, `.env.development` and `.env.development.local`, in that precedence order, with shell values winning. Relative storage paths resolve from the repository root; the default is `cipherstore/data`. If changing the storage port, update both `CIPHERSTORE_PORT` and `VITE_CIPHERSTORE_URL`; if changing the web origin, update `CIPHERSTORE_ALLOWED_ORIGIN`. The production service (`npm run start -w @vulnseal/cipherstore`) and container continue to consume explicitly supplied environment variables.
+
 ## Compile the Compact contract
 
 ```bash

@@ -1,5 +1,13 @@
 # Validation report
 
+## Consistent development service configuration — 2026-09-09
+
+The README's root `.env` previously configured the browser but was ignored by `npm run dev -w @vulnseal/cipherstore`. Loading its relative `./cipherstore/data` value from the nested workspace would also have selected a nested `cipherstore/cipherstore/data` directory. The dedicated development launcher now uses Vite's development env-file precedence, copies only `CIPHERSTORE_*` values and resolves storage paths from the repository root. It enters the existing server CLI in the same process, retaining server lease and shutdown behavior. Production `start`, containers and the backup CLI still require explicit environment configuration.
+
+The configuration command passed **three tests**, including a synthetic root with all four development env layers, an ignored production file, shell overrides, exclusion of unrelated values, an absolute override and the default data path. The existing two-store browser suite then passed **four desktop/mobile cases in 45.7 seconds** through the actual new development launcher. Both services used separate temporary data directories and shell-selected ports; real uploads, replicated reads and saved-report backfill succeeded. No repository `.env` contents or existing ciphertext were modified. This does not establish production deployment, external durability or wallet readiness. The previous 192-test workspace baseline was not rerun because this increment changes only development startup/configuration and documentation.
+
+The final normal-configuration `release:build` passed fresh source/compiler comparison, six workspace builds and packaging, retaining **eight circuits, 62 files and 62,567,604 bytes**. No proving keys were regenerated or local container images replaced.
+
 ## Effective public build configuration — 2026-09-09
 
 Vite now reads the repository-root env directory used by the README setup instructions and validates its effective public mode, network and storage/proof/indexer URLs before build or serve. Shell overrides retain precedence over mode-specific files. Earlier `web/.env*` settings must move to the repository root. The shared ciphertext validator rejects even empty query/fragment delimiters and normalizes trailing slashes before duplicate checks; the exported direct single-store client now uses that validator too.
