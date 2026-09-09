@@ -1,5 +1,13 @@
 # Validation report
 
+## Enforce ciphertext runtime scanning in CI ? 2026-09-09
+
+The ciphertext container job now runs `scripts/scan-container.sh` after its persistence drill and has a twenty-minute job deadline. The script resolves the selected local image before export, scans only that image's temporary archive with digest-pinned Trivy 0.74.0, passes all five severities to the nonzero vulnerability exit policy, and propagates Docker/scanner failures. It supplies no ignore-unfixed flag or ignore list. The archive mount is read-only, the scanner gets no Docker socket or source tree, and normal exit cleans up only the temporary archive/directory. Shell files now explicitly use LF line endings for Windows checkouts.
+
+The exact script passed against patched image `sha256:f56e9ea927305fc6a4fea44bf9e78013b263f24d54fa4231345b0ff4f79b90ab` at **13:55:33 UTC**, reporting zero Alpine/Node-package findings and exit 0. A real negative run against the pinned unpatched Node 24.20.0 Alpine base reported **29 findings** and exit 1; its log contains the expected OpenSSL advisory. A missing local image also returned nonzero. The negative-run Python console formatter initially failed to print Unicode table borders under Windows cp1252 after saving the complete log and exit code; inspection of the saved UTF-8 log confirmed the findings without rerunning the scanner. Shell syntax and Git whitespace checks passed.
+
+Trivy warned that Alpine 3.24 is absent from its EOL list. The EOL exit option is enabled, but recognized-EOL rejection was not exercised and current OS support status is not proven by this gate. These are local script results; the changed GitHub workflow has not run remotely. No application code, runtime image or browser release bytes changed during this increment.
+
 ## Patch and verify the ciphertext runtime ? 2026-09-09
 
 Both cipherstore Docker stages now use digest-pinned Node **24.20.0 on Alpine**. The runtime patches libcrypto3/libssl3 to **3.5.8-r0** and removes npm, Corepack and Yarn; the compiled service and backup CLI need only Node built-ins. Test sources enter the build stage but remain excluded from runtime output. The first build failed because the previous context allowlist excluded tests. After correcting that exclusion, all **18 tests across four files passed in 6.28 seconds** inside Alpine, including backup/restore, directory leases, quotas and transport deadlines. The final runtime rebuild reused that passing build stage.

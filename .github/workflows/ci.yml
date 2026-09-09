@@ -66,6 +66,7 @@ jobs:
 
   cipherstore-container:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -81,3 +82,5 @@ jobs:
         run: docker build -f infra/cipherstore.Dockerfile -t vulnseal-cipherstore:local .
       - name: Verify container persistence, capacity and restart
         run: node scripts/test-cipherstore-container.mjs
+      - name: Reject runtime vulnerabilities and end-of-life OS
+        run: sh scripts/scan-container.sh
