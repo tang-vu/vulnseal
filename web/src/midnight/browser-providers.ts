@@ -24,6 +24,7 @@ import type { VulnSealPrivateState } from "@vulnseal/contract";
 import { inMemoryPrivateStateProvider } from "./in-memory-private-state-provider.js";
 import { submitIdentifiedTransaction } from "./submission.js";
 import { fetchZkArtifact } from "./fetch-zk-artifact.js";
+import { boundedProofProvider } from "./bounded-proof-provider.js";
 
 declare global {
   interface Window {
@@ -124,7 +125,7 @@ export const initializeBrowserProviders = async (
       window.WebSocket as unknown as Parameters<typeof indexerPublicDataProvider>[2],
     ),
     zkConfigProvider,
-    proofProvider: httpClientProofProvider(config.proverServerUri, zkConfigProvider),
+    proofProvider: boundedProofProvider(httpClientProofProvider(config.proverServerUri, zkConfigProvider)),
     walletProvider: {
       getCoinPublicKey: () => addresses.shieldedCoinPublicKey,
       getEncryptionPublicKey: () => addresses.shieldedEncryptionPublicKey,

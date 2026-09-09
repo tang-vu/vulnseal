@@ -1,5 +1,13 @@
 # Validation report
 
+## Bound the complete browser proof step — 2026-09-09
+
+Browser provider wiring now wraps the SDK proof provider with a ten-minute deadline covering its entire `proveTx` promise, including key-material fallback and individual HTTP retries. Only a timely result can advance the SDK's proof/balance/submit sequence. Expiry returns an explicit error, does not retry, and handles late resolution or rejection without advancing the caller. Timely provider failures retain their original error. Arguments and per-call configuration are forwarded unchanged.
+
+The focused run passed **23 tests across two files in 4.29 seconds**, including five new proof-provider cases: timely success/config forwarding, late success and late failure after expiry with no balancing/submission, and synchronous/asynchronous provider errors. Timers are cleared on every tested exit; a separate explicit invocation remains possible. Web typechecking passed. This is provider/pipeline test evidence, not a native-wallet or real proof-server timeout drill. SDK cancellation is unavailable; server work can continue, synchronous execution and browser suspension can delay timers, and subsequent finality polling remains unbounded by this change.
+
+The normal release build completed successfully after fresh compiler comparison at **12:34:09.894 UTC**: **8 circuits, 62 files, 62,630,087 bytes**. Contract source, generated bindings and proving keys were unchanged. Full workspace/browser suites were not rerun for this increment.
+
 ## Severity and reward tier boundaries — 2026-09-09
 
 Two generated-contract tests cover 14 fresh-fixture scenarios across severity and reward tiers: -1, 0, 1, 4, 5, 255 and 256. Valid endpoints must update the intended record/status and sequence, with a receipt for reward authorization. Rejected values must preserve the public ledger projection, and every scenario preserves a second researcher's report. This exercises semantic bounds and generated Uint<8> representation bounds in the simulator; it does not establish network rollback semantics.
