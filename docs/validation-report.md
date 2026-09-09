@@ -1,5 +1,11 @@
 # Validation report
 
+## Staged compiler output and retained recovery — 2026-09-09
+
+Full compilation and fresh syntax compilation now generate into an isolated `.compact/compile-*` directory under an exclusive cooperative compiler lock. The launcher verifies compiler files and, for a full compile, nonempty regular prover/verifier/binary-ZKIR files for every proving circuit. A changed source blocks installation. Only successful output is promoted; any old managed directory is archived in the same staging area. Installed source-map paths are adjusted to the final directory. Failure before promotion leaves existing artifacts untouched. Two-rename promotion is not crash-atomic: a crash between renames or failure of rollback requires manual recovery, and builds must not run concurrently. No semantic key verification or automatic cleanup is claimed.
+
+**Five compiler tests passed**, covering retained-key detection, stale compiler comparison, generation failure, incomplete keys, source mutation, archive preservation, final map paths and an existing lock. The real retained-key syntax-check path also passed. A real full compiler invocation used `/bin/false` as its explicitly selected synthetic failing key generator: Compact generated temporary output, key generation failed with exit status 1, and all **36 existing managed-file hashes** remained identical. The failed stage is retained at `.compact/compile-zHYEVE`. An isolated fresh-checkout fixture successfully compiled and installed syntax-only output, then passed fresh compiler-source comparison. No real proving keys were regenerated or blockchain transaction sent. Prior web/release tests were not rerun for this compiler-only change.
+
 ## Preserve proving material during syntax checks — 2026-09-09
 
 `compact:skip-zk` now detects any retained key-directory entry, including a partial/empty key file, and runs the existing isolated compiler-source comparison instead of replacing managed output. A fresh checkout with no key entries still generates bindings/ZKIR normally. An existing key set whose compiler outputs no longer match the source is preserved and requires explicit full compilation. Unknown or repeated command arguments are rejected. This does not make full key generation transactional or validate proving-key semantics.

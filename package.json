@@ -25,7 +25,7 @@
     "compact": "npm run compact --workspace @vulnseal/contract",
     "compact:skip-zk": "npm run compact:skip-zk --workspace @vulnseal/contract",
     "compact:check-source": "node scripts/check-contract-source.mjs",
-    "test:compiler-check": "node --test scripts/check-contract-source.test.mjs scripts/retained-keys.test.mjs",
+    "test:compiler-check": "node --test scripts/check-contract-source.test.mjs scripts/retained-keys.test.mjs scripts/staged-compiler.test.mjs",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:run": "npm run test:run --workspaces --if-present",
