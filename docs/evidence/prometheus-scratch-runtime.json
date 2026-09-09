@@ -1,0 +1,76 @@
+{
+  "recordedAt": "2026-09-09T15:21:17.669246+00:00",
+  "imageId": "sha256:9716ce24565dad60ce6e2e3660e21c1268f457ee2aebddf0bc40ea4b19a04296",
+  "imageSizeBytes": 57856150,
+  "staticElfBinaries": true,
+  "dataDirectoryOwner": "65534:65534",
+  "runtimeFiles": {
+    "LICENSE": {
+      "size": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    "NOTICE": {
+      "size": 4370,
+      "sha256": "ac9e304462a58a4d71b6488423d4447e614c8b31d517fe24345016522c102a78"
+    },
+    "bin/prometheus": {
+      "size": 100257952,
+      "sha256": "cda84e80b5b3b70cea360554526a4c3fa455950297e198b491c1ff765953dffe"
+    },
+    "bin/promtool": {
+      "size": 82776224,
+      "sha256": "c0fef9ae421d8a6bad3522434e73b516e8ba9d1ee3d22c78370c286c74d69f46"
+    },
+    "etc/group": {
+      "size": 16,
+      "sha256": "68958765209c71d8923c59f7008dd12c2c1baa2edcdbb64ba2816a976234b2c9"
+    },
+    "etc/passwd": {
+      "size": 55,
+      "sha256": "7a95afeb3d0e4e73849895acebb7504f91ee7378efca5bbf62963ba39dd58867"
+    },
+    "etc/prometheus/prometheus.yml": {
+      "size": 1128,
+      "sha256": "aafcee2a237ad599327d07ed79e57ba1e57bdcf5a4bba6e3ba22eb09e25af479"
+    },
+    "etc/ssl/certs/ca-certificates.crt": {
+      "size": 179359,
+      "sha256": "b8d837841b88bfaa1a0fa827cbca8e2576418dd47c9fc4bb7f1f9d89c83111b9"
+    },
+    "usr/share/zoneinfo.zip": {
+      "size": 408467,
+      "sha256": "b2d18a7c8fa8142097a48c99609fb3c92db5ee98bc740294e57eab8ae9f94779"
+    }
+  },
+  "limits": [
+    "Filesystem inventory excludes Docker-injected hosts/resolver files, .dockerenv and the empty dev/console placeholder.",
+    "Certificate and timezone content checks do not exercise a remote TLS scrape.",
+    "No vulnerabilities are suppressed by this runtime change."
+  ],
+  "imageConfigId": "sha256:85d9132d6f90ff0769d394d271fc2797a9cd08a774d4d2f328400c2d6ea35751",
+  "scanner": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+  "scanCommand": "sh scripts/scan-container.sh vulnseal-prometheus:local",
+  "scanExitCode": 1,
+  "rawScanLogSha256": "bca7106212f51bdd500dc0efad4b86f009b49aadee131db78c2c077577fe20d6",
+  "findings": [
+    {
+      "target": "bin/prometheus",
+      "id": "GO-2026-5932",
+      "module": "golang.org/x/crypto",
+      "version": "v0.56.0",
+      "severity": "UNKNOWN"
+    },
+    {
+      "target": "bin/promtool",
+      "id": "GO-2026-5932",
+      "module": "golang.org/x/crypto",
+      "version": "v0.56.0",
+      "severity": "UNKNOWN"
+    }
+  ],
+  "dockerInjectedLinks": {
+    "etc/mtab": "/proc/mounts"
+  },
+  "unexpectedLinksOrSpecialFiles": false,
+  "dockerfileSha256": "fd4d6e15523f9dd476ab5f65a915c97c745cfe58872026bed64831a74452afcd"
+}

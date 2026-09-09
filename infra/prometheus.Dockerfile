@@ -20,9 +20,28 @@ RUN go list -mod=readonly -tags netgo,builtinassets -deps ./cmd/prometheus ./cmd
 FROM scratch AS build-evidence
 COPY --from=build /build/go.mod /build/go.sum /out/packages.txt /
 
-FROM prom/prometheus@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0
+FROM build AS runtime-files
+RUN mkdir -p /runtime-data/prometheus \
+ && printf 'nobody:x:65534:65534:Prometheus:/prometheus:/bin/false\n' > /runtime-data/passwd \
+ && printf 'nobody:x:65534:\n' > /runtime-data/group
+
+# Only static binaries and their data are retained; no shell or inherited OS layers.
+FROM scratch
 LABEL org.opencontainers.image.version="3.14.0-vulnseal.1" \
       org.opencontainers.image.description="Prometheus with VulnSeal-pinned Go dependency updates; see infra/prometheus.Dockerfile"
 COPY --from=build /out/prometheus /bin/prometheus
 COPY --from=build /out/promtool /bin/promtool
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /usr/local/go/lib/time/zoneinfo.zip /usr/share/zoneinfo.zip
+COPY --from=build /build/LICENSE /build/NOTICE /
+COPY --from=build /build/documentation/examples/prometheus.yml /etc/prometheus/prometheus.yml
+COPY --from=runtime-files /runtime-data/passwd /etc/passwd
+COPY --from=runtime-files /runtime-data/group /etc/group
+COPY --from=runtime-files --chown=65534:65534 /runtime-data/prometheus /prometheus
+ENV PATH=/bin SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt ZONEINFO=/usr/share/zoneinfo.zip
+WORKDIR /prometheus
 USER 65534:65534
+EXPOSE 9090
+VOLUME ["/prometheus"]
+ENTRYPOINT ["/bin/prometheus"]
+CMD ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus"]

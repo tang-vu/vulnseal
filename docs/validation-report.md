@@ -1,5 +1,15 @@
 # Validation report
 
+## Remove inherited OS layers from the collector -- 2026-09-09
+
+The collector now uses a `scratch` final image instead of overlaying its rebuilt binaries on the upstream BusyBox image. It includes only the two static executables, CA trust bundle, Go timezone archive, sample configuration, license/notice and numeric-user records. The data directory is created with UID/GID **65534:65534** before fresh named-volume initialization. Entry point, default arguments, exposed port and work directory are explicit. Docker reused the earlier successful binary compilation; no dependency or UI source changed.
+
+A real exported container filesystem was inspected: both ELF executables have no dynamic interpreter, exactly nine regular payload files are present, and the data directory has the required ownership. Docker-generated resolver/hostname files, `.dockerenv`, its empty `dev/console` placeholder and `etc/mtab` link to `/proc/mounts` are recorded separately; no other special files or links were found. The inventory checks initially rejected those Docker additions and were corrected to verify their expected form. The old image was no longer locally addressable after retagging, so no direct before/after binary-hash equality or size-reduction claim is made. [Runtime evidence](evidence/prometheus-scratch-runtime.json) records current file hashes and exact image `sha256:9716ce24565dad60ce6e2e3660e21c1268f457ee2aebddf0bc40ea4b19a04296`.
+
+The complete monitoring drill passed at **15:21:31.287 UTC**, terminated with **exit 0**, and removed its test resources. It covers rule/config checks, UI asset serving, real scraping, outage/recovery, non-root/read-only execution and historical TSDB data retained across restart. The exact new image scan returned **exit 1**, retaining two UNKNOWN `GO-2026-5932` findings with zero low/medium/high/critical findings. No exclusions were added. Earlier dependency-remediation and BusyBox-image records remain historical evidence.
+
+Removing runtime OS packages does not establish host security, a clean Go advisory gate, remote TLS scrape compatibility, an independently audited UI, native-wallet success or production readiness. Existing operator volumes are not modified; they still require the documented numeric ownership.
+
 ## Rebuild collector dependencies and verify restart retention -- 2026-09-09
 
 The monitoring overlay now builds **Prometheus 3.14.0-vulnseal.1** from upstream revision `d7598b7141418fa35be2b5ec5d0fefb634199610`, with SHA-256-pinned source/UI archives and digest-pinned Go/runtime images. Both binaries use **Go 1.27.1**, **x/crypto 0.56.0**, **gRPC 1.83.2**, and their required x/net 0.58.0 / x/text 0.41.0 updates. Module verification and both readonly-module binary builds passed. The upstream versioned UI is embedded, and OCI/binary version metadata identifies this modified build. [Build notes](../infra/monitoring/README.md) describe provenance and limits. CI builds this collector before the functional drill; the independent manual security job builds and scans it too. Workflow image selection was verified locally, but neither modified workflow has run on GitHub.
