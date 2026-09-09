@@ -4,6 +4,7 @@ import { VulnSealApi } from "@vulnseal/api/api";
 import { RoleSession, type RoleCommand } from "@vulnseal/api/role-session";
 import { createCipherstoreClient } from "@vulnseal/api/cipherstore-client";
 import { CipherstoreDestinations } from "./CipherstoreDestinations.js";
+import { uploadSavedBatch } from "./ciphertext-batch.js";
 import type { PublicContractSnapshot, TransactionEvidence } from "@vulnseal/api/types";
 import { createVulnSealPrivateState, pureCircuits } from "@vulnseal/contract";
 import { bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, randomBytes, sealReport, sha256, utf8, validateEnvironment, type VulnerabilityReport } from "@vulnseal/shared";
@@ -87,6 +88,9 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const [confirmation, setConfirmation] = useState("");
   const [address, setAddress] = useState("");
   const [working, setWorking] = useState(false);
+  const batchController = useRef<AbortController | undefined>(undefined);
+  const [batch, setBatch] = useState<{ acknowledged: number; total: number; stopping: boolean }>();
+  useEffect(() => () => { batchController.current?.abort(); }, []);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [receipt, setReceipt] = useState<TransactionEvidence>();
@@ -102,6 +106,25 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const record = snapshot && chosen && snapshot.ledger.reports.member(hexToBytes(chosen.reportId)) ? snapshot.ledger.reports.lookup(hexToBytes(chosen.reportId)) : undefined;
   const status = record ? contractStatusName(record.status) : undefined;
   const backedUp = vault !== undefined && saved === vault;
+  const uploadAll = () => run(async () => {
+    if (!vault || !backedUp) throw new Error("Save the current role backup before uploading");
+    const controller = new AbortController();
+    batchController.current = controller;
+    const reports = [...vault.reports];
+    let acknowledged = 0;
+    setBatch({ acknowledged, total: reports.length, stopping: false });
+    try {
+      acknowledged = await uploadSavedBatch(reports, {
+        signal: controller.signal,
+        upload: uploadDisclosure,
+        progress: (count) => { acknowledged = count; setBatch((previous) => previous && { ...previous, acknowledged: count }); },
+      });
+      setMessage(`${acknowledged} of ${reports.length} saved reports acknowledged by all configured stores.${acknowledged < reports.length ? " Remaining uploads stopped." : ""} Keep your backup; acknowledgments do not guarantee retention. No transaction was submitted.`);
+    } catch (cause) {
+      setSelectedId(reports[acknowledged]!.reportId); setReceipt(undefined);
+      throw new Error(`${acknowledged} of ${reports.length} saved reports acknowledged. Stopped at the selected report; no later reports were uploaded. ${cause instanceof Error ? cause.message : "Storage unavailable"}`);
+    } finally { batchController.current = undefined; setBatch(undefined); }
+  });
   const canLock = backedUp && !working && (!keys || retainedKeys === keys);
   const notes = vault?.reportNotes?.find((entry) => entry.reportId === selectedId);
   const detail = notes?.text ?? "", tier = notes?.tier ?? "3";
@@ -163,6 +186,12 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
       <p>Each workspace holds one contract actor secret. Use a separate browser profile for the other participant. Transactions require Lace and the selected Midnight network; this workspace has no simulated transaction mode.</p>
       {working && <p role="status">Working… A network operation may wait for Lace, proof generation and finality.</p>}
       {error && <p role="alert" className="operation-notice error">{error}</p>}
+      {batch && <section aria-label="Workspace upload progress">
+        <p role="status">{batch.acknowledged} of {batch.total} saved reports acknowledged by all configured stores.</p>
+        <progress aria-label="Acknowledged reports" max={batch.total} value={batch.acknowledged} />
+        <button type="button" disabled={batch.stopping} onClick={() => { batchController.current?.abort(); setBatch((previous) => previous && { ...previous, stopping: true }); }}>Stop remaining uploads</button>
+        {batch.stopping && <p>Stopping after the current report finishes. Its upload may still store ciphertext.</p>}
+      </section>}
       {message && <p role="status" className="operation-notice">{message}</p>}
       {!vault && justLocked && <p role="status">Workspace locked. Unlock a saved browser copy or restore a file to continue with that role or another program.</p>}
       {vault && <section className="form-panel"><h2>Lock or switch workspace</h2>
@@ -246,6 +275,8 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
                   if (!backedUp) throw new Error("Save this report in an encrypted role backup before uploading");
                   await uploadDisclosure(chosen); setMessage("Storage acknowledged the saved ciphertext. Keep your backup; this is not a ledger receipt or a retention guarantee.");
                 })}>Upload saved ciphertext</button>
+                <p>To copy this workspace to the configured stores, upload all saved reports in order. The first unconfirmed upload stops the batch. Repeating it sends the same ciphertext again.</p>
+                <button type="button" className="secondary-button" disabled={!backedUp} onClick={uploadAll}>Upload all saved ciphertext ({vault.reports.length})</button>
               </section>
               <p>Working notes and the selected tier are saved privately per report in encrypted backups and browser autosave. Each report submission also keeps a snapshot in its journal entry, so later edits preserve that earlier context. These are local notes, not verified transaction arguments. Only an explicit transaction publishes its corresponding digest or tier.</p>
               <label>Private decision, patch reference or retest notes<textarea value={detail} onChange={(event) => updateNotes(event.target.value, tier)} /></label><label>Public severity / reward tier<select value={tier} onChange={(event) => updateNotes(detail, event.target.value)}><option>1</option><option>2</option><option>3</option><option>4</option></select></label>

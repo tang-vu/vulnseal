@@ -17,6 +17,12 @@ Reads try destinations in configured order and accept only bytes matching the re
 
 The all-destinations write policy favors completing configured replication over write availability: one unavailable replica prevents a new report's upload gate from completing. It does not prevent reading a valid existing copy elsewhere. A successful HTTP response is an acknowledgment, not proof of lasting retention. The client cannot tell whether a malicious endpoint actually persisted bytes.
 
+## Copy saved workspace reports
+
+To copy existing reports after configuring a new destination, restore the encrypted role backup (offline restore is supported), open Reports and choose **Upload all saved ciphertext**. The current workspace must first be backed up or saved by encrypted browser autosave. The batch sends saved envelopes in order, preserves every key/report ID/content address, and performs no wallet connection or contract submission. Progress counts reports acknowledged by every configured destination, not individual endpoint responses.
+
+The first unconfirmed report stops the batch and becomes the selected report. Earlier copies remain stored; later reports are skipped. Retry the selected report individually or repeat the complete batch with the same saved bytes. The batch keeps no durable upload journal or automatic resume cursor. **Stop remaining uploads** waits for the current report's bounded requests to settle before skipping later reports. Unmounting the workspace also prevents later requests; already-started requests may still store bytes. Keep the encrypted backup regardless of the reported result.
+
 ## Two local services
 
 The existing [container configuration](../infra/cipherstore.yml) can run as two separately named Compose projects. Give each a public env file with a distinct `CIPHERSTORE_PUBLISHED_PORT` (for example 8787 and 8788) and the same intended `CIPHERSTORE_ALLOWED_ORIGIN`. Then run:

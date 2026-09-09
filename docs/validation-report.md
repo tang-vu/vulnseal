@@ -1,5 +1,13 @@
 # Validation report
 
+## Saved workspace ciphertext backfill — 2026-09-09
+
+The role workspace can explicitly upload all backed-up saved reports to its configured destinations. Reports run sequentially; the first unconfirmed upload stops the batch and selects that report. Progress counts all-destination acknowledgments. The stop control remains usable while other workspace controls are locked and skips remaining reports after the active request settles. Component unmount also stops later reports. No envelope, key, report ID, backup schema or wallet state changes, and no durable upload cursor or automatic resume is claimed.
+
+Focused batch/workspace tests passed **14 cases** including the existing backup gate, partial failure, original-object retry, stop and actual component unmount with a held upload. The full web suite passed **24 files / 113 tests in 56.31 seconds**, and web typechecking passed. The two-store browser suite passed **four desktop/mobile cases in 44.8 seconds**. Its restored offline workspace now contains three distinct reports: a simulated replica failure on report two leaves report three untouched, then an explicit full retry stores byte-identical envelopes at both real local services. Both copies of every report were fetched and compared. No wallet connection or POST was allowed. An earlier browser startup failed its build check while the test edits were in progress; the final run above completed without retries or exclusions.
+
+The final normal-configuration `release:build` passed the fresh compiler-source comparison, all six builds and manifest packaging: **eight circuits, 62 files, 62,567,245 bytes**. The previous full 187-test workspace / 66-case ordinary browser baseline below was not rerun in this increment; the changed workspace and two-store browser paths were rerun as stated. No proving keys were regenerated, container images updated, public deployment performed or blockchain transaction submitted. Cross-region durability and native Lace remain outside this evidence.
+
 ## Optional ciphertext replication — 2026-09-09
 
 The browser and exported API client now support an explicit primary plus up to two additional ciphertext endpoints. Upload success requires every configured destination's acknowledgment; a partial failure retains the prepared artifact and has no automatic write retry. Reads move to the next endpoint after failure or invalid bytes, stop at the first digest-verified copy, and never write repair data. URLs reject credentials, query strings, fragments and normalized duplicates; fetches omit credentials/referrers and refuse redirects. The UI exposes destination configuration before upload.

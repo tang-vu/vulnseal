@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { decryptRoleVault, encryptRoleVault } from "./role-recovery.js";
-import { recoveryFixture } from "./test/recovery-fixture.js";
+import { recoveryDraft, recoveryFixture } from "./test/recovery-fixture.js";
 import { RoleAutosave } from "./role-autosave.js";
 import { writeStoredRole } from "./role-storage.js";
 const mocks = vi.hoisted(() => ({ join: vi.fn() }));
@@ -45,6 +45,40 @@ const restore = async (role: "researcher" | "vendor", status: number) => {
 };
 
 describe("independent role workspace", () => {
+  it.each(["stop", "unmount"])("does not upload later saved reports after %s", async (mode) => {
+    const { snapshot } = await recoveryFixture();
+    const second = (await recoveryFixture({ ...recoveryDraft, title: "Another private report" })).snapshot.report!;
+    const reports = [snapshot.report!, second].map((report) => ({ network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: report.id, envelope: report.envelope, key: report.key, salt: report.salt }));
+    const password = "Offline batch test password";
+    const serialized = await encryptRoleVault({ version: 1, role: "researcher", network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, actorSecret: snapshot.researcherSecret, reports }, password);
+    let finish!: (response: Response) => void;
+    const fetchMock = vi.fn<typeof fetch>(() => new Promise<Response>((resolve) => { finish = resolve; }));
+    vi.stubGlobal("fetch", fetchMock);
+    const view = render(<RoleWorkspace />), user = userEvent.setup();
+    await user.click(screen.getByLabelText("Restore backups without connecting Lace"));
+    const file = new File([serialized], "role.json", { type: "application/json" });
+    Object.defineProperty(file, "text", { value: async () => serialized });
+    await user.upload(screen.getByLabelText("Single-role backup file"), file);
+    await user.type(screen.getByLabelText("Role restore password"), password);
+    fireEvent.submit(screen.getByRole("button", { name: "Restore role workspace" }).closest("form")!);
+    await screen.findByRole("heading", { name: "Researcher workspace" });
+    await user.click(screen.getByRole("button", { name: "Upload all saved ciphertext (2)" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock.mock.calls[0]![1]).toMatchObject({ method: "PUT", body: reports[0]!.envelope });
+    if (mode === "unmount") view.unmount();
+    else {
+      await user.click(screen.getByRole("button", { name: "Stop remaining uploads" }));
+      expect(screen.getByText(/Stopping after the current report finishes/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Upload all saved ciphertext (2)" })).toBeDisabled();
+    }
+    await act(async () => { finish(new Response(null, { status: 201 })); });
+    if (mode === "stop") {
+      await screen.findByText(/1 of 2 saved reports acknowledged.*Remaining uploads stopped/);
+      expect(screen.getByRole("button", { name: "Upload all saved ciphertext (2)" })).toBeEnabled();
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(mocks.join).not.toHaveBeenCalled();
+  }, 15_000);
   it("keeps a finalized report receipt exportable when its encrypted checkpoint fails and skips follow-up reads", async () => {
     const { user, session } = await restore("vendor", 0);
     vi.mocked(writeStoredRole).mockImplementationOnce(async (id, label, encrypted, revision) => ({ id, label, encrypted, revision: (revision ?? 0) + 1, updatedAt: new Date().toISOString() }));
@@ -200,6 +234,7 @@ describe("independent role workspace", () => {
       await user.click(screen.getByRole("button", { name: "Reports" }));
       expect(screen.getByRole("button", { name: "Submit prepared report" })).toBeDisabled();
       expect(screen.getByRole("button", { name: "Upload saved ciphertext" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: /Upload all saved ciphertext/ })).toBeDisabled();
       expect(session.execute).not.toHaveBeenCalled();
       await user.click(screen.getByRole("button", { name: "Save role backup" }));
     }

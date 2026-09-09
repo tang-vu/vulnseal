@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect, test } from "@playwright/test";
 import { createHash } from "node:crypto";
-import { recoveryFixture } from "../web/src/test/recovery-fixture.js";
+import { recoveryDraft, recoveryFixture } from "../web/src/test/recovery-fixture.js";
 import { encryptRoleVault } from "../web/src/role-recovery.js";
 
 const primary = "http://127.0.0.1:8797", replica = "http://127.0.0.1:8798";
@@ -55,16 +55,21 @@ test("two stores retain identical ciphertext; a partial upload blocks completion
   expect(writes).toHaveLength(4); // Neither fallback read repairs or writes storage.
 });
 
-test("an offline restored role uploads only its saved envelope to both stores", async ({ page, context }) => {
+test("offline workspace backfill stops on partial replication and retries identical saved envelopes", async ({ page, context }) => {
   const { snapshot } = await recoveryFixture();
   const password = "Replicated private role backup";
-  const report = snapshot.report!;
-  const backup = await encryptRoleVault({ version: 1, role: "researcher", network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, actorSecret: snapshot.researcherSecret, reports: [{ network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: report.id, envelope: report.envelope, key: report.key, salt: report.salt }] }, password);
-  const writes: string[] = [];
+  const reports = [snapshot.report!, (await recoveryFixture({ ...recoveryDraft, title: "Second saved report" })).snapshot.report!, (await recoveryFixture({ ...recoveryDraft, title: "Third saved report" })).snapshot.report!];
+  const backup = await encryptRoleVault({ version: 1, role: "researcher", network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, actorSecret: snapshot.researcherSecret, reports: reports.map((report) => ({ network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: report.id, envelope: report.envelope, key: report.key, salt: report.salt })) }, password);
+  const writes: { origin: string; body: string | null }[] = [];
+  let partial = true;
   await context.route("**/*", (route) => {
     const request = route.request(), origin = new URL(request.url()).origin;
     if (![primary, replica, "http://127.0.0.1:4173"].includes(origin)) return route.abort();
-    if (request.method() === "PUT") { expect(request.postData()).toBe(report.envelope); writes.push(origin); }
+    if (request.method() === "PUT") {
+      expect(reports.map((report) => report.envelope)).toContain(request.postData());
+      writes.push({ origin, body: request.postData() });
+      if (partial && origin === replica && request.postData() === reports[1]!.envelope) return route.fulfill({ status: 503, headers: { "Access-Control-Allow-Origin": "http://127.0.0.1:4173" }, body: "Unavailable" });
+    }
     expect(request.method()).not.toBe("POST");
     return route.continue();
   });
@@ -75,9 +80,17 @@ test("an offline restored role uploads only its saved envelope to both stores", 
   await page.getByRole("button", { name: "Restore role workspace" }).click();
   await expect(page.getByText("Ciphertext storage destinations (2)", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Submit prepared report" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Upload saved ciphertext" }).click();
-  await expect(page.getByText(/Storage acknowledged the saved ciphertext/)).toBeVisible();
-  expect(writes.sort()).toEqual([primary, replica]);
-  const digest = createHash("sha256").update(report.envelope).digest("hex");
-  for (const endpoint of [primary, replica]) expect(await (await context.request.get(`${endpoint}/v1/blobs/sha256:${digest}`)).text()).toBe(report.envelope);
+  await page.getByRole("button", { name: "Upload all saved ciphertext (3)" }).click();
+  await expect(page.getByRole("alert")).toContainText("1 of 3 saved reports acknowledged. Stopped at the selected report");
+  await expect(page.getByLabel("Workspace report")).toHaveValue(reports[1]!.id);
+  expect(writes).toHaveLength(4);
+  expect(writes.some((entry) => entry.body === reports[2]!.envelope)).toBe(false);
+  partial = false;
+  await page.getByRole("button", { name: "Upload all saved ciphertext (3)" }).click();
+  await expect(page.getByText(/3 of 3 saved reports acknowledged by all configured stores/)).toBeVisible();
+  expect(writes).toHaveLength(10);
+  for (const report of reports) {
+    const digest = createHash("sha256").update(report.envelope).digest("hex");
+    for (const endpoint of [primary, replica]) expect(await (await context.request.get(`${endpoint}/v1/blobs/sha256:${digest}`)).text()).toBe(report.envelope);
+  }
 });
