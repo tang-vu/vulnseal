@@ -1,5 +1,11 @@
 # Validation report
 
+## Submission uncertainty handling — 2026-09-09
+
+The browser resolves a transaction identifier and serializes the transaction before invoking the wallet's submission method. Local failures therefore cannot occur after an otherwise successful broadcast in those two steps. A connector-call error becomes `SubmissionOutcomeUnknown`, retaining the identifier and cause without claiming network rejection or retrying. Both browser entries share this provider.
+
+Web typecheck passed. The web suite passed 15 files / 56 tests before one additional provider-wiring assertion; the final targeted provider/submission run passed 2 files / 9 tests (57 distinct web tests across these runs). Tests cover no-identifier and serialization failures before the wallet call, identifier retention when the connector response fails, a single successful submission, and propagation through the actual browser provider with a mocked connector. The production web build was also run. These tests do not submit real transactions or establish native Lace behavior. Durable pending records and later SDK finality-wait error reconciliation remain incomplete.
+
 ## Browser-copy lifecycle validation — 2026-09-09
 
 | Check | Command / environment | Observed result |

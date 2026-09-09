@@ -22,6 +22,7 @@ import type {
 } from "@vulnseal/api/types";
 import type { VulnSealPrivateState } from "@vulnseal/contract";
 import { inMemoryPrivateStateProvider } from "./in-memory-private-state-provider.js";
+import { submitIdentifiedTransaction } from "./submission.js";
 
 declare global {
   interface Window {
@@ -107,10 +108,7 @@ export const initializeBrowserProviders = async (
     midnightProvider: {
       submitTx: async (transaction: FinalizedTransaction): Promise<TransactionId> => {
         await assertConnection(connected, networkId);
-        await connected.submitTransaction(toHex(transaction.serialize()));
-        const identifier = transaction.identifiers()[0];
-        if (identifier === undefined) throw new Error("Submitted transaction has no identifier");
-        return identifier;
+        return submitIdentifiedTransaction(transaction, (serialized) => connected.submitTransaction(serialized));
       },
     },
   };

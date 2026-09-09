@@ -47,4 +47,16 @@ describe("wallet network binding", () => {
     expect(connected.balanceUnsealedTransaction).not.toHaveBeenCalled();
     expect(connected.submitTransaction).not.toHaveBeenCalled();
   });
+
+  it("retains the transaction identifier through a connector submission error", async () => {
+    const connected = wallet();
+    connected.submitTransaction.mockRejectedValue(new Error("Connector response lost"));
+    const providers = await initializeBrowserProviders("preprod");
+    const txId = "12".repeat(32);
+    const tx = { identifiers: () => [txId], serialize: () => Uint8Array.of(1, 2, 3) };
+    await expect(providers.midnightProvider.submitTx(tx as never)).rejects.toMatchObject({
+      name: "SubmissionOutcomeUnknown", transactionId: txId,
+    });
+    expect(connected.submitTransaction).toHaveBeenCalledExactlyOnceWith("010203");
+  });
 });
