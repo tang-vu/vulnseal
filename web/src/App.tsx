@@ -28,6 +28,7 @@ import { defaultProgram, readProgramForm, programConstructor, severityLabel, typ
 import { encryptRecovery, decryptRecovery, verifyRecoveryLedger, type RecoverySnapshot } from "./recovery.js";
 import { RecoveryPanel } from "./RecoveryPanel.js";
 import { PublicLookup } from "./PublicLookup.js";
+import { AttachmentEditor, AttachmentReview } from "./AttachmentFields.js";
 import { parsePublicReceipt } from "./public-verification.js";
 
 type Screen =
@@ -572,7 +573,7 @@ function App() {
       setEvidence([]); setNeedsRefresh(false);
       // Backup history is a local record, never imported finality evidence.
       setEvents(current ? [{ status: restoredStatus, source: "ledger" }] : snapshot.history.map((entry) => ({ status: entry, source: "recovered" })));
-      changeScreen(snapshot.report ? "receipt" : "dashboard");
+      changeScreen(snapshot.report ? "receipt" : "submit");
     } finally { busy.current = false; setOperation({ state: "idle" }); }
   };
 
@@ -770,23 +771,25 @@ function CreateProgram({ mode, connected, operation, onConnect, onSubmit }: { re
 }
 
 function ReportWizard({ report, onChange, onSeal }: { readonly report: VulnerabilityReport; readonly onChange: (report: VulnerabilityReport) => void; readonly onSeal: () => void }) {
+  const [attachmentPending, setAttachmentPending] = useState(false);
+  const [reproductionText, setReproductionText] = useState(() => report.reproductionSteps.join("\n"));
   const update = <K extends keyof VulnerabilityReport>(key: K, value: VulnerabilityReport[K]): void => onChange({ ...report, [key]: value });
   return (
     <section className="page narrow-page">
       <PageHeading eyebrow="Researcher submission" title="Seal a vulnerability report" detail="Everything below stays inside the authenticated ciphertext. Only digests and workflow metadata cross the public boundary." actions={<Pill tone="success">Draft stays local</Pill>} />
       <div className="wizard-steps" aria-label="Submission progress"><div className="active"><span>1</span><small>Report</small></div><div><span>2</span><small>Encrypt</small></div><div><span>3</span><small>Commit</small></div><div><span>4</span><small>Receipt</small></div></div>
-      <form className="form-panel" onSubmit={(event) => { event.preventDefault(); onSeal(); }}>
+      <form className="form-panel" onSubmit={(event) => { event.preventDefault(); if (!attachmentPending) onSeal(); }}>
         <div className="privacy-callout"><span className="lock-mark" aria-hidden="true">◆</span><div><strong>Private input boundary</strong><p>Title, reproduction, impact, attachments, and contact are canonicalized and encrypted in your browser.</p></div><Pill tone="success">Not public</Pill></div>
         <label>Report title<input value={report.title} onChange={(event) => update("title", event.target.value)} required /></label>
         <div className="field-grid"><label>Affected asset<input value={report.affectedAsset} onChange={(event) => update("affectedAsset", event.target.value)} required /></label><label>Weakness<input value={report.weakness} onChange={(event) => update("weakness", event.target.value)} required /></label></div>
         <label>Executive summary<textarea rows={3} value={report.summary} onChange={(event) => update("summary", event.target.value)} required /></label>
-        <label>Reproduction steps<textarea rows={6} value={report.reproductionSteps.join("\n")} onChange={(event) => update("reproductionSteps", event.target.value.split("\n").filter(Boolean))} required /><small>One step per line. Never paste production credentials or third-party personal data.</small></label>
+        <label>Reproduction steps<textarea rows={6} value={reproductionText} onChange={(event) => { setReproductionText(event.target.value); update("reproductionSteps", event.target.value.split("\n").filter((step) => step.trim().length > 0)); }} required /><small>One step per line. Never paste production credentials or third-party personal data.</small></label>
         <label>Impact<textarea rows={3} value={report.impact} onChange={(event) => update("impact", event.target.value)} required /></label>
         <label>Suggested remediation<textarea rows={3} value={report.suggestedRemediation} onChange={(event) => update("suggestedRemediation", event.target.value)} /></label>
         <label>Private researcher contact<input type="email" value={report.researcherContact} onChange={(event) => update("researcherContact", event.target.value)} /><small>Encrypted with the report; never added to public ledger state.</small></label>
-        <div className="attachment-drop"><span aria-hidden="true">＋</span><div><strong>Attachment digests</strong><p>Wave 1 records attachment digests; binary upload is intentionally deferred.</p></div><Pill>0 files</Pill></div>
+        <AttachmentEditor attachments={report.attachments} onChange={(value) => update("attachments", value)} onPending={setAttachmentPending} />
         <label className="check-row"><input type="checkbox" required /><span>I confirm this test was authorized and the report excludes live secrets.</span></label>
-        <div className="form-actions"><span>Next: local AES-256-GCM encryption and Compact commitment.</span><button className="primary-button">Encrypt &amp; seal <span aria-hidden="true">→</span></button></div>
+        <div className="form-actions"><span>Next: local AES-256-GCM encryption and Compact commitment.</span><button className="primary-button" disabled={attachmentPending}>Encrypt &amp; seal <span aria-hidden="true">→</span></button></div>
       </form>
     </section>
   );
@@ -846,7 +849,8 @@ function Triage({ status, reportId, report, usingLocalCiphertext, operation, sev
           <h2>{report.title}</h2><p className="muted">{report.affectedAsset} · {report.weakness}</p>
           <div className="report-section"><span>Summary</span><p>{report.summary}</p></div>
           <div className="report-section"><span>Impact</span><p>{report.impact}</p></div>
-          <div className="report-section"><span>Reproduction</span><ol>{report.reproductionSteps.map((step) => <li key={step}>{step}</li>)}</ol></div>
+          <div className="report-section"><span>Reproduction</span><ol>{report.reproductionSteps.map((step, index) => <li key={index}>{step}</li>)}</ol></div>
+          <AttachmentReview attachments={report.attachments} />
         </section>
         <aside className="panel decision-panel">
           <span className="eyebrow">Authorized decision</span><h2>Triage controls</h2>

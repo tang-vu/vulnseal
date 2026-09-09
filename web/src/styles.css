@@ -390,4 +390,11 @@ input:focus, textarea:focus, select:focus { border-color: #536839; }
 .public-lookup .panel { margin-top: 20px; }
 .public-value { overflow-wrap: anywhere; }
 .public-lookup dd { margin: 6px 0 18px; }
+.attachment-editor { margin: 24px 0; padding: 20px; border: 1px solid var(--line); border-radius: var(--radius); }
+.attachment-editor h2 { margin-top: 0; }
+.attachment-editor p, .attachment-entry p { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.attachment-editor summary { cursor: pointer; padding: 12px 0; }
+.attachment-editor .button-row { flex-wrap: wrap; }
+.attachment-entry { margin: 16px 0; padding: 16px; border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.attachment-entry code { display: block; margin-bottom: 14px; font-size: 12px; }
 button:disabled { cursor: wait; opacity: .55; }
