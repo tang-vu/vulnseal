@@ -1,5 +1,17 @@
 # Validation report
 
+## Preserve uncertain demo transitions through recovery -- 2026-09-09
+
+Combined-demo report transitions now record uncertainty before private-state setup and clear it only after a successful API result. The marker covers triage, accept/reject, patch, retest, payout authorization and closure. Any setup/API error leaves subsequent transaction actions blocked; reset is guarded and its receipt button disabled. Private recovery stays usable after the call returns. A successful transaction followed by a failed public read uses the existing refresh-required path, without retaining false transaction uncertainty. Error labels now say interrupted rather than asserting rejection.
+
+Recovery payload v4 requires a null or supported circuit-name `uncertainTransition`; a non-null marker requires a validated network report. Export/import preserves it even after joining and checking the ledger. Legacy payloads remain readable but cannot carry the new field. Tests reject missing/invalid markers, guided-local/unbound markers and downgrade attempts. The existing pending-initial-submission marker is preserved independently; encrypted envelope and KDF parameters are unchanged.
+
+All **23 tests across App, App.network and recovery passed in 20.17 seconds**. The new UI regression restores a network report, injects a failed triage call, checks repeat-call blocking, downloads/decrypts the actual encrypted backup, restores it with a ledger check, and confirms the marker and reset/transaction block survive. Its initial selector contained a Windows-encoding replacement character; correcting the selector resolved that test failure. The final run also covers successful network transitions and post-finality public-read recovery. Web typechecking passed.
+
+All **four desktop/mobile ciphertext browser cases passed in 1.0 minute** with CI workers and no retries, including a real client timeout, v4 export/decryption, exact-envelope restore and upload retry, plus oversized-response fallback. The normal release build then passed after fresh compiler-source comparison at **14:08:54.014 UTC**: **8 circuits, 62 files, 62,642,750 bytes**. Contract sources and proving keys are unchanged. Full expanded application/browser suites and hosting containers were not rerun.
+
+This is explicit-snapshot preservation, not automatic pre-wallet durability. A tab crash before export, a never-returning SDK call, an old backup, deployment recovery, transaction-identifier journaling and safe reconciliation remain unimplemented for the combined demo. No native Lace or fresh network transaction was used for this verification. See [the recovery design](adr/0006-encrypted-browser-recovery.md#uncertain-network-transitions).
+
 ## Warn before leaving active combined-demo operations ? 2026-09-09
 
 The combined demo now registers its before-unload guard during every working operation, including deployment before a pending report exists. Previously the guard only covered retained pending report preparation. Once work ends, the guard is removed unless pending preparation still requires it; component unmount also removes the listener. This is a browser leave-warning request, not persistence, transaction cancellation or a finality deadline.

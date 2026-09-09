@@ -52,6 +52,57 @@ describe("browser network workflow with mocked wallet and finalized API results"
     expect(leaving()).toBe(false);
   });
 
+  it("keeps failed transition uncertainty across encrypted export and ledger-checked restore", async () => {
+    const user = userEvent.setup();
+    const { snapshot, sealed } = await recoveryFixture();
+    const source = { ...snapshot, mode: "midnight" as const, network: "preprod", contractAddress: "ab".repeat(32) };
+    const password = "Preserve uncertain demo transition";
+    const programId = hexToBytes(snapshot.programId), reportId = hexToBytes(snapshot.report!.id);
+    const record = { commitment: reportId, ciphertextDigest: sealed.ciphertextDigest, researcherKey: pureCircuits.deriveResearcherKey(programId, reportId, hexToBytes(snapshot.researcherSecret)), status: 0, severity: 0n, patchCommitment: new Uint8Array(32), retestCommitment: new Uint8Array(32), payoutReceipt: new Uint8Array(32) };
+    const ledger = { ...await programConstructor(programId, snapshot.policy), ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(snapshot.vendorSecret)), reports: { member: () => true, lookup: () => record } };
+    const api = { contractAddress: source.contractAddress, readPublicState: vi.fn().mockResolvedValue({ ledger }), usePrivateState: vi.fn().mockResolvedValue(undefined), beginTriage: vi.fn().mockRejectedValue(new Error("Finality connection lost")) };
+    mocks.join.mockResolvedValue(api);
+    const restore = async (serialized: string) => {
+      await user.click(screen.getByRole("button", { name: "Private recovery" }));
+      const file = new File([serialized], "recovery.json", { type: "application/json" });
+      Object.defineProperty(file, "text", { value: async () => serialized });
+      await user.upload(screen.getByLabelText("Recovery file"), file);
+      await user.type(screen.getByLabelText("Recovery password"), password);
+      fireEvent.submit(screen.getByRole("button", { name: "Restore encrypted backup" }).closest("form")!);
+      await screen.findByText(/Recovered report.*ledger checked/, {}, { timeout: 5000 });
+    };
+    render(<App />);
+    await restore(await encryptRecovery(source, password));
+    await user.click(screen.getByRole("button", { name: /Continue as vendor/ }));
+    await user.click(await screen.findByRole("button", { name: "Begin authorized triage" }));
+    await screen.findByText("Transaction outcome unknown: beginTriage");
+    await user.click(screen.getByRole("button", { name: "Begin authorized triage" }));
+    expect(api.beginTriage).toHaveBeenCalledOnce();
+    expect(api.usePrivateState).toHaveBeenCalledOnce();
+    let downloaded: Blob | undefined;
+    vi.stubGlobal("URL", class extends URL { static override createObjectURL = (blob: Blob) => { downloaded = blob; return "blob:uncertain-demo"; }; static override revokeObjectURL = vi.fn(); });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    try {
+      await user.click(screen.getByRole("button", { name: "Private recovery" }));
+      await user.type(screen.getByLabelText("Backup password", { exact: true }), password);
+      await user.type(screen.getByLabelText("Confirm backup password"), password);
+      await user.click(screen.getByRole("button", { name: "Download encrypted backup" }));
+      await screen.findByText(/Encrypted backup download started/);
+      const serialized = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsText(downloaded!); });
+      const checked = await decryptRecovery(serialized, password);
+      expect(checked.snapshot.version).toBe(4);
+      expect(checked.snapshot.uncertainTransition).toBe("beginTriage");
+      cleanup(); render(<App />);
+      await restore(serialized);
+      expect(screen.getByRole("button", { name: "Seal another" })).toBeDisabled();
+      expect(screen.getByText("Transaction outcome unknown: beginTriage")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: /Continue as vendor/ }));
+      await user.click(await screen.findByRole("button", { name: "Begin authorized triage" }));
+      expect(api.beginTriage).toHaveBeenCalledOnce();
+      expect(api.usePrivateState).toHaveBeenCalledOnce();
+    } finally { click.mockRestore(); }
+  }, 20_000);
+
   it("restores network authority only after verification and uses ledger progress newer than the backup", async () => {
     const user = userEvent.setup();
     const { snapshot, sealed } = await recoveryFixture();

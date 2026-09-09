@@ -9,8 +9,11 @@ const iterations = 600_000;
 const aad = utf8("vulnseal:browser-recovery:v1");
 const buffer = (value: Uint8Array): ArrayBuffer => Uint8Array.from(value).buffer;
 
+export const uncertainCircuits = ["beginTriage", "acceptReport", "rejectReport", "anchorPatch", "submitRetest", "authorizePayout", "closeReport"] as const;
+export type UncertainCircuit = typeof uncertainCircuits[number];
 export type RecoverySnapshot = {
-  readonly version: 1 | 2 | 3;
+  readonly version: 1 | 2 | 3 | 4;
+  readonly uncertainTransition?: UncertainCircuit | null;
   readonly pendingReport?: { readonly report: NonNullable<RecoverySnapshot["report"]>; readonly submissionStarted: boolean } | null;
   readonly attachmentDraft?: AttachmentDraft | null;
   readonly mode: "guided-local" | "midnight";
@@ -73,7 +76,7 @@ const validateDraft = (input: unknown): VulnerabilityReport => {
 /** Validate decrypted input before allowing it to replace any live session. */
 export const validateRecovery = async (input: unknown): Promise<{ snapshot: RecoverySnapshot; sealed: SealedReport | undefined; pendingSeal?: SealedReport | undefined }> => {
   const value = object(input);
-  if (![1, 2, 3].includes(Number(value.version)) || typeof value.version !== "number" || !["guided-local", "midnight"].includes(String(value.mode))) throw new Error("Unsupported recovery version or mode");
+  if (![1, 2, 3, 4].includes(Number(value.version)) || typeof value.version !== "number" || !["guided-local", "midnight"].includes(String(value.mode))) throw new Error("Unsupported recovery version or mode");
   if (!["undeployed", "local", "preview", "preprod", "mainnet"].includes(String(value.network))) throw new Error("Unsupported recovery network");
   const mode = value.mode as RecoverySnapshot["mode"];
   const contractAddress = optionalHex(value.contractAddress);
@@ -125,8 +128,10 @@ export const validateRecovery = async (input: unknown): Promise<{ snapshot: Reco
     const retested = ["RETEST_FAILED", "RETEST_PASSED", "PAYOUT_AUTHORIZED"].includes(status) || (status === "CLOSED" && history.includes("RETEST_PASSED"));
     if ((snapshot.patch !== null) !== patched || (snapshot.retest !== null) !== retested || (snapshot.payout !== null) !== history.includes("PAYOUT_AUTHORIZED")) throw new Error("Recovery commitments do not match the workflow");
   }
+  if (value.version < 4 && value.uncertainTransition !== undefined) throw new Error("Uncertain transitions require recovery version 4");
+  if (value.version === 4 && value.uncertainTransition !== null && (!uncertainCircuits.includes(value.uncertainTransition as UncertainCircuit) || mode !== "midnight" || !report)) throw new Error("Invalid uncertain recovery transition");
   let pendingSeal: SealedReport | undefined;
-  if (value.version === 3) {
+  if (value.version >= 3) {
     let pendingReport: RecoverySnapshot["pendingReport"] = null;
     if (value.pendingReport !== null) {
       const pending = object(value.pendingReport);
@@ -140,7 +145,7 @@ export const validateRecovery = async (input: unknown): Promise<{ snapshot: Reco
       if (!pendingSeal || pendingSeal.canonicalReport !== canonicalizeReport(draft)) throw new Error("Pending recovery report differs from its draft");
       pendingReport = { report: checked.snapshot.report!, submissionStarted: pending.submissionStarted };
     }
-    return { snapshot: { ...snapshot, pendingReport }, sealed, pendingSeal };
+    return { snapshot: { ...snapshot, pendingReport, ...(value.version === 4 ? { uncertainTransition: value.uncertainTransition as UncertainCircuit | null } : {}) }, sealed, pendingSeal };
   }
   if (value.pendingReport !== undefined) throw new Error("Pending reports require recovery version 3");
   return { snapshot, sealed };

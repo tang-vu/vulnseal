@@ -49,7 +49,8 @@ test("a stalled upload preserves exact ciphertext through encrypted file recover
     const filename = testInfo.outputPath("pending-report-backup.json");
     await (await download).saveAs(filename);
     const recovered = await decryptRecovery(await readFile(filename, "utf8"), "Preserve the original encrypted report");
-    expect(recovered.snapshot.version).toBe(3);
+    expect(recovered.snapshot.version).toBe(4);
+    expect(recovered.snapshot.uncertainTransition).toBeNull();
     expect(recovered.snapshot.report).toBeNull();
     expect(recovered.snapshot.history).toEqual([]);
     expect(recovered.snapshot.pendingReport?.submissionStarted).toBe(false);

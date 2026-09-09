@@ -26,7 +26,7 @@ import {
 import { initializeBrowserProviders } from "./midnight/browser-providers.js";
 import { workflowTimeline, workflowStatement, type WorkflowEvent, type WorkflowTimeline } from "./workflow.js";
 import { defaultProgram, readProgramForm, programConstructor, severityLabel, type ProgramPolicy } from "./program.js";
-import { encryptRecovery, decryptRecovery, verifyRecoveryLedger, type RecoverySnapshot } from "./recovery.js";
+import { encryptRecovery, decryptRecovery, verifyRecoveryLedger, type RecoverySnapshot, type UncertainCircuit } from "./recovery.js";
 import { RecoveryPanel } from "./RecoveryPanel.js";
 import { PublicLookup } from "./PublicLookup.js";
 import { emptyAttachmentDraft, type AttachmentDraft } from "./attachment-draft.js";
@@ -167,13 +167,14 @@ function App() {
   const [evidence, setEvidence] = useState<TransactionEvidence[]>([]);
   const [events, setEvents] = useState<WorkflowEvent[]>([]);
   const [needsRefresh, setNeedsRefresh] = useState(false);
+  const [uncertainTransition, setUncertainTransition] = useState<UncertainCircuit | null>(null);
   const [operation, setOperation] = useState<Operation>({ state: "idle" });
   useEffect(() => {
-    if (!pendingPreparation && operation.state !== "working") return;
+    if (!pendingPreparation && !uncertainTransition && operation.state !== "working") return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [pendingPreparation, operation.state]);
+  }, [pendingPreparation, uncertainTransition, operation.state]);
   const [patchReference, setPatchReference] = useState("release/2026.09.1+7f34c82");
   const [retestNotes, setRetestNotes] = useState("Original reproduction now returns HTTP 403 for the cross-tenant request.");
 
@@ -189,6 +190,10 @@ function App() {
 
   const beginAction = (allowed?: readonly ReportStatusName[]): boolean => {
     if (busy.current) return false;
+    if (uncertainTransition) {
+      setOperation({ state: "error", label: "Transaction outcome needs reconciliation", detail: "Keep an encrypted backup. Further transactions and resetting this report are blocked because the previous call may still finalize." });
+      return false;
+    }
     if (needsRefresh) {
       setOperation({ state: "error", label: "Public commitments need a refresh", detail: "The transaction finalized. Refresh public commitments before continuing; do not resubmit it." });
       return false;
@@ -394,18 +399,20 @@ function App() {
       if (kind !== "triage" && !rationale.trim()) throw new Error("Enter a private decision rationale");
       let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
+        setUncertainTransition(kind === "triage" ? "beginTriage" : kind === "accept" ? "acceptReport" : "rejectReport");
         await api.usePrivateState(createVulnSealPrivateState(vendorSecret));
         transaction = kind === "triage"
           ? await api.beginTriage(reportId)
           : kind === "accept"
             ? await api.acceptReport(reportId, BigInt(severity), await sha256(utf8(rationale.trim())))
             : await api.rejectReport(reportId, await sha256(utf8(rationale.trim())));
+        setUncertainTransition(null);
       }
       if (kind === "accept") setAcceptedSeverity(severity);
       recordTransition(kind === "triage" ? "TRIAGED" : kind === "accept" ? "ACCEPTED" : "REJECTED", transaction);
       setOperation({ state: "idle" });
     } catch (error) {
-      setOperation({ state: "error", label: "Transition rejected", detail: error instanceof Error ? error.message : "Unknown transition error" });
+      setOperation({ state: "error", label: "Transition interrupted", detail: error instanceof Error ? error.message : "Unknown transition error" });
     } finally { busy.current = false; }
   };
 
@@ -418,6 +425,7 @@ function App() {
       const patchDigest = await sha256(utf8(patchReference));
       let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
+        setUncertainTransition("anchorPatch");
         await api.usePrivateState(
           createVulnSealPrivateState(vendorSecret, undefined, {
             reportId,
@@ -425,6 +433,7 @@ function App() {
           }),
         );
         transaction = await api.anchorPatch(reportId);
+        setUncertainTransition(null);
       }
       setPatchCommitment(api ? undefined : patchDigest);
       setRetestCommitment(undefined);
@@ -446,6 +455,7 @@ function App() {
       const evidenceDigest = await sha256(utf8(retestNotes));
       let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
+        setUncertainTransition("submitRetest");
         await api.usePrivateState(
           createVulnSealPrivateState(
             researcherSecret,
@@ -463,13 +473,14 @@ function App() {
           ),
         );
         transaction = await api.submitRetest(reportId, passed);
+        setUncertainTransition(null);
       }
       setRetestCommitment(api ? undefined : evidenceDigest);
       recordTransition(passed ? "RETEST_PASSED" : "RETEST_FAILED", transaction);
       if (api) await refreshCommitments(passed ? "RETEST_PASSED" : "RETEST_FAILED");
       setOperation({ state: "idle" });
     } catch (error) {
-      setOperation({ state: "error", label: "Retest rejected", detail: error instanceof Error ? error.message : "Unknown retest error" });
+      setOperation({ state: "error", label: "Retest interrupted", detail: error instanceof Error ? error.message : "Unknown retest error" });
     } finally { busy.current = false; }
   };
 
@@ -481,15 +492,17 @@ function App() {
       const receipt = api ? undefined : await sha256(utf8(`local-preview:${bytesToHex(reportId)}:tier-${acceptedSeverity}`));
       let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
+        setUncertainTransition("authorizePayout");
         await api.usePrivateState(createVulnSealPrivateState(vendorSecret));
         transaction = await api.authorizePayout(reportId, BigInt(acceptedSeverity));
+        setUncertainTransition(null);
       }
       recordTransition("PAYOUT_AUTHORIZED", transaction);
       setPayoutReceipt(receipt);
       if (api) await refreshCommitments("PAYOUT_AUTHORIZED");
       setOperation({ state: "idle" });
     } catch (error) {
-      setOperation({ state: "error", label: "Payout authorization rejected", detail: error instanceof Error ? error.message : "Unknown authorization error" });
+      setOperation({ state: "error", label: "Payout authorization interrupted", detail: error instanceof Error ? error.message : "Unknown authorization error" });
     } finally { busy.current = false; }
   };
 
@@ -499,8 +512,10 @@ function App() {
     try {
       let transaction: TransactionEvidence | undefined;
       if (api) {
+        setUncertainTransition("closeReport");
         await api.usePrivateState(createVulnSealPrivateState(vendorSecret));
         transaction = await api.closeReport(reportId);
+        setUncertainTransition(null);
       }
       recordTransition("CLOSED", transaction);
       setOperation({ state: "idle" });
@@ -511,7 +526,7 @@ function App() {
   };
 
   const resetDemo = (): void => {
-    if (busy.current) return;
+    if (busy.current || uncertainTransition) return;
     setSealed(undefined);
     setPendingPreparation(undefined);
     setVendorReport(undefined);
@@ -538,7 +553,7 @@ function App() {
     try {
       const encode = (value?: Uint8Array) => value ? bytesToHex(value) : null;
       const snapshot: RecoverySnapshot = {
-        version: 3, attachmentDraft, pendingReport: pendingPreparation ? { report: { envelope: pendingPreparation.sealed.serializedEnvelope, key: bytesToHex(pendingPreparation.sealed.key), salt: bytesToHex(pendingPreparation.salt), id: bytesToHex(pendingPreparation.id) }, submissionStarted: pendingPreparation.submissionStarted } : null, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
+        version: 4, uncertainTransition, attachmentDraft, pendingReport: pendingPreparation ? { report: { envelope: pendingPreparation.sealed.serializedEnvelope, key: bytesToHex(pendingPreparation.sealed.key), salt: bytesToHex(pendingPreparation.salt), id: bytesToHex(pendingPreparation.id) }, submissionStarted: pendingPreparation.submissionStarted } : null, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
         programId: bytesToHex(programBytes), policy: programPolicy, vendorSecret: bytesToHex(vendorSecret), researcherSecret: bytesToHex(researcherSecret), draft: report,
         report: sealed && reportSalt && reportId ? { envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt), id: bytesToHex(reportId) } : null,
         status, history: events.map((event) => event.status), patch: encode(patchCommitment), retest: encode(retestCommitment), payout: encode(payoutReceipt),
@@ -591,7 +606,7 @@ function App() {
       const restoredSeverity = current && current.severity > 0n ? Number(current.severity) : snapshot.severity;
       setSeverity(restoredSeverity); setAcceptedSeverity(restoredSeverity);
       setRationale(snapshot.rationale); setPatchReference(snapshot.patchReference); setRetestNotes(snapshot.retestNotes);
-      setEvidence([]); setNeedsRefresh(false);
+      setEvidence([]); setNeedsRefresh(false); setUncertainTransition(snapshot.uncertainTransition ?? null);
       // Backup history is a local record, never imported finality evidence.
       setEvents(current ? [{ status: restoredStatus, source: "ledger" }] : snapshot.history.map((entry) => ({ status: entry, source: "recovered" })));
       changeScreen(snapshot.report ? "receipt" : "submit");
@@ -612,7 +627,7 @@ function App() {
       case "seal":
         return <SealProgress operation={operation} hasPreparation={pendingPreparation !== undefined} canRetry={!pendingPreparation?.submissionStarted} onRetry={() => void submitSealedReport()} onBack={() => changeScreen("submit")} />;
       case "receipt":
-        return <Receipt sealed={sealed} reportId={reportId} evidence={evidence} network={api !== undefined} onTriage={() => void openVendorReview()} onReset={resetDemo} />;
+        return <Receipt sealed={sealed} reportId={reportId} evidence={evidence} network={api !== undefined} onTriage={() => void openVendorReview()} onReset={resetDemo} resetBlocked={uncertainTransition !== null} />;
       case "triage":
         return <Triage status={status} reportId={reportId} report={vendorReport} usingLocalCiphertext={usingLocalCiphertext} operation={operation} severity={severity} rationale={rationale} onSeverity={setSeverity} onRationale={setRationale} onBegin={() => void vendorTransition("triage")} onAccept={() => void vendorTransition("accept")} onReject={() => void vendorTransition("reject")} onResolution={() => changeScreen("resolution", "vendor")} onClose={() => void closeReport()} />;
       case "resolution":
@@ -667,6 +682,7 @@ function App() {
       )}
       {screen === "lookup" && <div className="truth-banner"><span>Read-only public lookup</span>No private report material, wallet connection, or transaction submission is used here.</div>}
       {runtimeMode === "midnight" && !networkReady && screen !== "lookup" && <div className="truth-banner" role="status"><span>Network setup required</span>Connect Lace and create a program before submitting a report. <button className="secondary-button" onClick={() => changeScreen("create", "vendor")}>Set up program</button></div>}
+      {uncertainTransition && <div className="truth-banner" role="alert"><span>Transaction outcome unknown: {uncertainTransition}</span>Keep an encrypted backup through Private recovery. Further transactions and resetting this report are blocked, including after restore. A ledger refresh does not establish whether this attempt is safe to repeat.</div>}
       <div className="session-actions"><a className="secondary-button" href="./#roles" target="_blank" rel="noreferrer noopener">Open role workspace</a><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("handoff")}>Private exchange</button><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("lookup", "verifier")}>Independent verifier</button><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("recovery")}>Private recovery</button>{reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("receipt")}>Submission receipt</button>}{api && reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={exportPublicReceipt}>Download public receipt</button>}{needsRefresh && <button className="primary-button" disabled={operation.state === "working"} onClick={() => void retryPublicRead()}>Refresh public commitments</button>}</div>
       {operation.state === "error" && screen !== "seal" && (
         <div className="global-operation" role="alert">
@@ -844,7 +860,7 @@ function SealProgress({ operation, hasPreparation, canRetry, onRetry, onBack }: 
   );
 }
 
-function Receipt({ sealed, reportId, evidence, network, onTriage, onReset }: { readonly sealed: SealedReport | undefined; readonly reportId: Uint8Array | undefined; readonly evidence: readonly TransactionEvidence[]; readonly network: boolean; readonly onTriage: () => void; readonly onReset: () => void }) {
+function Receipt({ sealed, reportId, evidence, network, onTriage, onReset, resetBlocked }: { readonly sealed: SealedReport | undefined; readonly reportId: Uint8Array | undefined; readonly evidence: readonly TransactionEvidence[]; readonly network: boolean; readonly onTriage: () => void; readonly onReset: () => void; readonly resetBlocked: boolean }) {
   const tx = [...evidence].reverse().find((entry: TransactionEvidence) => entry.circuit === "submitReport");
   if (sealed === undefined || reportId === undefined) return <section className="page"><EmptyState title="No receipt yet" detail="Seal a report to create a content digest and Compact commitment." /></section>;
   return (
@@ -861,7 +877,7 @@ function Receipt({ sealed, reportId, evidence, network, onTriage, onReset }: { r
         {tx && <div className="tx-evidence"><span>Transaction ID</span><code>{tx.txId}</code></div>}
       </section>
       <div className="warning-box"><span aria-hidden="true">!</span><div><strong>Back up your private material</strong><p>Open Private recovery to download a password-encrypted backup before closing this tab. Public state cannot recover your secrets. Keep the backup private; it controls both experimental roles.</p></div></div>
-      <div className="button-row centered"><button className="secondary-button" onClick={onReset}>Seal another</button><button className="primary-button" onClick={onTriage}>Continue as vendor <span aria-hidden="true">→</span></button></div>
+      <div className="button-row centered"><button className="secondary-button" disabled={resetBlocked} onClick={onReset}>Seal another</button><button className="primary-button" onClick={onTriage}>Continue as vendor <span aria-hidden="true">→</span></button></div>
     </section>
   );
 }

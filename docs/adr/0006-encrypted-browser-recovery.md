@@ -28,6 +28,14 @@ Network transaction history is not reconstructed from private backup claims. The
 
 Vendor review normally retrieves ciphertext from the store. If retrieval fails or returns a digest mismatch, the locally held encrypted copy can be authenticated and decrypted instead; the UI explicitly labels that fallback. The backup includes that encrypted copy, so store withholding does not prevent the owner from reopening a backed-up report.
 
+## Uncertain network transitions
+
+Recovery payload v4 adds a required `uncertainTransition` field: null, or one of the seven existing-report circuit names. A non-null value requires network mode and a validated report. Versions 1-3 remain readable but cannot carry this field; a v4 document missing it is rejected. The encrypted envelope/KDF are unchanged. Pending initial submissions retain their separate v3 `submissionStarted` marker.
+
+The combined demo sets the marker before private-state setup for triage, acceptance/rejection, patch, retest, payout authorization and closure. Only a successful API result clears it, before any follow-up public read. An API/private-state error therefore blocks further transactions and the report-reset action; it does not label the transaction as failed. The UI keeps a visible explanation, private backup access after the call returns, and a leave warning. Export preserves the marker; joining and checking the ledger during import does not clear it. There is no manual unlock or automatic retry because observing current report state alone does not reconcile a particular attempt.
+
+This is conservative explicit-snapshot recovery, not a durable pre-wallet journal. Even an error before broadcast retains uncertainty. A tab crash before export, a never-returning call, an older backup, initial deployment recovery, transaction identifiers and safe reconciliation remain separate gaps. Do not interpret a null/missing legacy marker as proof that there is no pending transaction.
+
 ## Operational limits
 
 This is an explicit snapshot, not automatic persistence. Save a new file after new reports, secrets, or private evidence. Losing both the current tab and the latest backup loses any newer material. Transactions interrupted before their results are captured still require a separate pending-transaction recovery design.

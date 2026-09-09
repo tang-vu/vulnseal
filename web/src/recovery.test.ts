@@ -9,6 +9,17 @@ import { recoveryFixture, recoveryDraft as draft } from "./test/recovery-fixture
 const password = "test-only recovery password";
 
 describe("encrypted browser recovery", () => {
+  it("preserves v4 uncertainty and rejects missing, downgraded or unbound markers", async () => {
+    const { snapshot } = await recoveryFixture();
+    const uncertain = { ...snapshot, version: 4 as const, attachmentDraft: null, pendingReport: null, mode: "midnight" as const, network: "preprod", contractAddress: "ab".repeat(32), uncertainTransition: "beginTriage" as const };
+    expect((await decryptRecovery(await encryptRecovery(uncertain, password), password)).snapshot).toEqual(uncertain);
+    for (const change of [{ uncertainTransition: undefined }, { uncertainTransition: "constructor" }, { uncertainTransition: true }, { mode: "guided-local", contractAddress: null }, { report: null, history: [] }]) {
+      await expect(validateRecovery({ ...uncertain, ...change })).rejects.toThrow("Invalid uncertain recovery transition");
+    }
+    await expect(validateRecovery({ ...uncertain, version: 3 })).rejects.toThrow("require recovery version 4");
+    expect((await validateRecovery({ ...uncertain, uncertainTransition: null })).snapshot.uncertainTransition).toBeNull();
+  });
+
   it("preserves pending ciphertext without completed history and rejects inconsistent pending recovery", async () => {
     const { snapshot, sealed } = await recoveryFixture();
     const pending = { ...snapshot, version: 3 as const, attachmentDraft: null, report: null, history: [], pendingReport: { report: snapshot.report!, submissionStarted: false } };
