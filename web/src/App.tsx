@@ -156,12 +156,6 @@ function App() {
   const [attachmentDraft, setAttachmentDraft] = useState<AttachmentDraft>(emptyAttachmentDraft);
   const [sealed, setSealed] = useState<SealedReport>();
   const [pendingPreparation, setPendingPreparation] = useState<{ sealed: SealedReport; salt: Uint8Array; id: Uint8Array; submissionStarted: boolean }>();
-  useEffect(() => {
-    if (!pendingPreparation) return;
-    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [pendingPreparation]);
   const [vendorReport, setVendorReport] = useState<VulnerabilityReport>();
   const [usingLocalCiphertext, setUsingLocalCiphertext] = useState(false);
   const [reportSalt, setReportSalt] = useState<Uint8Array>();
@@ -174,6 +168,12 @@ function App() {
   const [events, setEvents] = useState<WorkflowEvent[]>([]);
   const [needsRefresh, setNeedsRefresh] = useState(false);
   const [operation, setOperation] = useState<Operation>({ state: "idle" });
+  useEffect(() => {
+    if (!pendingPreparation && operation.state !== "working") return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [pendingPreparation, operation.state]);
   const [patchReference, setPatchReference] = useState("release/2026.09.1+7f34c82");
   const [retestNotes, setRetestNotes] = useState("Original reproduction now returns HTTP 403 for the cross-tenant request.");
 

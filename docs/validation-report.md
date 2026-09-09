@@ -1,5 +1,13 @@
 # Validation report
 
+## Warn before leaving active combined-demo operations ? 2026-09-09
+
+The combined demo now registers its before-unload guard during every working operation, including deployment before a pending report exists. Previously the guard only covered retained pending report preparation. Once work ends, the guard is removed unless pending preparation still requires it; component unmount also removes the listener. This is a browser leave-warning request, not persistence, transaction cancellation or a finality deadline.
+
+The new injected-deployment regression verifies no idle warning, a warning during an unresolved deployment, and guard removal after failure/unmount. Its initial assertion failed because the same error appears in two UI locations; correcting the selector produced **13 passing tests across both App test files in 15.59 seconds**, including existing upload-retry warning preservation/removal. Web typechecking passed. The normal release build passed after fresh source comparison at **14:01:49.689 UTC**: **8 circuits, 62 files, 62,637,586 bytes**. Contract sources and proving keys are unchanged. No native browser close-dialog or Lace transaction was exercised in this increment.
+
+Review confirmed that the combined demo still lacks the role workspace's durable per-attempt transaction journal. Its unknown-outcome handling, deployment recovery and bounded finality wait require further implementation; this warning does not close those gaps. Existing hosting evidence remains scoped to its previous image/release bytes.
+
 ## Add full-artifact release verification workflow ? 2026-09-09
 
 The separate manual `Release verification` workflow now starts from checkout and performs full Compact 0.31.1 compilation, including fresh proving keys/binary ZKIR, before six-workspace validation, release packaging/comparison, web image construction and the existing desktop/mobile HTTP/container drill. Actions are pinned to the same exact commits as ordinary CI; permissions are limited to repository reads. Full compilation has a thirty-minute limit and the job ninety minutes. There is no skip-ZK or missing-key fallback, publication, image push or wallet operation. Ordinary PR CI remains unchanged.

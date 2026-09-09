@@ -29,6 +29,29 @@ describe("browser network workflow with mocked wallet and finalized API results"
   });
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+  it("warns before leaving a pending deployment and releases the guard after failure", async () => {
+    const user = userEvent.setup();
+    let fail!: (error: Error) => void;
+    mocks.deploy.mockImplementation(() => new Promise((_resolve, reject) => { fail = reject; }));
+    const leaving = () => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    const view = render(<App />);
+    expect(leaving()).toBe(false);
+    await user.click(screen.getByRole("button", { name: "Guided local" }));
+    await user.click(await screen.findByRole("button", { name: "Set up program" }));
+    await user.click(screen.getByRole("button", { name: "Create program" }));
+    expect(mocks.deploy).toHaveBeenCalledOnce();
+    expect(leaving()).toBe(true);
+    await act(async () => { fail(new Error("Deployment interrupted")); });
+    expect(await screen.findAllByText("Deployment interrupted")).not.toHaveLength(0);
+    expect(leaving()).toBe(false);
+    view.unmount();
+    expect(leaving()).toBe(false);
+  });
+
   it("restores network authority only after verification and uses ledger progress newer than the backup", async () => {
     const user = userEvent.setup();
     const { snapshot, sealed } = await recoveryFixture();
