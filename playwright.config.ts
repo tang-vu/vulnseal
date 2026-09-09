@@ -20,7 +20,7 @@ export default defineConfig({
   webServer: [
     {
       command: "npm run dev -w @vulnseal/cipherstore",
-      url: "http://127.0.0.1:8797/healthz",
+      url: "http://127.0.0.1:8797/readyz",
       env: {
         CIPHERSTORE_ALLOWED_ORIGIN: "http://127.0.0.1:4173",
         CIPHERSTORE_PORT: "8797",

@@ -23,6 +23,25 @@ describe("ciphertext-only content store", () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()) ?? resolve());
   });
 
+  it("separates storage readiness from liveness and removes concurrent readiness probes", async () => {
+    const dataDirectory = await mkdtemp(path.join(tmpdir(), "vulnseal-readiness-"));
+    server = createCipherstoreServer({ dataDirectory, maxStoredBlobs: 1 });
+    await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
+    const address = server.address(); if (!address || typeof address === "string") throw new Error("No TCP address");
+    const base = `http://127.0.0.1:${address.port}`;
+    const probes = await Promise.all(Array.from({ length: 8 }, () => fetch(`${base}/readyz`)));
+    expect(probes.every((response) => response.status === 200)).toBe(true);
+    expect(await probes[0]!.json()).toEqual({ status: "ready", storage: "writable", capacity: "available" });
+    expect(await readdir(dataDirectory)).toEqual([]);
+    const digest = createHash("sha256").update(envelope).digest("hex");
+    expect((await fetch(`${base}/v1/blobs/sha256:${digest}`, { method: "PUT", headers: { "content-type": MEDIA_TYPE }, body: envelope })).status).toBe(201);
+    const full = await fetch(`${base}/readyz`);
+    expect(full.status).toBe(503); expect(await full.json()).toEqual({ status: "not_ready", error: "storage_capacity_exceeded" });
+    expect((await fetch(`${base}/healthz`)).status).toBe(200);
+    expect((await fetch(`${base}/v1/blobs/sha256:${digest}`)).status).toBe(200);
+    expect(await readdir(dataDirectory)).toEqual([`${digest}.ciphertext.json`]);
+  });
+
   it.each([
     { maxStoredBytes: Buffer.byteLength(envelope), maxStoredBlobs: 10 },
     { maxStoredBytes: 10_000, maxStoredBlobs: 1 },
@@ -159,5 +178,10 @@ describe("ciphertext-only content store", () => {
     const response = await fetch(`http://127.0.0.1:${address.port}/v1/blobs/sha256:${"0".repeat(64)}`);
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: "storage_unavailable" });
+    const base = `http://127.0.0.1:${address.port}`;
+    expect((await fetch(`${base}/healthz`)).status).toBe(200);
+    const readiness = await fetch(`${base}/readyz`);
+    expect(readiness.status).toBe(503);
+    expect(await readiness.json()).toEqual({ status: "not_ready", error: "storage_unavailable" });
   });
 });

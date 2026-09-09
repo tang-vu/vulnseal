@@ -1,5 +1,11 @@
 # Validation report
 
+## Cipherstore storage readiness — 2026-09-09
+
+The service now exposes `/readyz` independently of `/healthz`. It checks aggregate quota headroom and exercises actual write, flush, hard-link publication, read-back and cleanup in the configured directory. Simultaneous probes share one in-flight operation. Full quota or inaccessible storage returns 503 without exposing paths; liveness and existing reads remain available at capacity.
+
+The cipherstore suite passed 9 tests and its TypeScript build passed. The new real-filesystem/HTTP assertions cover concurrent probes leaving no files, quota exhaustion after a successful upload, liveness/read continuity at capacity and non-directory storage failure. The production browser harness now waits on readiness; desktop/mobile guided disclosure checks passed 2 cases in 1.0 minute, including the web typecheck/build and real ciphertext service. This is a point-in-time disk probe, not an upload reservation or a deployed monitoring system. See [the operator guide](cipherstore-operations.md).
+
 ## Cipherstore capacity controls — 2026-09-09
 
 | Check | Command / environment | Observed result |

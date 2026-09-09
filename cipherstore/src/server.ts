@@ -108,6 +108,25 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
   }
   if (maxConcurrentUploads < 1) throw new Error("Cipherstore upload concurrency must be positive");
   let activeUploads = 0;
+  let readiness: Promise<void> | undefined;
+  const checkReadiness = (): Promise<void> => {
+    if (readiness) return readiness;
+    const work = withDirectoryWrite(dataDirectory, async () => {
+      await mkdir(dataDirectory, { recursive: true });
+      await checkCapacity(dataDirectory, 1, maxStoredBytes, maxStoredBlobs);
+      const probe = path.join(dataDirectory, `.readiness-${randomUUID()}.tmp`);
+      const bytes = Buffer.from("vulnseal-storage-probe");
+      try {
+        await storeImmutable(probe, bytes);
+        if (!(await readFile(probe)).equals(bytes)) throw new Error("READINESS_PROBE_MISMATCH");
+      } finally {
+        try { await unlink(probe); } catch (error) { if (errorCode(error) !== "ENOENT") throw error; }
+      }
+    });
+    readiness = work;
+    void work.finally(() => { if (readiness === work) readiness = undefined; }).catch(() => {});
+    return work;
+  };
   return createServer(async (request, response) => {
     response.setHeader("cache-control", "no-store");
     response.setHeader("x-content-type-options", "nosniff");
@@ -123,6 +142,16 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
     }
     if (request.url === "/healthz" && request.method === "GET") {
       json(response, 200, { status: "ok", stores: "ciphertext-only" });
+      return;
+    }
+    if (request.url === "/readyz" && request.method === "GET") {
+      try {
+        await checkReadiness();
+        json(response, 200, { status: "ready", storage: "writable", capacity: "available" });
+      } catch (error) {
+        const full = error instanceof Error && error.message === "STORAGE_CAPACITY_EXCEEDED" || ["ENOSPC", "EDQUOT"].includes(errorCode(error) ?? "");
+        json(response, 503, { status: "not_ready", error: full ? "storage_capacity_exceeded" : "storage_unavailable" });
+      }
       return;
     }
     const match = digestPattern.exec(request.url ?? "");
