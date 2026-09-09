@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+{
+	admin off
+	auto_https off
+	persist_config off
+}
+
+:8080 {
+	@entry path /
+	header @entry Cache-Control no-store
+	redir / /releases/{$WEB_ACTIVE_RELEASE}/ 302
+	handle /healthz {
+		rewrite * /index.html
+		reverse_proxy {$WEB_ACTIVE_UPSTREAM}
+	}
+	handle_path /releases/{$WEB_RELEASE_A}/* {
+		reverse_proxy release-a:8080
+	}
+	handle_path /releases/{$WEB_RELEASE_B}/* {
+		reverse_proxy release-b:8080
+	}
+	handle {
+		respond "Release not found" 404
+	}
+}

@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: Apache-2.0
+x-runtime: &runtime
+  read_only: true
+  init: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 64
+  mem_limit: 256m
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  release-a:
+    <<: *runtime
+    image: ${WEB_RELEASE_A_IMAGE:?Set an immutable release A image}
+  release-b:
+    <<: *runtime
+    image: ${WEB_RELEASE_B_IMAGE:?Set an immutable release B image}
+  ingress:
+    <<: *runtime
+    image: vulnseal-web-rollout:local
+    build:
+      context: ..
+      dockerfile: infra/web-rollout.Dockerfile
+    environment:
+      WEB_RELEASE_A: ${WEB_RELEASE_A:?Set release A ID}
+      WEB_RELEASE_B: ${WEB_RELEASE_B:?Set release B ID}
+      WEB_ACTIVE_RELEASE: ${WEB_ACTIVE_RELEASE:?Choose the active release ID}
+    depends_on:
+      release-a:
+        condition: service_healthy
+      release-b:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${WEB_PUBLISHED_PORT:-8080}:8080"

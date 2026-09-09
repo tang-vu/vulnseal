@@ -1,5 +1,15 @@
 # Validation report
 
+## Retained release promotion and rollback — 2026-09-09
+
+The new Compose topology runs two immutable-reference web backends behind a digest-pinned Caddy ingress. Separate release IDs retain their directory routes; promotion changes only the non-cacheable root redirect. The ingress startup script rejects duplicate IDs, malformed IDs and unknown active IDs. Image build/config validation and all three actual container rejection checks passed.
+
+Two checked web images were built from the same application source with different public ciphertext configuration: A used a synthetic localhost endpoint on port 8898 and B used normal configuration. Four JavaScript files differ between their inventories. Both six-workspace release builds, image packaging gates and Caddy validation passed. A's 62-file inventory is retained in [web-rollout-a-manifest.json](evidence/web-rollout-a-manifest.json); B remains the normal local release artifact. This is a routing/asset-retention drill with distinct compiled chunks, not an application-schema migration or a test of the synthetic endpoint.
+
+The first drill stopped on an HTTP `ECONNRESET` without a verified promotion result and cleaned its project. A bounded read-only root readiness probe was added for transport errors after ingress creation/recreation; it does not retry bad status/redirect assertions, artifact checks or wallet actions. The subsequent complete drill passed at `2026-09-09T09:02:25.943Z`. Both 62-file releases plus their directory indexes matched local hashes/MIME checks before promotion and after rollback. Chrome kept the old A page at its retained URL, opened A's distinct role-workspace chunk after promotion to B, and new root visits selected B. Rollback selected A while B's path remained intact. The two backend container IDs and serving origin remained unchanged.
+
+[The captured result](evidence/web-rollout-drill.json) records both exact image IDs, ingress image and transfer inventories. The uniquely named Compose project, network and temporary env file were removed; images were retained. The final normal B artifact has 62,534,360 bytes across 62 files and eight proving circuits. No production endpoint, wallet, blockchain write, container vulnerability scan or new full workspace/browser run is claimed. The preceding 64-browser regression remains the application baseline. See [the rollout guide](web-rollout.md) for the two-slot limit, brief ingress recreation interruption and remaining deployment work.
+
 ## Release directory routing — 2026-09-09
 
 The production build now emits relative asset URLs. The browser proving provider resolves resources beside the current index document, and demo/role links preserve that release directory. The HTTP release checker accepts a trailing-slash subdirectory base URL while retaining HTTPS/loopback, redirect, byte/hash and MIME requirements. Four release-tooling tests passed, including actual nested HTTP request paths and relative HTML entrypoints; seven browser-provider tests passed, including verifier/prover/ZKIR requests under a release prefix.

@@ -25,6 +25,8 @@ Deploy a complete versioned image rather than modifying individual served files.
 
 ## Mount a release below a stable path
 
+For a runnable two-backend configuration and promotion/rollback drill, see [retained web releases](web-rollout.md).
+
 The web build now uses relative asset URLs. Its proving-key provider resolves `keys/` and `zkir/` beside the loaded index document, and demo/role links retain that directory. A complete release can therefore be served at `/releases/v1/` or at the origin root. Always use a trailing slash for a directory URL, or the explicit `index.html` URL; browsers resolve relative paths against that directory. Do not redirect an old release path to newly compiled keys or a different release.
 
 For a host-installed Caddy ingress, the following route illustrates mounting a retained release container on localhost port 8081. Add it inside the existing HTTPS site configuration; substitute the actual release path and backend. Caddy's [handle_path](https://caddyserver.com/docs/caddyfile/directives/handle_path) strips the prefix before [reverse_proxy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy) forwards the request to the container's root:

@@ -23,6 +23,8 @@ The startup error screen also offers export-only access to encrypted browser cop
 
 ## Work still required
 
+A two-backend rollout configuration now retains separate release paths while changing only the root redirect. A local drill used two distinct compiled images, promoted A to B, loaded A's old role-workspace chunk from an already open A page, rolled back and rehashed both artifacts. Backend container identities and the serving origin stayed fixed. This implements local two-release retention and rollback; public ingress/TLS, high availability, retention expiry and cross-schema compatibility remain operator/release work. See [retained web releases](web-rollout.md).
+
 The web build now supports a release subdirectory: relative entrypoints/chunks, directory-relative proving resources and links that preserve the current release path. The HTTP artifact checker accepts a directory base URL. This removes the origin-root assumption needed for retained release routes, while actual multi-version retention, traffic switching, expiry, backup-schema compatibility and public ingress remain deployment work.
 
 Role-vault v8 now preserves private working-note/tier snapshots with individual report submission attempts before the encrypted pre-wallet checkpoint. Later edits preserve old snapshots, and encrypted file/browser recovery retains them. The wallet-free inspector excludes this private context from its projection. These snapshots improve per-report history but are neither authenticated circuit arguments nor a cryptographic append-only log; native-wallet recovery and complete reconciled transition history remain open. See [ADR-0020](adr/0020-private-submission-notes.md).
