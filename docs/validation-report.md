@@ -1,5 +1,11 @@
 # Validation report
 
+## Reflect demo transaction blocks in its controls -- 2026-09-09
+
+Triage, accept/reject, patch, retest, authorization and closure buttons now use native disabled controls whenever the combined demo retains an uncertain transition or requires a post-finality public refresh. The existing handler guards remain in place. Navigation, report reading and backup access remain available after operations finish. Successful public refresh re-enables the relevant controls; restoring an uncertainty marker keeps them disabled.
+
+Both App component files passed **14 tests in 20.51 seconds** with added assertions for immediate and restored triage blocking and both retest choices during a failed public refresh. A subsequent focused run passed the extended successful-refresh case in **3.22 seconds** of test time, confirming both retest choices become enabled after refresh. Web typechecking and the normal release build passed following source comparison at **14:26:43.840 UTC**: **8 circuits, 62 files, 62,643,770 bytes**. No contract/key or recovery-schema changes occurred. Full browser suites and native-wallet execution were not repeated for this control-state change.
+
 ## Stage source-map preparation before artifact installation -- 2026-09-09
 
 Review found that the previous map-embedding step ran after replacing `dist/managed`. It now runs synchronously inside the artifact copier's staging directory, before the retained target is moved. The staged tree is inspected again before installation. Parsing, source binding or map-write failures therefore leave the previous managed artifact directory in place. The pure map transformation preserves input mapping fields and does not mutate the compiler map.

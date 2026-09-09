@@ -76,6 +76,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     await user.click(screen.getByRole("button", { name: /Continue as vendor/ }));
     await user.click(await screen.findByRole("button", { name: "Begin authorized triage" }));
     await screen.findByText("Transaction outcome unknown: beginTriage");
+    expect(screen.getByRole("button", { name: "Begin authorized triage" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Begin authorized triage" }));
     expect(api.beginTriage).toHaveBeenCalledOnce();
     expect(api.usePrivateState).toHaveBeenCalledOnce();
@@ -97,6 +98,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
       expect(screen.getByRole("button", { name: "Seal another" })).toBeDisabled();
       expect(screen.getByText("Transaction outcome unknown: beginTriage")).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: /Continue as vendor/ }));
+      expect(await screen.findByRole("button", { name: "Begin authorized triage" })).toBeDisabled();
       await user.click(await screen.findByRole("button", { name: "Begin authorized triage" }));
       expect(api.beginTriage).toHaveBeenCalledOnce();
       expect(api.usePrivateState).toHaveBeenCalledOnce();
@@ -290,6 +292,8 @@ describe("browser network workflow with mocked wallet and finalized API results"
     expect(anchor).toBeDisabled();
     await act(async () => { finishPatch({ circuit: "anchorPatch", txId: "patch-tx", blockHeight: "230" }); });
     const refresh = await screen.findByRole("button", { name: "Refresh public commitments" });
+    expect(screen.getByRole("button", { name: /Pass retest/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Fail retest/ })).toBeDisabled();
     await user.click(screen.getAllByRole("button", { name: /Verify/ })[0]!);
     expect(screen.getByText("patch-tx")).toBeInTheDocument();
     api.readPublicState.mockResolvedValue({ ledger: { reports: { lookup: () => ({ status: 4, patchCommitment: new Uint8Array(32).fill(9), retestCommitment: new Uint8Array(32), payoutReceipt: new Uint8Array(32) }) } } });
@@ -298,5 +302,8 @@ describe("browser network workflow with mocked wallet and finalized API results"
     expect(api.readPublicState).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole("button", { name: "Refresh public commitments" })).not.toBeInTheDocument();
     expect(screen.getAllByText("patch-tx")).toHaveLength(1);
+    await user.click(screen.getAllByRole("button", { name: /Resolve/ })[0]!);
+    expect(screen.getByRole("button", { name: /Pass retest/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Fail retest/ })).toBeEnabled();
   });
 });
