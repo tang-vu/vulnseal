@@ -57,6 +57,32 @@ function projection(sim: VulnSealSimulator) {
   return structuredClone({ fields, records, receiptCount: payoutReceipts.size(), receiptMembership: records.map(([, record]) => payoutReceipts.member(record.payoutReceipt)) });
 }
 
+it.each(["severity", "reward"] as const)("enforces %s tier bounds without committing rejected state", (kind) => {
+  setNetworkId("undeployed");
+  // Include both semantic bounds and generated Uint<8> representation bounds.
+  for (const tier of [-1n, 0n, 1n, 4n, 5n, 255n, 256n]) {
+    const { sim, id, other, actor } = fixture(kind === "severity" ? "triaged" : "passed");
+    actor("owner");
+    const before = projection(sim), untouched = sim.report(other);
+    const invoke = () => kind === "severity" ? sim.acceptReport(id, tier, bytes(67)) : sim.authorizePayout(id, tier);
+    if (tier < 1n || tier > 4n) {
+      expect(invoke, `${kind}/${tier}`).toThrow();
+      expect(projection(sim), `${kind}/${tier}/unchanged`).toEqual(before);
+    } else {
+      invoke();
+      const after = projection(sim), record = sim.report(id);
+      expect(record[kind === "severity" ? "severity" : "rewardTier"]).toBe(tier);
+      expect(record.status).toBe(kind === "severity" ? ReportStatus.ACCEPTED : ReportStatus.PAYOUT_AUTHORIZED);
+      expect(after.fields).toEqual({ ...before.fields, sequence: before.fields.sequence + 1n });
+      expect(record.createdSequence).toBe(before.records.find(([key]) => key.every((value, index) => value === id[index]))![1].createdSequence);
+      expect(record.updatedSequence).toBe(before.fields.sequence);
+      expect(after.receiptCount).toBe(before.receiptCount + (kind === "reward" ? 1n : 0n));
+      if (kind === "reward") expect(sim.getLedger().payoutReceipts.member(record.payoutReceipt)).toBe(true);
+    }
+    expect(sim.report(other)).toEqual(untouched);
+  }
+});
+
 it.each(stages)("enforces the transition/actor matrix and report isolation from %s", (stage) => {
   setNetworkId("undeployed");
   for (const who of ["owner", "researcher", "stranger"] as const) for (const operation of operations) {

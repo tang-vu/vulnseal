@@ -36,6 +36,23 @@ const setup = async () => {
 };
 
 describe("one-role transaction sessions", () => {
+  it.each(["acceptReport", "authorizePayout"] as const)("rejects malformed %s tiers before private state, ledger reads or transactions", async (kind) => {
+    const { vendor, vendorApi, provider, calls } = await setup();
+    const privateState = vi.spyOn(vendorApi, "withPrivateState");
+    vi.mocked(vendorApi.readPublicState).mockClear();
+    const id = reportId();
+    for (const value of [-1n, 0n, 5n, 255n, 256n, 1, 4, 1.5, NaN, Infinity, "1", true, null, undefined]) {
+      // Runtime callers can bypass TypeScript; numeric coercion must not authorize a tier.
+      const command = (kind === "acceptReport"
+        ? { kind, reportId: id, severity: value, decisionDigest: bytes(66) }
+        : { kind, reportId: id, rewardTier: value }) as unknown as RoleCommand;
+      await expect(vendor.execute(command)).rejects.toThrow(kind === "acceptReport" ? "Severity" : "Reward tier");
+    }
+    expect(privateState).not.toHaveBeenCalled();
+    expect(provider.set).not.toHaveBeenCalled();
+    expect(vendorApi.readPublicState).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(0);
+  });
   it("runs submission through closure using two fixed actor sessions and real generated circuits", async () => {
     const { vendor, researcher, simulator, calls } = await setup();
     const id = reportId();

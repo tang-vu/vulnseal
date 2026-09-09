@@ -1,5 +1,13 @@
 # Validation report
 
+## Severity and reward tier boundaries — 2026-09-09
+
+Two generated-contract tests cover 14 fresh-fixture scenarios across severity and reward tiers: -1, 0, 1, 4, 5, 255 and 256. Valid endpoints must update the intended record/status and sequence, with a receipt for reward authorization. Rejected values must preserve the public ledger projection, and every scenario preserves a second researcher's report. This exercises semantic bounds and generated Uint<8> representation bounds in the simulator; it does not establish network rollback semantics.
+
+Two API tests cover 28 malformed-input cases, including out-of-range bigint, number, fractional/non-finite number, string, boolean, null and undefined. Every case must fail before entering private-state handling, writing private state, reading public ledger state or invoking a transaction. Existing production guards already enforce these boundaries; no production code changed.
+
+The focused contract run passed **2 tests in 3.21 seconds** (10 matrix tests excluded); the focused API run passed **2 tests in 2.60 seconds** (9 other session tests excluded). Both workspace typechecks passed. Read-only release verification passed: **8 circuits, 62 files, 62,628,271 bytes**. Full contract/API/web/browser suites were not rerun for this test-only increment.
+
 ## Contract transition and actor matrix — 2026-09-09
 
 The generated-contract simulator now exposes `closeReport`, and a workflow-model suite exercises **270 fresh-fixture scenarios**: ten reachable stages (including separate rejected/paid closure histories), nine operations and owner/researcher/stranger actors. A separate allowed-edge table determines whether each action must succeed. Duplicate submission is attempted at every stage. Each fixture also contains another researcher's report to test isolation.
