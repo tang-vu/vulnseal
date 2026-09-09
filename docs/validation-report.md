@@ -1,5 +1,13 @@
 # Validation report
 
+## Cancel attachment hashing and invalidate stale file comparisons -- 2026-09-09
+
+Attachment authoring now offers **Cancel hashing**, releasing the pending restriction without adding metadata. Received-file review offers **Cancel file check**, leaving a neutral canceled result. Both invalidate the attempt so late success/failure cannot affect a replacement. Cancellation stops the application wait; the browser's already-started file read or WebCrypto operation may continue. Attachment review now resets whenever sealed metadata changes, including a changed size or filename with the same digest, preventing a stale match from describing a different entry.
+
+The final focused run passed **8 tests in 2 files (3.18s)**, including cancellation followed by replacement, late rejection after cancellation, completed/pending comparison invalidation and actual hash/metadata validation. Web typecheck passed. The extended encrypted attachment journey passed on **Chrome desktop and Pixel 7: 2 cases, 40.1s overall, exit 0**, with two CI workers and no automatic retries. It deliberately holds one synthetic browser file read to exercise cancellation, then hashes real replacement bytes, exports/restores an encrypted draft, seals through the local ciphertext service, and checks received matching/mismatching files. This is controlled browser evidence, not a physical disk failure or native-wallet transaction.
+
+After browser testing, `npm run release:build` exited **0**: fresh Compact source comparison at **16:32:01.178 UTC**, all six workspace builds and a valid normal release of **8 circuits, 62 files, 62,648,517 bytes**. No new proving keys were generated. The previous Docker hosting/rollout evidence remains scoped to its recorded earlier artifact; those images were not rebuilt for this UI change. Full application suites and remote CI were not repeated. File-byte storage/delivery and resuming an interrupted hash remain outside this increment; see [attachment recovery scope](adr/0019-pending-attachment-drafts.md).
+
 ## Additional Caddy dependency remediation and Go scan precision -- 2026-09-09
 
 Pinned govulncheck **1.8.0** scans of the previous Caddy, Prometheus and promtool binaries exited **3**, reporting **6 / 3 / 3** advisory IDs. Separate extracts exited **0** and contained no package symbols. Inspection of the pinned scanner implementation confirmed its module-level fallback in that situation; the printed symbol heading does not establish a linked or reachable vulnerable function. [Diagnostic evidence](evidence/go-binary-diagnostic.json) records exact binary hashes and [the method](go-vulnerability-checks.md) explains this limitation. No scanner exclusion or release-gate change was made.

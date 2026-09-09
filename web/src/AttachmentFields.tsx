@@ -41,7 +41,9 @@ export function AttachmentEditor({ attachments, onChange, onPending, draft, onDr
       catch (cause) { if (pending === generation.current) setError(cause instanceof Error ? cause.message : "Could not read the selected file"); }
       finally { if (pending === generation.current) setWorking(false); }
     }} /></label>
-    {working && <p role="status">Computing attachment digest locally…</p>}
+    {working && <><p role="status">Computing attachment digest locally…</p><button type="button" className="secondary-button" onClick={() => {
+      generation.current++; setWorking(false); setError("");
+    }}>Cancel hashing</button></>}
     <details><summary>Enter an existing digest</summary>
       <div className="field-grid">
         {([ ["filename", "Attachment filename"], ["mediaType", "Attachment media type"], ["size", "Attachment size in bytes"], ["digest", "Attachment SHA-256"] ] as const).map(([key, label]) => <label key={key}>{label}<input disabled={working} value={fields[key]} spellCheck={false} inputMode={key === "size" ? "numeric" : undefined} onChange={(event) => { setError(""); setFields({ ...fields, [key]: event.target.value }); }} /></label>)}
@@ -67,23 +69,28 @@ function AttachmentDetails({ item }: { readonly item: AttachmentDigest }) {
 
 function AttachmentCheck({ item }: { readonly item: AttachmentDigest }) {
   const [message, setMessage] = useState("");
+  const [working, setWorking] = useState(false);
   const generation = useRef(0);
   useEffect(() => () => { generation.current++; }, []);
   return <article className="attachment-entry"><AttachmentDetails item={item} />
     <label>Check local file against {item.filename}<input type="file" onChange={async (event) => {
       const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
-      const pending = ++generation.current; setMessage("Checking file locally…");
+      const pending = ++generation.current; setWorking(true); setMessage("Checking file locally…");
       try {
         const candidate = await hashAttachment(file);
         if (pending === generation.current) setMessage(candidate.sha256 === item.sha256 && candidate.size === item.size ? "File bytes match the sealed attachment digest and size." : "File does not match the sealed attachment digest and size.");
       } catch (cause) { if (pending === generation.current) setMessage(cause instanceof Error ? cause.message : "Could not read this file"); }
+      finally { if (pending === generation.current) setWorking(false); }
     }} /></label>
+    {working && <button type="button" className="secondary-button" onClick={() => {
+      generation.current++; setWorking(false); setMessage("File check canceled. No comparison was made.");
+    }}>Cancel file check</button>}
     {message && <p role="status">{message}</p>}
   </article>;
 }
 
 export function AttachmentReview({ attachments }: { readonly attachments: readonly AttachmentDigest[] }) {
   return <section className="report-section"><h3>Sealed attachment metadata</h3><p>Original files are exchanged separately. Check received files locally against their sealed SHA-256 and byte size; filenames and media types are descriptive only. Local checking supports files up to 32 MiB.</p>
-    {attachments.length === 0 ? <p>No attachments recorded.</p> : attachments.map((item, index) => <AttachmentCheck key={`${index}:${item.sha256}`} item={item} />)}
+    {attachments.length === 0 ? <p>No attachments recorded.</p> : attachments.map((item, index) => <AttachmentCheck key={JSON.stringify([index, item.filename, item.mediaType, item.size, item.sha256])} item={item} />)}
   </section>;
 }

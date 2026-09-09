@@ -1,7 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
+
+// Hold one synthetic file read to exercise cancellation without timing a real disk.
+async function holdCanceledFile(page: Page) {
+  await page.evaluate(() => {
+    const original = File.prototype.arrayBuffer;
+    File.prototype.arrayBuffer = function () {
+      return this.name === "canceled-proof.txt" ? new Promise<ArrayBuffer>(() => {}) : original.call(this);
+    };
+  });
+}
 
 test("attachment metadata survives draft recovery, encryption and vendor file verification", async ({ page, context }, testInfo) => {
   const bytes = Buffer.from("Private attachment example: synthetic evidence only\n");
@@ -15,6 +25,12 @@ test("attachment metadata survives draft recovery, encryption and vendor file ve
   await steps.press("Enter");
   await steps.pressSequentially("Second synthetic step");
   await expect(steps).toHaveValue("First synthetic step\nSecond synthetic step");
+  await holdCanceledFile(page);
+  await page.getByLabel("Hash a local attachment").setInputFiles({ ...file, name: "canceled-proof.txt" });
+  await expect(page.getByLabel("Hash a local attachment")).toBeDisabled();
+  await page.getByRole("button", { name: "Cancel hashing" }).click();
+  await expect(page.getByLabel("Hash a local attachment")).toBeEnabled();
+  await expect(page.getByText("0 attachment entry(s)", { exact: true })).toBeVisible();
   await page.getByLabel("Hash a local attachment").setInputFiles(file);
   await expect(page.getByText(digest, { exact: true })).toBeVisible();
   await page.getByLabel("Hash a local attachment").setInputFiles(file);
@@ -66,6 +82,10 @@ test("attachment metadata survives draft recovery, encryption and vendor file ve
   await restored.getByRole("button", { name: /Continue as vendor/ }).click();
   await expect(restored.getByText(digest, { exact: true })).toBeVisible();
   const check = restored.getByLabel("Check local file against private-proof.txt", { exact: true });
+  await holdCanceledFile(restored);
+  await check.setInputFiles({ ...file, name: "canceled-proof.txt" });
+  await restored.getByRole("button", { name: "Cancel file check" }).click();
+  await expect(restored.getByText("File check canceled. No comparison was made.", { exact: true })).toBeVisible();
   await check.setInputFiles({ ...file, buffer: Buffer.from("Changed file") });
   await expect(restored.getByText("File does not match the sealed attachment digest and size.", { exact: true })).toBeVisible();
   await check.setInputFiles(file);
