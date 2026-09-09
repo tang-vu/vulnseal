@@ -1,5 +1,15 @@
 # Validation report
 
+## Scan the web image and patch Alpine dependencies — 2026-09-09
+
+Both `npm audit --omit=dev --json` and the full `npm audit --json` returned zero known dependency vulnerabilities. The final web runtime image was separately exported and scanned with Trivy **0.74.0**, pinned scanner digest `sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969`, and vulnerability database updated September 9 at 07:06 UTC. The first scan reported **117 package findings**: 93 Alpine and 24 Go-binary findings. These are package/advisory occurrences, not 117 unique vulnerabilities or proof of exploitability.
+
+The official current Caddy image resolved to the existing pinned digest. Alpine's repository supplied fixes, so both web and rollout Dockerfiles now explicitly install c-ares 1.34.8-r0, curl/libcurl 8.22.0-r0 and libcrypto3/libssl3 3.5.8-r0. The rebuilt web image's second scan at **13:09:08.639 UTC** reports **zero Alpine findings**, leaving **24 unresolved Go-binary findings: one critical, 16 high, four medium and three unknown**. No suppressions or ignore-unfixed filtering were used. Remediation/reachability analysis of the remaining Go dependencies is still required. [Machine-readable evidence](evidence/web-image-vulnerabilities.json) records both counts, remaining findings, report hashes, scanner/database provenance and lockfile hash.
+
+Both images built and validated Caddy configuration successfully. The updated web image `sha256:d3951a4cb92093907a18fc2d3200b5be3e9f137981ffa44959bcb930ec2aae4b` passed the full disposable hosting drill at **13:08:54.792 UTC**, including matching release bytes, headers, 404s, desktop/mobile captured-state lookup and graceful restart. The rollout image was built/configuration-validated, not separately scanned or exercised through a promotion drill. Web release bytes remain unchanged. No public deployment occurred.
+
+The scan uses Trivy's documented [container archive input](https://trivy.dev/docs/latest/target/container_image/#tar-files). The [Caddy release page](https://github.com/caddyserver/caddy/releases/tag/v2.11.4) identifies the current upstream release checked here. Scanner results are dependency evidence, not a penetration test, code audit or production clearance.
+
 ## Current release in the static hosting container — 2026-09-09
 
 The release from code revision **`48d41e6`** was rebuilt into `vulnseal-web:local` using the pinned Node/Caddy Dockerfile. Its in-image packaging gate passed for **8 circuits, 62 files, 62,637,482 bytes**. The disposable container drill then passed at **13:01:26.672 UTC** with image ID `sha256:b845cf4d52abd147431c1c724fd3c0949b7cf761771d9da32e94b639c71b6ad2`; the machine-readable result is [web-container-drill.json](evidence/web-container-drill.json).

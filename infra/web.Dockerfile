@@ -12,7 +12,8 @@ RUN test -s web/dist/release-manifest.json && node scripts/check-web-release.mjs
 
 FROM caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
 # Port 8080 needs no file capability; upstream's binding capability prevents exec with cap_drop ALL.
-RUN setcap -r /usr/bin/caddy
+RUN apk add --no-cache c-ares=1.34.8-r0 curl=8.22.0-r0 libcurl=8.22.0-r0 libcrypto3=3.5.8-r0 libssl3=3.5.8-r0 \
+    && setcap -r /usr/bin/caddy
 COPY --from=gate /workspace/web/dist /srv
 COPY infra/web.Caddyfile /etc/caddy/Caddyfile
 USER 65532:65532

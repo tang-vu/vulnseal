@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 FROM caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
-RUN setcap -r /usr/bin/caddy
+RUN apk add --no-cache c-ares=1.34.8-r0 curl=8.22.0-r0 libcurl=8.22.0-r0 libcrypto3=3.5.8-r0 libssl3=3.5.8-r0 \
+    && setcap -r /usr/bin/caddy
 COPY infra/web-rollout.Caddyfile /etc/caddy/Caddyfile
 COPY infra/web-rollout-start.sh /usr/local/bin/web-rollout-start.sh
 # Windows checkouts can supply CRLF; normalize the copied script inside the image.
