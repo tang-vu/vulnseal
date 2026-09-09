@@ -85,4 +85,6 @@ jobs:
       - name: Reject runtime vulnerabilities and end-of-life OS
         run: sh scripts/scan-container.sh
       - name: Verify internal metrics collection and alert rules
-        run: node scripts/test-cipherstore-monitoring.mjs
+        run: |
+          docker compose -f infra/cipherstore.yml -f infra/cipherstore-monitoring.yml build prometheus
+          node scripts/test-cipherstore-monitoring.mjs

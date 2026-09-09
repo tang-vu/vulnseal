@@ -1,0 +1,47 @@
+{
+  "recordedAt": "2026-09-09T15:10:03.165866+00:00",
+  "imageId": "sha256:f801adf9b95daa93a886a1b94bebef62f1446f68c2f1edeb901be6787d4f9143",
+  "version": "3.14.0-vulnseal.1",
+  "upstreamRevision": "d7598b7141418fa35be2b5ec5d0fefb634199610",
+  "scanner": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+  "command": "sh scripts/scan-container.sh vulnseal-prometheus:local",
+  "exitCode": 1,
+  "rawLogSha256": "1a8b99c42c1b589cc14825bff4e7e5bca224765554b78fddaa00b503a3d1d88e",
+  "counts": {
+    "UNKNOWN": 2,
+    "LOW": 0,
+    "MEDIUM": 0,
+    "HIGH": 0,
+    "CRITICAL": 0
+  },
+  "remainingFinding": {
+    "id": "GO-2026-5932",
+    "module": "golang.org/x/crypto",
+    "version": "v0.56.0",
+    "targets": [
+      "bin/prometheus",
+      "bin/promtool"
+    ],
+    "fixedVersion": null
+  },
+  "buildFiles": {
+    "go.mod": "954827b34e0b3f4bdb8b7f3ad4b1bb32bea24e38a8ba861ce7e3bc7682af0e3b",
+    "go.sum": "6e7cc3705901562aedc7d0c05a864860740a3df1cfe0c55d259aedfbaf759ea6",
+    "packages.txt": "a5eec9d512b8545ac3488ccac337608a91c00f72e3eb83f49edb4e9fbcbe944f"
+  },
+  "dockerfileSha256": "f3a6de13c25923e0c0b741022ddaf249971b6197aecbab35755ce292f693c2b0",
+  "packageAssessment": {
+    "command": "go list -mod=readonly -tags netgo,builtinassets -deps ./cmd/prometheus ./cmd/promtool | sort -u",
+    "packageCount": 1502,
+    "openpgpPresent": false,
+    "evidence": "prometheus-packages.txt"
+  },
+  "limits": [
+    "The all-severity gate still fails; no advisory is suppressed.",
+    "Package absence supports an assessment for this build graph, not universal vulnerability clearance.",
+    "The BusyBox base produced no OS result; OS security is unverified.",
+    "Upstream UI assets are reused, not rebuilt or separately dependency-audited.",
+    "No full upstream test suite, native wallet or production deployment was performed."
+  ],
+  "imageConfigId": "sha256:05acf15765b1fb00b3c20ecf0206611318721458738b977accbe15766716f522"
+}

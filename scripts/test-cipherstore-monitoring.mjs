@@ -27,16 +27,30 @@ try {
   compose("run", "--rm", "--no-deps", "--entrypoint", "/bin/promtool", "prometheus", "check", "config", "/etc/prometheus/prometheus.yml");
   compose("run", "--rm", "--no-deps", "--env", "TMPDIR=/prometheus", "--entrypoint", "/bin/promtool", "prometheus", "test", "rules", "/etc/prometheus/rules.test.yml");
   compose("up", "--no-build", "--detach");
-  const origin = `http://${compose("port", "prometheus", "9090")}`;
+  let origin = `http://${compose("port", "prometheus", "9090")}`;
   const store = `http://${compose("port", "cipherstore", "8787")}`;
-  const query = async (expression) => {
-    const response = await request(`${origin}/api/v1/query?query=${encodeURIComponent(expression)}`);
+  const query = async (expression, time) => {
+    const response = await request(`${origin}/api/v1/query?query=${encodeURIComponent(expression)}${time === undefined ? "" : `&time=${encodeURIComponent(time)}`}`);
     assert.equal(response.status, 200);
     const result = await response.json();
     assert.equal(result.status, "success");
     return result.data.result;
   };
   await eventually(async () => (await query('up{job="cipherstore"}'))[0]?.value[1] === "1");
+  const ui = await request(`${origin}/query`);
+  assert.equal(ui.status, 200);
+  assert.match(ui.headers.get("content-type"), /text\/html/);
+  const html = await ui.text();
+  const scripts = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map((match) => match[1]);
+  assert.ok(scripts.length > 0, "Collector UI must include executable assets");
+  for (const path of scripts) {
+    const url = new URL(path, `${origin}/query`);
+    assert.equal(url.origin, origin);
+    const asset = await request(url);
+    assert.equal(asset.status, 200);
+    assert.match(asset.headers.get("content-type"), /javascript/);
+    assert.ok((await asset.text()).length > 0);
+  }
   assert.equal((await request(`${store}/monitoring-test-missing`)).status, 404);
   await eventually(async () => Number((await query('vulnseal_http_responses_total{job="cipherstore",status_class="4xx"}'))[0]?.value[1]) >= 1);
   const rules = await (await request(`${origin}/api/v1/rules`)).json();
@@ -48,7 +62,14 @@ try {
   await eventually(async () => (await query('up{job="cipherstore"}'))[0]?.value[1] === "0");
   compose("start", "cipherstore");
   await eventually(async () => (await query('up{job="cipherstore"}'))[0]?.value[1] === "1");
-  process.stdout.write(JSON.stringify({ capturedAt: new Date().toISOString(), prometheusImage: inspection.Image, cipherstoreImage: docker("image", "inspect", "vulnseal-cipherstore:local", "--format", "{{.Id}}"), ruleTests: true, realScrape: true, errorCounterScraped: true, outageDetected: true, recoveryDetected: true, nonRoot: true, readOnlyRoot: true, externalNotifications: false }) + "\n");
+  const retainedSampleTime = (await query('timestamp(up{job="cipherstore"})'))[0].value[1];
+  compose("restart", "--timeout", "20", "prometheus");
+  origin = `http://${compose("port", "prometheus", "9090")}`;
+  await eventually(async () => (await query('up{job="cipherstore"}', retainedSampleTime))[0]?.value[1] === "1");
+  process.stdout.write(JSON.stringify({ capturedAt: new Date().toISOString(), prometheusImage: inspection.Image, cipherstoreImage: docker("image", "inspect", "vulnseal-cipherstore:local", "--format", "{{.Id}}"), ruleTests: true, uiAssetsServed: true, tsdbRestartRetained: true, realScrape: true, errorCounterScraped: true, outageDetected: true, recoveryDetected: true, nonRoot: true, readOnlyRoot: true, externalNotifications: false }) + "\n");
+} catch (error) {
+  try { process.stderr.write(compose("logs", "--no-color", "--tail", "20", "prometheus") + "\n"); } catch { /* Preserve the original failure. */ }
+  throw error;
 } finally {
   // Only this invocation's random Compose project and volumes are disposable.
   for (const id of compose("ps", "--all", "--quiet").split(/\s+/).filter(Boolean)) {
