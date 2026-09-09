@@ -36,7 +36,9 @@ export const validateRoleVault = async (input: unknown): Promise<RoleVault> => {
     if (!Array.isArray(value.submissionAttempts) || value.submissionAttempts.length > 200) throw new Error("Invalid submission journal");
     const ids = new Set<string>();
     for (const item of value.submissionAttempts) {
-      const entry = object(item, ["transactionId", "recordedAt"]), transactionId = hex(entry.transactionId);
+      const entry = object(item, ["transactionId", "recordedAt"]);
+      if (typeof entry.transactionId !== "string" || !/^(?:[a-f0-9]{64}|[a-f0-9]{66})$/.test(entry.transactionId)) throw new Error("Invalid role identifier");
+      const transactionId = entry.transactionId;
       if (ids.has(transactionId) || typeof entry.recordedAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(entry.recordedAt) || !Number.isFinite(Date.parse(entry.recordedAt))) throw new Error("Invalid submission journal entry");
       ids.add(transactionId); attempts.push({ transactionId, recordedAt: entry.recordedAt });
     }

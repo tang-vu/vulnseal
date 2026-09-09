@@ -1,0 +1,11 @@
+{
+  "transactionId": "00315eaad1b87f436849790da0f0072be407dfdf9079b78f15e73c838b9ede2c19",
+  "checkedAt": "2026-09-09T04:05:19.313Z",
+  "indexerUrl": "https://indexer.preprod.midnight.network/api/v4/graphql",
+  "kind": "finalized",
+  "status": "SUCCESS",
+  "transactionHash": "8e02f5bd2405c40e7fc0e6577dda80c8a8d23c2f6667ea0de3fdfb3599d3a271",
+  "blockHeight": 2371914,
+  "blockHash": "71acb36d1d46364ca4fca5b6f30ed9bf5f4538fd262dabc772adafa02a5e5585",
+  "finalizedHead": 2469011
+}

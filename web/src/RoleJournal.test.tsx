@@ -14,7 +14,7 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 it("blocks unjournaled submission, saves before an uncertain result, and restores the attempt", async () => {
   const { snapshot } = await recoveryFixture();
   const vault = { version: 1 as const, role: "vendor" as const, network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, actorSecret: snapshot.vendorSecret, reports: [{ network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: snapshot.report!.id, envelope: snapshot.report!.envelope, key: snapshot.report!.key, salt: snapshot.report!.salt }] };
-  const password = "Journal workspace password", txId = "56".repeat(32);
+  const password = "Journal workspace password", txId = "00315eaad1b87f436849790da0f0072be407dfdf9079b78f15e73c838b9ede2c19";
   let row: StoredRole | undefined, checkpoint: (id: string) => Promise<void>;
   mocks.list.mockImplementation(async () => row ? [{ id: row.id, label: row.label, revision: row.revision, updatedAt: row.updatedAt }] : []);
   mocks.read.mockImplementation(async () => row);

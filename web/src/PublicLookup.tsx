@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { publicStatusLabel, validateEnvironment } from "@vulnseal/shared";
+import { publicStatusLabel } from "@vulnseal/shared";
 import { parsePublicReceipt, publicHex, publicReceiptLink, verifyPublicContract, type PublicVerification } from "./public-verification.js";
 import { workflowStatement } from "./workflow.js";
 
-const env = validateEnvironment(import.meta.env);
+import { publicEndpoints } from "./public-endpoints.js";
 
 export function PublicLookup() {
   const params = new URLSearchParams(window.location.hash.replace(/^#verify\?/, ""));
@@ -25,14 +25,7 @@ export function PublicLookup() {
     try {
       const id = reportId.trim() ? publicHex(reportId) : undefined;
       const expected = expectedDigest.trim() ? publicHex(expectedDigest) : undefined;
-      const endpoints = network === "preprod"
-        ? { indexerUrl: "https://indexer.preprod.midnight.network/api/v4/graphql", rpcUrl: "https://rpc.preprod.midnight.network" }
-        : network === "local"
-          ? { indexerUrl: ["local", "undeployed"].includes(env.network) ? env.indexerHttpUrl : "http://127.0.0.1:8088/api/v4/graphql", rpcUrl: ["local", "undeployed"].includes(env.network) ? import.meta.env.VITE_RPC_URL ?? "http://127.0.0.1:9944" : "http://127.0.0.1:9944" }
-          : network === env.network && import.meta.env.VITE_RPC_URL
-          ? { indexerUrl: env.indexerHttpUrl, rpcUrl: import.meta.env.VITE_RPC_URL }
-          : undefined;
-      if (!endpoints) throw new Error("This network is not configured for public lookup in this deployment");
+      const endpoints = publicEndpoints(network);
       const verified = await verifyPublicContract(address, endpoints, pending.signal);
       if (pending.signal.aborted) return;
       const selected = id ? verified.reports.find((entry) => entry.reportId === id) : undefined;

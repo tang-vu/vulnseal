@@ -14,6 +14,7 @@ import { HandoffPanel } from "./HandoffPanel.js";
 import { validateDisclosure, type Disclosure, type RecipientKeys } from "./handoff.js";
 import { ReportWizard } from "./App.js";
 import { AttachmentReview } from "./AttachmentFields.js";
+import { TransactionCheck } from "./TransactionCheck.js";
 import { LocalRoleStorage } from "./LocalRoleStorage.js";
 
 const env = validateEnvironment(import.meta.env);
@@ -111,7 +112,7 @@ export function RoleWorkspace() {
       })} />
       {vault && <section className="form-panel"><h2>Submission journal</h2>
         <p>Real role submissions require encrypted browser autosave. The transaction identifier is saved before calling the wallet. A recorded attempt is not proof of broadcast, success or finality; check the wallet or indexer before retrying after an interruption.</p>
-        {vault.submissionAttempts?.length ? <ul>{vault.submissionAttempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt} · outcome requires reconciliation</li>)}</ul> : <p>No recorded submission attempts.</p>}
+        {vault.submissionAttempts?.length ? <ul>{vault.submissionAttempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt} · outcome requires reconciliation<TransactionCheck network={vault.network} transactionId={entry.transactionId} /></li>)}</ul> : <p>No recorded submission attempts.</p>}
       </section>}
       <fieldset className="workflow-controls" disabled={working}>
         {!vault ? <>

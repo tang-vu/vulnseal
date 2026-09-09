@@ -14,7 +14,7 @@ This is enabled for the independent role workspace. The combined demo's legacy n
 
 ## Backup compatibility
 
-Existing payload version 1 is accepted unchanged. Recording the first attempt creates payload version 2 with the additional required `submissionAttempts` array. The encrypted envelope and its AAD/KDF remain version 1; the authenticated plaintext schema determines the payload version. Older app revisions reject payload version 2 rather than silently discarding the journal. Journal entries have an exact identifier/timestamp allowlist, unique 32-byte identifiers and a 200-entry bound. No automatic pruning or history deletion is implemented.
+Existing payload version 1 is accepted unchanged. Recording the first attempt creates payload version 2 with the additional required `submissionAttempts` array. The encrypted envelope and its AAD/KDF remain version 1; the authenticated plaintext schema determines the payload version. Older app revisions reject payload version 2 rather than silently discarding the journal. Journal entries have an exact identifier/timestamp allowlist, unique identifiers and a 200-entry bound. The real Preprod identifiers are 33 bytes; 32-byte identifiers from earlier synthetic fixtures remain accepted. Block and transaction hashes remain 32 bytes. No automatic pruning or history deletion is implemented.
 
 ## Meaning and recovery limits
 

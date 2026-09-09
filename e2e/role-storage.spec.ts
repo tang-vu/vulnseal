@@ -5,8 +5,8 @@ import ts from "typescript";
 import { decryptRoleVault, encryptRoleVault } from "../web/src/role-recovery.js";
 import type * as Storage from "../web/src/role-storage.js";
 
-test("encrypted submission journal survives file restore and a fresh browser tab", async ({ page, context }) => {
-  const transactionId = "78".repeat(32);
+test("encrypted submission journal survives file restore and a fresh browser tab", async ({ page, context }, testInfo) => {
+  const transactionId = "00315eaad1b87f436849790da0f0072be407dfdf9079b78f15e73c838b9ede2c19";
   const encrypted = await encryptRoleVault({ version: 2, role: "vendor", network: "preprod", contractAddress: null, programId: "12".repeat(32), actorSecret: "34".repeat(32), reports: [], submissionAttempts: [{ transactionId, recordedAt: "2026-09-09T04:00:00.000Z" }] }, "Journal browser recovery password");
   await page.goto("/#roles");
   await page.getByLabel("Single-role backup file").setInputFiles({ name: "journal.json", mimeType: "application/json", buffer: Buffer.from(encrypted) });
@@ -25,6 +25,22 @@ test("encrypted submission journal survives file restore and a fresh browser tab
   await expect(fresh.getByText(new RegExp(transactionId))).toBeVisible();
   await expect(fresh.getByText(/outcome requires reconciliation/)).toBeVisible();
   await expect(fresh.getByText(/Finalized constructor/)).toHaveCount(0);
+  let found = true;
+  await fresh.route("https://indexer.preprod.midnight.network/api/v4/graphql", (route) => route.fulfill({ json: { data: { transactions: found ? [{ identifiers: [transactionId], hash: "ab".repeat(32), block: { height: 100, hash: "cd".repeat(32) }, transactionResult: { status: "SUCCESS" } }] : [] } } }));
+  await fresh.route("https://rpc.preprod.midnight.network/", (route) => {
+    const request = route.request().postDataJSON();
+    return route.fulfill({ json: { jsonrpc: "2.0", id: 1, result: request.method === "chain_getFinalizedHead" ? `0x${"ef".repeat(32)}` : request.method === "chain_getHeader" ? { number: "0x64" } : `0x${"cd".repeat(32)}` } });
+  });
+  await fresh.getByRole("button", { name: "Check transaction status" }).click();
+  await expect(fresh.getByText(/Finalized transaction · indexer result: SUCCESS/)).toBeVisible();
+  if (process.env.VULNSEAL_CAPTURE_VISUALS === "1") {
+    await fresh.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); window.scrollTo({ top: 0, behavior: "instant" }); });
+    await fresh.screenshot({ path: `docs/screenshots/${testInfo.project.name}-transaction-check.png`, fullPage: true });
+  }
+  found = false;
+  await fresh.getByRole("button", { name: "Check transaction status" }).click();
+  await expect(fresh.getByText(/Not found by this indexer/)).toBeVisible();
+  await expect(fresh.getByText(/Finalized transaction · indexer result: SUCCESS/)).toHaveCount(0);
 });
 
 test("encrypted device copy unlocks in a fresh tab without a downloaded role file", async ({ page, context }, testInfo) => {

@@ -10,7 +10,7 @@ export const roleFixture = async (role: "researcher" | "vendor" = "researcher"):
 describe("single-role encrypted recovery", () => {
   it("preserves a version 2 submission journal and rejects ambiguous or extra journal fields", async () => {
     const original = await roleFixture("vendor");
-    const entry = { transactionId: "ab".repeat(32), recordedAt: "2026-09-09T04:00:00.000Z" };
+    const entry = { transactionId: "00315eaad1b87f436849790da0f0072be407dfdf9079b78f15e73c838b9ede2c19", recordedAt: "2026-09-09T04:00:00.000Z" };
     const vault = { ...original, version: 2 as const, submissionAttempts: [entry] };
     const encrypted = await encryptRoleVault(vault, "Journal backup password");
     expect(encrypted).not.toContain(entry.transactionId);

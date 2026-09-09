@@ -1,5 +1,17 @@
 # Validation report
 
+## Transaction observations and real identifier compatibility — 2026-09-09
+
+| Check | Command / environment | Observed result |
+| --- | --- | --- |
+| Web validation | Web typecheck and full web test suite | Exit 0; 17 files / 66 tests passed before the real-identifier correction |
+| Initial affected browser journeys | `npm run test:e2e -- e2e/role-storage.spec.ts e2e/public-verifier.spec.ts` | Exit 0; 12 passed in 50.5 seconds; production web build included |
+| Final real-format tests | Web tests for RoleJournal, role-recovery and transaction-verification | Exit 0; 3 files / 11 tests, including the actual 33-byte Preprod identifier through encrypted checkpoint recovery and lookup |
+| Final production journal journeys | `VULNSEAL_CAPTURE_VISUALS=1 npm run test:e2e -- e2e/role-storage.spec.ts --grep "encrypted submission journal"` | Exit 0; final production typecheck/build included; 2 passed in 37.7 seconds; desktop/mobile restore, finalized observation and stale-result clearing after a missing lookup |
+| Live official-service observation | Repository transaction verifier transpiled and invoked in Node, no request mocks | `2026-09-09T04:05:19.313Z`: recorded authorizePayout identifier matched SUCCESS at block 2371914; canonical block agreed with RPC; finalized head 2469011 |
+
+The initial live probe exposed the 32-byte-only journal/lookup validation error before sending a request. Corrected code accepts the real 33-byte identifier and was rerun successfully; hashes remain 32 bytes. The live result is [preprod-transaction-observation.json](evidence/preprod-transaction-observation.json). This rechecks an existing transaction and broadcasts nothing. Browser screenshots in `docs/screenshots/*-transaction-check.png` show deterministic mocked block 100, not the live Preprod result; the mobile view was inspected. The observations trust indexer/RPC sources and do not establish circuit/report binding or safe retry. See [ADR-0013](adr/0013-transaction-observations.md).
+
 ## Encrypted submission checkpoint — 2026-09-09
 
 | Check | Command / environment | Observed result |
