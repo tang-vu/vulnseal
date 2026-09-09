@@ -1,5 +1,15 @@
 # Validation report
 
+## Consolidated validation after journal and timeout changes — 2026-09-09
+
+At code revision **`bfea932`**, one complete `npm run validate` passed all six workspace builds/typechecks and **260 tests across 48 files**: shared 13, contract 25, API 29, ciphertext storage 18, integration 9 and web 166. The contract suite completed in 70.67 seconds and web's 35 files in 81.41 seconds. This includes the expanded transition/actor matrix, tier bounds, v10 recovery, journal pagination/capacity and proof/confirmation deadlines. No test was retried.
+
+All **15 compiler/release/HTTP/artifact-copy/environment tool tests** passed in a single Node test run in 1.26 seconds. The full ordinary browser suite passed **74 desktop/mobile cases in 3.9 minutes** with CI's two workers and no retries. The separate real two-store browser suite passed **four cases in 49.2 seconds**, covering identical stored ciphertext, partial upload, corrupt replica rejection and offline backfill recovery.
+
+After the browser suites' test-specific builds, the normal `release:build` completed successfully with a fresh compiler comparison at **12:50:38.254 UTC**: **8 circuits, 62 files, 62,635,122 bytes**. No production code, contract source or proving keys changed in this validation increment. The readiness table now references this consolidated baseline; earlier report sections retain their historical counts and scoped results.
+
+This is local workspace, generated-circuit, browser and loopback-service evidence. Injected connector/captured-chain tests do not establish native Lace compatibility, fresh chain execution, production hosting, off-device durability or completion of the Wave 2/3 roadmap. The application confirmation timeout still leaves SDK background observation running; deployment-specific timeout recovery and native multi-profile operation remain separate verification work.
+
 ## Return recovery access after an SDK confirmation wait expires — 2026-09-09
 
 Role deployment and report actions now have an application wait that starts only after their encrypted transaction-identifier checkpoint completes. After ten minutes without an SDK result, the caller reports an unknown outcome and detaches its role session/public snapshot. The journal, backup and lock controls become available; further transactions are blocked in that workspace session, including redeployment, and reconnect guidance is hidden. The SDK's documented indefinite watch methods are unchanged. Its late result or error cannot trigger the expired caller's receipt/address persistence or follow-up ledger read. Background SDK polling/private-state completion can continue until the tab closes; reconciliation and a fresh session are required before considering further transactions.
