@@ -28,6 +28,8 @@ Primary assets are unreleased vulnerability content, reporter identity/contact d
 
 ## Witness review
 
+The [recipient disclosure exchange](adr/0008-recipient-bound-disclosure.md) uses a separate receiving key and excludes contract actor secrets. Confirm its public fingerprint through an agreed independent channel. It provides confidentiality and package/report integrity, not sender authentication or vendor-ownership attestation. Receiving-key compromise exposes past packages; no forward secrecy, revocation or prevention of recipient redistribution is claimed. Combined actor recovery files remain private.
+
 `contract/src/witnesses.ts` is security-critical. It returns exactly four private inputs: actor secret, report preimage tuple, patch evidence tuple, and retest evidence tuple. Missing data fails closed. The Compact contract never trusts tuple membership alone: it recomputes hashes and asserts subject equality. Changes require both incorrect-secret and wrong-subject negative tests.
 
 ## Abuse and availability

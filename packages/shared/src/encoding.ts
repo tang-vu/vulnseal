@@ -23,7 +23,9 @@ export const base64UrlToBytes = (value: string): Uint8Array => {
   if (!/^[A-Za-z0-9_-]+$/.test(value)) throw new Error("Invalid base64url string");
   const padding = "=".repeat((4 - (value.length % 4)) % 4);
   const binary = atob(value.replaceAll("-", "+").replaceAll("_", "/") + padding);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  if (bytesToBase64Url(bytes) !== value) throw new Error("Noncanonical base64url string");
+  return bytes;
 };
 
 export const utf8 = (value: string): Uint8Array => new TextEncoder().encode(value);

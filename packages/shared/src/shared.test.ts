@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
 import {
+  base64UrlToBytes,
   canonicalizeJson,
   canonicalizeReport,
   contractStatusName,
@@ -81,11 +82,18 @@ describe("privacy primitives", () => {
   it("rejects corrupted ciphertext", async () => {
     const sealed = await sealReport(report, "program-demo");
     const parsed = JSON.parse(sealed.serializedEnvelope) as Record<string, string>;
-    const finalCharacter = parsed.ciphertext?.endsWith("A") ? "B" : "A";
-    parsed.ciphertext = `${parsed.ciphertext?.slice(0, -1)}${finalCharacter}`;
+    // Change actual decoded bits, not potentially unused final base64 padding bits.
+    const firstCharacter = parsed.ciphertext?.startsWith("A") ? "B" : "A";
+    parsed.ciphertext = `${firstCharacter}${parsed.ciphertext?.slice(1)}`;
     await expect(openReport(JSON.stringify(parsed), sealed.key)).rejects.toThrow(
       "Ciphertext authentication failed",
     );
+  });
+
+  it("rejects alternate base64url spellings with nonzero padding bits", () => {
+    expect(base64UrlToBytes("Zg")).toEqual(new Uint8Array([102]));
+    expect(() => base64UrlToBytes("Zh")).toThrow("Noncanonical");
+    expect(() => base64UrlToBytes("Zm9")).toThrow("Noncanonical");
   });
 
   it("rejects extra fields and malformed envelopes before decryption", async () => {

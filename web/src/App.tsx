@@ -29,6 +29,8 @@ import { encryptRecovery, decryptRecovery, verifyRecoveryLedger, type RecoverySn
 import { RecoveryPanel } from "./RecoveryPanel.js";
 import { PublicLookup } from "./PublicLookup.js";
 import { AttachmentEditor, AttachmentReview } from "./AttachmentFields.js";
+import { HandoffPanel } from "./HandoffPanel.js";
+import type { RecipientKeys } from "./handoff.js";
 import { parsePublicReceipt } from "./public-verification.js";
 
 type Screen =
@@ -43,6 +45,7 @@ type Screen =
   | "verify"
   | "recovery"
   | "lookup"
+  | "handoff"
   | "privacy";
 type Persona = "researcher" | "vendor" | "verifier";
 type RuntimeMode = "guided-local" | "midnight";
@@ -136,6 +139,7 @@ function App() {
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>(env.mode);
   const [vendorSecret, setVendorSecret] = useState(() => randomBytes(32));
   const [researcherSecret, setResearcherSecret] = useState(() => randomBytes(32));
+  const [recipientKeys, setRecipientKeys] = useState<RecipientKeys>();
   const [activeNetwork, setActiveNetwork] = useState(env.network === "undeployed" ? "preprod" : env.network);
   const busy = useRef(false);
   const [providers, setProviders] = useState<VulnSealProviders>();
@@ -603,6 +607,8 @@ function App() {
         return <RecoveryPanel onExport={exportRecovery} onImport={importRecovery} canImport={!reportId && !api} />;
       case "lookup":
         return <PublicLookup />;
+      case "handoff":
+        return <HandoffPanel keys={recipientKeys} onKeys={setRecipientKeys} disclosure={sealed && reportId && reportSalt ? { network: api ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null, programId: bytesToHex(programBytes), reportId: bytesToHex(reportId), envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt) } : undefined} />;
     }
   })();
 
@@ -643,7 +649,7 @@ function App() {
       )}
       {screen === "lookup" && <div className="truth-banner"><span>Read-only public lookup</span>No private report material, wallet connection, or transaction submission is used here.</div>}
       {runtimeMode === "midnight" && !networkReady && screen !== "lookup" && <div className="truth-banner" role="status"><span>Network setup required</span>Connect Lace and create a program before submitting a report. <button className="secondary-button" onClick={() => changeScreen("create", "vendor")}>Set up program</button></div>}
-      <div className="session-actions"><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("lookup", "verifier")}>Independent verifier</button><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("recovery")}>Private recovery</button>{reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("receipt")}>Submission receipt</button>}{api && reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={exportPublicReceipt}>Download public receipt</button>}{needsRefresh && <button className="primary-button" disabled={operation.state === "working"} onClick={() => void retryPublicRead()}>Refresh public commitments</button>}</div>
+      <div className="session-actions"><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("handoff")}>Private exchange</button><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("lookup", "verifier")}>Independent verifier</button><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("recovery")}>Private recovery</button>{reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("receipt")}>Submission receipt</button>}{api && reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={exportPublicReceipt}>Download public receipt</button>}{needsRefresh && <button className="primary-button" disabled={operation.state === "working"} onClick={() => void retryPublicRead()}>Refresh public commitments</button>}</div>
       {operation.state === "error" && screen !== "seal" && (
         <div className="global-operation" role="alert">
           <strong>{operation.label}</strong>

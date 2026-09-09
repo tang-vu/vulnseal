@@ -397,4 +397,7 @@ input:focus, textarea:focus, select:focus { border-color: #536839; }
 .attachment-editor .button-row { flex-wrap: wrap; }
 .attachment-entry { margin: 16px 0; padding: 16px; border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
 .attachment-entry code { display: block; margin-bottom: 14px; font-size: 12px; }
+.handoff-page .form-panel { margin-bottom: 24px; }
+.handoff-page form + form { margin-top: 28px; }
+.received-disclosure { overflow-wrap: anywhere; }
 button:disabled { cursor: wait; opacity: .55; }

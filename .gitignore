@@ -41,3 +41,5 @@ proof-server-data/
 node-data/
 indexer-data/
 vulnseal-recovery*.json
+vulnseal-recipient-backup*.json
+vulnseal-disclosure*.json

@@ -1,5 +1,20 @@
 # Validation report
 
+## Private disclosure exchange validation — 2026-09-09
+
+| Check | Command / environment | Observed result |
+| --- | --- | --- |
+| Consolidated validation | `npm run validate` | Exit 0; all six workspaces typechecked and built; 14 test files / 73 tests passed (web: 9 files / 38 tests) |
+| Cryptographic exchange | Five handoff unit tests | Fresh encryption, intended-recipient round trip, wrong-recipient rejection, ciphertext/IV/wrapped-key tampering, fingerprint mismatch, private-field rejection, report/program binding, encrypted receiving-key recovery and wrong-password rejection |
+| Production browser suite | `VULNSEAL_CAPTURE_VISUALS=1 npm run test:e2e` | Exit 0; 18 passed, desktop Chrome and Pixel 7 |
+| Separate recipient journey | Two of the 18 browser cases | Recipient creates and downloads its key backup/public key, closes the tab; researcher seals a report and exports only after confirming fingerprint; recipient restores its own key in an isolated context and reads the report with no injected wallet or actor-recovery file |
+| Final browser tampering checks | `npm run test:e2e -- e2e/handoff.spec.ts` | Exit 0; 2 passed in 37.9 seconds; a changed package clears the previous report and fails authentication; key restore and disclosure decryption make no network requests |
+| File hygiene and visuals | Git ignore checks; desktop/mobile handoff screenshots | Conventional private receiving-key backup and disclosure filenames ignored; public key files have an exact public allowlist; synthetic received report renders on both viewports |
+
+The first consolidated run exposed a pre-existing flaky corruption test: modifying the final base64 character sometimes changed only unused padding bits, leaving decoded ciphertext unchanged. The test now changes actual leading data bits, and the shared decoder rejects noncanonical base64url spellings. The passing consolidated run above includes that fix and a dedicated padding-bit regression test. No AES-GCM authentication bypass was observed.
+
+These are real browser cryptographic/file-exchange journeys using a guided report and real ciphertext service, not separate-role on-chain transactions. Recipient keys grant reading only. No network deployment, identity attestation or independent security audit is claimed. See [ADR-0008](adr/0008-recipient-bound-disclosure.md).
+
 ## Attachment authoring validation — 2026-09-09
 
 | Check | Command / environment | Observed result |
