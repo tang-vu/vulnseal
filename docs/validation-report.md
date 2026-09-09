@@ -1,5 +1,17 @@
 # Validation report
 
+## Consolidated build-toolchain regression — 2026-09-09
+
+After the environment, compiler staging and exact artifact-copy changes, `npm run validate` completed all six builds and typechecks. Shared 13, contract 13, API 26, ciphertext service 18 and integration 9 tests passed. The web run had one failed query: the receiving-key retention test's default one-second wait expired while real RSA-3072 generation and encrypted backup derivation were still processing. Its wait now has an explicit five-second bound; assertions and production crypto are unchanged. The complete web rerun passed **24 files / 113 tests in 57.35 seconds**. This establishes 192 passing workspace tests across the initial run and corrected web rerun, not a claim that the initial command was green.
+
+All **15 tool tests** also passed: five compiler checks, seven release/HTTP/artifact-copy checks and three public/development environment checks. These are separate from the 192 workspace tests. Native-wallet, cross-region durability, semantic proving-key validation, escrow transfers and public deployment remain outside this local regression evidence.
+
+The complete ordinary browser suite subsequently passed **all 66 desktop/mobile cases in 4.1 minutes**, with two CI workers, no exclusions and no retries. This run used the current artifact-copy scripts and development service launcher, including recovery, journal replay, role isolation, storage failures and release-subdirectory assets.
+
+The separate two-store browser suite then passed **all four cases in 46.1 seconds**, also without retries or exclusions. It covers identical ciphertext at both local services, partial-upload blocking, three-report offline backfill, corrupt-source fallback and authenticated local fallback. No native wallet or externally operated replica is involved.
+
+The final normal-configuration `release:build` passed source/compiler comparison, six workspace builds and manifest packaging: **eight circuits, 62 files, 62,567,604 bytes**. Container images, retained proving keys and public deployments were not changed. The browser evidence is local Chrome desktop/mobile emulation, not a native Lace ceremony or a remote CI run.
+
 ## Exact generated-directory copies — 2026-09-09
 
 Contract/web artifact copying now replaces each generated directory from a completed temporary copy instead of overlaying files. This removes obsolete key/circuit files; an absent optional source directory produces an empty destination rather than retaining old keys. Required source absence, redirected paths and overlapping/out-of-workspace paths are rejected. Copy failure preserves the old destination; a reported installation-rename failure attempts rollback. A rollback failure retains its temporary recovery copy and reports its path. This is per-directory installation, not a transaction across an entire build or crash-atomic publication. Build and serving must remain separate.

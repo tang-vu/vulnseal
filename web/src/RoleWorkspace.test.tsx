@@ -168,7 +168,9 @@ describe("independent role workspace", () => {
     fireEvent.change(screen.getByLabelText("Recipient backup password"), { target: { value: "Retain this receiving key password" } });
     fireEvent.change(screen.getByLabelText("Confirm recipient backup password"), { target: { value: "Retain this receiving key password" } });
     await user.click(screen.getByRole("button", { name: "Create receiving key and save backup" }));
-    await screen.findByText(/Your receiving fingerprint/);
+    // Real RSA-3072 generation and encrypted backup derivation can exceed the
+    // default one-second query deadline while other crypto tests run in parallel.
+    await screen.findByText(/Your receiving fingerprint/, {}, { timeout: 5_000 });
     expect(screen.getByRole("button", { name: "Lock and switch workspace" })).toBeDisabled();
     await user.click(screen.getByLabelText("I retained the separate encrypted receiving-key backup and its password."));
     await user.click(screen.getByRole("button", { name: "Lock and switch workspace" }));
