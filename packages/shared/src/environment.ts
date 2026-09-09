@@ -4,6 +4,7 @@ export type RuntimeEnvironment = {
   readonly mode: "guided-local" | "midnight";
   readonly network: "undeployed" | "local" | "preview" | "preprod" | "mainnet";
   readonly cipherstoreUrl: string;
+  readonly cipherstoreUrls: readonly string[];
   readonly proofServerUrl: string;
   readonly indexerHttpUrl: string;
   readonly indexerWsUrl: string;
@@ -33,14 +34,11 @@ export const validateEnvironment = (
   if (!["undeployed", "local", "preview", "preprod", "mainnet"].includes(network)) {
     throw new Error("VITE_MIDNIGHT_NETWORK is invalid");
   }
+  const cipherstoreUrls = validateCipherstoreUrls([input.VITE_CIPHERSTORE_URL ?? "http://127.0.0.1:8787", ...(input.VITE_CIPHERSTORE_REPLICAS?.trim() ? input.VITE_CIPHERSTORE_REPLICAS.split(",").map((entry) => entry.trim()) : [])]);
   return {
     mode,
     network: network as RuntimeEnvironment["network"],
-    cipherstoreUrl: url(
-      input.VITE_CIPHERSTORE_URL ?? "http://127.0.0.1:8787",
-      "VITE_CIPHERSTORE_URL",
-      ["http:", "https:"],
-    ),
+    cipherstoreUrl: cipherstoreUrls[0]!, cipherstoreUrls,
     proofServerUrl: url(
       input.VITE_PROOF_SERVER_URL ?? "http://127.0.0.1:6300",
       "VITE_PROOF_SERVER_URL",
@@ -57,4 +55,16 @@ export const validateEnvironment = (
       ["ws:", "wss:"],
     ),
   };
+};
+
+export const validateCipherstoreUrls = (values: readonly string[]): readonly string[] => {
+  if (values.length < 1 || values.length > 3) throw new Error("Configure between one and three ciphertext endpoints");
+  const normalized = values.map((value) => {
+    const result = url(value, "Ciphertext endpoint", ["http:", "https:"]);
+    const parsed = new URL(result);
+    if (parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error("Ciphertext endpoints cannot contain credentials, query strings or fragments");
+    return result;
+  });
+  if (new Set(normalized).size !== normalized.length) throw new Error("Ciphertext endpoints must be distinct");
+  return Object.freeze(normalized);
 };

@@ -37,7 +37,7 @@ export default defineConfig({
     {
       command: "npm run build -w @vulnseal/web && npm run preview -w @vulnseal/web -- --port 4173",
       url: "http://127.0.0.1:4173",
-      env: { VITE_CIPHERSTORE_URL: "http://127.0.0.1:8797" },
+      env: { VITE_CIPHERSTORE_URL: "http://127.0.0.1:8797", VITE_CIPHERSTORE_REPLICAS: "" },
       reuseExistingServer: false,
       timeout: 120_000,
     },

@@ -1,5 +1,21 @@
 # Validation report
 
+## Optional ciphertext replication — 2026-09-09
+
+The browser and exported API client now support an explicit primary plus up to two additional ciphertext endpoints. Upload success requires every configured destination's acknowledgment; a partial failure retains the prepared artifact and has no automatic write retry. Reads move to the next endpoint after failure or invalid bytes, stop at the first digest-verified copy, and never write repair data. URLs reject credentials, query strings, fragments and normalized duplicates; fetches omit credentials/referrers and refuse redirects. The UI exposes destination configuration before upload.
+
+The shared suite passed **13 tests**, including replica configuration rejection. The focused API client suite passed **13 tests**, including waiting for every acknowledgment, partial writes and explicit identical retry, corruption fallback, deadline-triggered fallback and all-source failure. The two-service browser suite passed **four desktop/mobile cases in 49.6 seconds**. Both real local service instances used distinct data directories. Tests simulated one unavailable upload destination, then reuploaded the original bytes to both; real GETs matched both stored envelopes. Corrupt primary reads used the valid replica, all-corrupt reads used the authenticated local copy, and neither path created a write. A restored offline role uploaded only its saved envelope to both real services without Lace.
+
+The consolidated `npm run validate` passed all six builds/typechecks and **35 files / 187 tests**: shared 13, contract 13, API 25, ciphertext service 18, integration 9 and web 109. The web portion completed in 51.55 seconds. This also checks the default one-store path and existing recovery schemas; no root-test failure was observed in this increment.
+
+The complete ordinary browser run subsequently passed **all 66 desktop/mobile cases in 3.7 minutes**, with CI's two workers and no exclusions or retries, using an explicitly empty replica setting. The new multi-store suite remains a separate configuration because it starts an additional storage service and builds a different public endpoint configuration.
+
+The replica failure fixtures were then tightened to include valid CORS headers on both the simulated HTTP 503 and corrupt HTTP 200 responses. This ensures the browser can inspect the response instead of passing the fallback case due merely to CORS rejection. The complete separate suite passed again: **four cases in 44.7 seconds**, with no exclusions or retries. Combined coverage is 66 default-configuration cases plus four two-store cases; no new remote CI execution is claimed.
+
+The final normal-configuration `release:build` passed the fresh compiler-source check, all six builds and packaging gate: eight proving circuits, 62 files and 62,560,451 bytes. Existing proving keys and container images were retained; no public deployment, new container drill or blockchain write was performed.
+
+This is same-host HTTP-instance replication using the existing filesystem adapter. No cross-region/physical-device durability, second adapter, background backfill, native-wallet transaction or public deployment is claimed. The separate Playwright configuration and CI step run replication cases; the ordinary configuration explicitly clears replicas. Operator commands and failure-policy limits are documented in [cipherstore-replication.md](cipherstore-replication.md).
+
 ## Consolidated recovery-release validation — 2026-09-09
 
 The preparation error UI now distinguishes a draft that failed before encryption from a retained ciphertext. Early failure no longer marks canonicalization complete or offers an upload retry for nonexistent saved bytes. Its regression test bypasses native form validation to exercise application validation, verifies no upload occurs and confirms the draft remains editable. Import guidance also names a pending preparation as an existing session that must not be replaced.

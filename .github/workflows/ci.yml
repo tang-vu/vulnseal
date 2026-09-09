@@ -58,6 +58,9 @@ jobs:
       - name: Test production UI against the ciphertext service
         run: npm run test:e2e
 
+      - name: Test ciphertext replication against two independent stores
+        run: npm run test:e2e:replication
+
   cipherstore-container:
     runs-on: ubuntu-latest
     permissions:

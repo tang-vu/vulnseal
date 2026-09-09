@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { VulnSealApi } from "@vulnseal/api/api";
-import { CipherstoreClient } from "@vulnseal/api/cipherstore-client";
+import { createCipherstoreClient } from "@vulnseal/api/cipherstore-client";
+import { CipherstoreDestinations } from "./CipherstoreDestinations.js";
 import type { TransactionEvidence, VulnSealProviders } from "@vulnseal/api/types";
 import {
   createVulnSealPrivateState,
@@ -311,8 +312,8 @@ function App() {
       const commitment = pendingPreparation?.id ?? pureCircuits.deriveReportCommitment(Uint8Array.from(programBytes), Uint8Array.from(encrypted.canonicalReportDigest), Uint8Array.from(salt));
       const prepared = { sealed: encrypted, salt, id: commitment, submissionStarted: false };
       setPendingPreparation(prepared);
-      setOperation({ state: "working", label: "Uploading ciphertext", detail: "Sending only the authenticated AES-256-GCM envelope to the local content store." });
-      await new CipherstoreClient(env.cipherstoreUrl).put(
+      setOperation({ state: "working", label: "Uploading ciphertext", detail: `Sending only the authenticated AES-256-GCM envelope to ${env.cipherstoreUrls.length} configured storage endpoint(s).` });
+      await createCipherstoreClient(env.cipherstoreUrls).put(
         encrypted.contentAddress,
         encrypted.serializedEnvelope,
       );
@@ -367,7 +368,7 @@ function App() {
     try {
       let serialized: string;
       try {
-        serialized = await new CipherstoreClient(env.cipherstoreUrl).get(sealed.contentAddress);
+        serialized = await createCipherstoreClient(env.cipherstoreUrls).get(sealed.contentAddress);
         setUsingLocalCiphertext(false);
       } catch {
         serialized = sealed.serializedEnvelope;
@@ -816,6 +817,7 @@ export function ReportWizard({ report, onChange, onSeal, preserveDraftLines = fa
         <label>Suggested remediation<textarea rows={3} value={report.suggestedRemediation} onChange={(event) => update("suggestedRemediation", event.target.value)} /></label>
         <label>Private researcher contact<input type="email" value={report.researcherContact} onChange={(event) => update("researcherContact", event.target.value)} /><small>Encrypted with the report; never added to public ledger state.</small></label>
         <AttachmentEditor draft={attachmentDraft} onDraftChange={onAttachmentDraftChange} attachments={report.attachments} onChange={(value) => update("attachments", value)} onPending={setAttachmentPending} />
+        <CipherstoreDestinations urls={env.cipherstoreUrls} />
         <label className="check-row"><input type="checkbox" required /><span>I confirm this test was authorized and the report excludes live secrets.</span></label>
         <div className="form-actions"><span>Next: local AES-256-GCM encryption and Compact commitment.</span><button className="primary-button" disabled={attachmentPending}>Encrypt &amp; seal <span aria-hidden="true">→</span></button></div>
       </form>

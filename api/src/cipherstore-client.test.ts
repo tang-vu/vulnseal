@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CipherstoreClient, MAX_CIPHERSTORE_BYTES } from "./cipherstore-client.js";
+import { CipherstoreClient, ReplicatedCipherstoreClient, MAX_CIPHERSTORE_BYTES } from "./cipherstore-client.js";
 import { createHash } from "node:crypto";
 
 describe("CipherstoreClient", () => {
@@ -84,5 +84,55 @@ describe("CipherstoreClient", () => {
     const split = new ReadableStream<Uint8Array>({ start(controller) { for (const byte of encoded) controller.enqueue(Uint8Array.of(byte)); controller.close(); } });
     fetchMock.mockResolvedValueOnce(new Response(split));
     expect(await client.get(`sha256:${createHash("sha256").update(encoded).digest("hex")}`)).toBe(unicode);
+  });
+});
+
+describe("replicated ciphertext", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const urls = ["http://127.0.0.1:8787", "http://127.0.0.1:8788"];
+  const body = "{}", address = `sha256:${createHash("sha256").update(body).digest("hex")}`;
+  it("waits for every store and reports partial acknowledgement without automatic write retries", async () => {
+    let finish!: (response: Response) => void;
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response("{}", { status: 201 })).mockImplementationOnce(() => new Promise<Response>((resolve) => { finish = resolve; }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new ReplicatedCipherstoreClient(urls);
+    let completed = false;
+    const attempt = client.put(address, body).finally(() => { completed = true; });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(completed).toBe(false);
+    finish(new Response("{}", { status: 503 }));
+    await expect(attempt).rejects.toThrow("1 of 2 stores acknowledged");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    fetchMock.mockImplementation(async () => new Response("{}", { status: 200 }));
+    await client.put(address, body);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    for (const [, options] of fetchMock.mock.calls) expect(options).toMatchObject({ method: "PUT", body, credentials: "omit", redirect: "error", referrerPolicy: "no-referrer" });
+  });
+  it("falls back after corrupted bytes and stops at the first verified copy without repairing on read", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response("corrupt")).mockResolvedValueOnce(new Response(body));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await new ReplicatedCipherstoreClient([...urls, "http://127.0.0.1:8789"]).get(address)).toBe(body);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(urls.map((url) => `${url}/v1/blobs/${address}`));
+    expect(fetchMock.mock.calls.every(([, options]) => options.method === undefined)).toBe(true);
+  });
+  it("moves to the next store after a bounded withheld response", async () => {
+    const fetchMock = vi.fn().mockImplementationOnce((_url, { signal }) => new Promise<Response>((_resolve, reject) => signal.addEventListener("abort", () => reject(new Error("withheld response")), { once: true }))).mockResolvedValueOnce(new Response(body));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await new ReplicatedCipherstoreClient(urls, 30).get(address)).toBe(body);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]![1].signal.aborted).toBe(true);
+  });
+  it("rejects all-bad reads and malformed addresses without disclosing to extra endpoints", async () => {
+    const fetchMock = vi.fn(async () => new Response("unavailable", { status: 404 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new ReplicatedCipherstoreClient(urls);
+    await expect(client.get(address)).rejects.toThrow("2 stores checked");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    fetchMock.mockClear();
+    await expect(client.get("../other-resource")).rejects.toThrow("Invalid ciphertext content address");
+    await expect(client.put(address, "changed")).rejects.toThrow("0 of 2 stores acknowledged");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(() => new ReplicatedCipherstoreClient([urls[0]!])).toThrow("at least two");
+    expect(() => new ReplicatedCipherstoreClient([urls[0]!, `${urls[0]}/`])).toThrow("distinct");
   });
 });

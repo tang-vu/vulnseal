@@ -29,6 +29,7 @@
     "test": "npm run test --workspaces --if-present",
     "test:run": "npm run test:run --workspaces --if-present",
     "test:e2e": "playwright test",
+    "test:e2e:replication": "playwright test --config playwright.replication.config.ts",
     "test:integration": "npm run lifecycle -w @vulnseal/integration",
     "preprod:prepare": "npm run preprod:prepare -w @vulnseal/integration",
     "preprod:lifecycle": "npm run preprod:lifecycle -w @vulnseal/integration",

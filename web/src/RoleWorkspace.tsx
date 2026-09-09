@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { VulnSealApi } from "@vulnseal/api/api";
 import { RoleSession, type RoleCommand } from "@vulnseal/api/role-session";
-import { CipherstoreClient } from "@vulnseal/api/cipherstore-client";
+import { createCipherstoreClient } from "@vulnseal/api/cipherstore-client";
+import { CipherstoreDestinations } from "./CipherstoreDestinations.js";
 import type { PublicContractSnapshot, TransactionEvidence } from "@vulnseal/api/types";
 import { createVulnSealPrivateState, pureCircuits } from "@vulnseal/contract";
 import { bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, randomBytes, sealReport, sha256, utf8, validateEnvironment, type VulnerabilityReport } from "@vulnseal/shared";
@@ -32,7 +33,7 @@ const readFile = async (file: File | undefined, max: number) => {
 };
 const uploadDisclosure = async (disclosure: Disclosure) => {
   const opened = await validateDisclosure(disclosure);
-  try { await new CipherstoreClient(env.cipherstoreUrl).put(`sha256:${opened.ciphertextDigest}`, disclosure.envelope); }
+  try { await createCipherstoreClient(env.cipherstoreUrls).put(`sha256:${opened.ciphertextDigest}`, disclosure.envelope); }
   catch (cause) { throw new Error(`Ciphertext upload was not confirmed. Keep this saved report and retry its upload; do not prepare a replacement. No contract submission was started by this upload. ${cause instanceof Error ? cause.message : "Storage unavailable"}`); }
   return opened;
 };
@@ -240,6 +241,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
             <label>Workspace report<select value={selectedId} onChange={(event) => { setSelectedId(event.target.value); setReceipt(undefined); }}><option value="">Choose a saved report</option>{vault.reports.map((entry) => <option value={entry.reportId} key={entry.reportId}>{entry.reportId}</option>)}</select></label>
             {chosen && <><p className="public-value">Report: {chosen.reportId}</p><SelectedRoleReport key={chosen.reportId} disclosure={chosen} /><p>{snapshot ? status ?? "Prepared locally; absent from the current ledger snapshot" : "Refresh ledger state before continuing. A prior transaction may still require reconciliation."}</p>
               <section aria-label="Saved ciphertext storage"><h3>Store this encrypted report</h3><p>Save an encrypted role backup first, then upload the exact saved ciphertext. You can repeat this upload after a storage failure or restore; its report ID, encryption key and content address stay the same. Only ciphertext is sent. This action does not connect Lace or submit a transaction.</p>
+                <CipherstoreDestinations urls={env.cipherstoreUrls} />
                 <button type="button" className="secondary-button" disabled={!backedUp} onClick={() => run(async () => {
                   if (!backedUp) throw new Error("Save this report in an encrypted role backup before uploading");
                   await uploadDisclosure(chosen); setMessage("Storage acknowledged the saved ciphertext. Keep your backup; this is not a ledger receipt or a retention guarantee.");

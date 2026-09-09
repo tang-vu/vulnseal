@@ -134,4 +134,9 @@ describe("privacy primitives", () => {
       validateEnvironment({ VITE_PROOF_SERVER_URL: "not-a-url" }),
     ).toThrow("VITE_PROOF_SERVER_URL must be an absolute URL");
   });
+  it("bounds and validates explicit ciphertext replica configuration", () => {
+    expect(validateEnvironment({}).cipherstoreUrls).toEqual(["http://127.0.0.1:8787"]);
+    expect(validateEnvironment({ VITE_CIPHERSTORE_REPLICAS: "https://replica.example.test/" }).cipherstoreUrls).toEqual(["http://127.0.0.1:8787", "https://replica.example.test"]);
+    for (const replica of ["http://127.0.0.1:8787/", "https://a.test,https://b.test,https://c.test", "https://a.test,", "https://user:password@a.test", "https://a.test?token=x", "https://a.test/#fragment", "file:///a"]) expect(() => validateEnvironment({ VITE_CIPHERSTORE_REPLICAS: replica })).toThrow();
+  });
 });

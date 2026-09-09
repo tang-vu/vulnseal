@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { validateContentDigest } from "@vulnseal/shared";
+import { validateContentDigest, validateCipherstoreUrls } from "@vulnseal/shared";
 
 const MEDIA_TYPE = "application/vnd.vulnseal.ciphertext+json";
 export const CIPHERSTORE_REQUEST_TIMEOUT_MS = 20_000;
@@ -60,6 +60,7 @@ export class CipherstoreClient {
         headers: { "content-type": MEDIA_TYPE },
         body: serializedEnvelope,
         signal,
+        credentials: "omit", redirect: "error", referrerPolicy: "no-referrer",
       });
       // PUT status is sufficient; do not buffer an arbitrary response body.
       void response.body?.cancel().catch(() => {});
@@ -70,8 +71,9 @@ export class CipherstoreClient {
   }
 
   async get(address: string): Promise<string> {
+    if (!/^sha256:[a-f0-9]{64}$/.test(address)) throw new Error("Invalid ciphertext content address");
     return this.request("GET", async (signal) => {
-      const response = await fetch(`${this.baseUrl}/v1/blobs/${address}`, { signal });
+      const response = await fetch(`${this.baseUrl}/v1/blobs/${address}`, { signal, credentials: "omit", redirect: "error", referrerPolicy: "no-referrer" });
       if (!response.ok) {
         void response.body?.cancel().catch(() => {});
         throw new Error(`Cipherstore GET failed with HTTP ${response.status}`);
@@ -85,3 +87,32 @@ export class CipherstoreClient {
     });
   }
 }
+
+/** Each configured destination is an explicit ciphertext disclosure choice. */
+export class ReplicatedCipherstoreClient {
+  private readonly clients: readonly CipherstoreClient[];
+  constructor(urls: readonly string[], timeoutMs = CIPHERSTORE_REQUEST_TIMEOUT_MS) {
+    const endpoints = validateCipherstoreUrls(urls);
+    if (endpoints.length < 2) throw new Error("Replication requires at least two ciphertext endpoints");
+    this.clients = endpoints.map((endpoint) => new CipherstoreClient(endpoint, timeoutMs));
+  }
+
+  async put(address: string, serializedEnvelope: string): Promise<void> {
+    const results = await Promise.allSettled(this.clients.map((client) => client.put(address, serializedEnvelope)));
+    const acknowledged = results.filter((result) => result.status === "fulfilled").length;
+    if (acknowledged !== results.length) throw new Error(`Ciphertext replication incomplete: ${acknowledged} of ${results.length} stores acknowledged this upload. A failed response may still have stored the bytes. Keep the saved report and retry its identical ciphertext when all stores are available.`);
+  }
+
+  async get(address: string): Promise<string> {
+    if (!/^sha256:[a-f0-9]{64}$/.test(address)) throw new Error("Invalid ciphertext content address");
+    for (const client of this.clients) {
+      try { return await client.get(address); } catch { /* A failed integrity/read check never supplies plaintext to the caller. */ }
+    }
+    throw new Error(`No configured ciphertext store returned bytes matching the requested digest (${this.clients.length} stores checked). Keep your report key and local encrypted backup.`);
+  }
+}
+
+export const createCipherstoreClient = (urls: readonly string[], timeoutMs = CIPHERSTORE_REQUEST_TIMEOUT_MS): CipherstoreClient | ReplicatedCipherstoreClient => {
+  const endpoints = validateCipherstoreUrls(urls);
+  return endpoints.length === 1 ? new CipherstoreClient(endpoints[0]!, timeoutMs) : new ReplicatedCipherstoreClient(endpoints, timeoutMs);
+};
