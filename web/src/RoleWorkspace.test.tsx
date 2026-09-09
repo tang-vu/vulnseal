@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { decryptRoleVault, encryptRoleVault } from "./role-recovery.js";
 import { recoveryFixture } from "./test/recovery-fixture.js";
 import { RoleAutosave } from "./role-autosave.js";
+import { writeStoredRole } from "./role-storage.js";
 const mocks = vi.hoisted(() => ({ join: vi.fn() }));
 vi.mock("./role-network.js", () => ({ joinRoleVault: mocks.join }));
 vi.mock("./role-storage.js", () => ({
@@ -43,6 +44,37 @@ const restore = async (role: "researcher" | "vendor", status: number) => {
 };
 
 describe("independent role workspace", () => {
+  it("persists operation/report intent before wallet failure and clears the active callback context afterwards", async () => {
+    const { user, session, vault } = await restore("vendor", 0);
+    const checkpoint = mocks.join.mock.calls.at(-1)![1] as (id: string) => Promise<void>;
+    const transactionId = "cd".repeat(32);
+    session.execute.mockImplementationOnce(async () => {
+      await checkpoint(transactionId);
+      const encrypted = vi.mocked(writeStoredRole).mock.calls.at(-1)![2];
+      const saved = await decryptRoleVault(encrypted, "Workspace journal password");
+      expect(saved.submissionAttempts![0]!.intent).toEqual({ circuit: "beginTriage", reportId: vault.reports[0]!.reportId });
+      throw new Error("Wallet connection interrupted after checkpoint");
+    });
+    await user.click(screen.getByRole("button", { name: "Begin triage" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Wallet connection interrupted after checkpoint");
+    expect(screen.getByText(/Recorded intent: beginTriage/)).toHaveTextContent(vault.reports[0]!.reportId);
+    await expect(checkpoint("ef".repeat(32))).rejects.toThrow("Submission intent is missing");
+  });
+  it("stops submission when the contextual encrypted checkpoint cannot be written", async () => {
+    const { user, session } = await restore("vendor", 0);
+    const checkpoint = mocks.join.mock.calls.at(-1)![1] as (id: string) => Promise<void>;
+    const broadcast = vi.fn();
+    session.execute.mockImplementationOnce(async () => {
+      await checkpoint("cd".repeat(32));
+      broadcast();
+      throw new Error("Unexpected broadcast");
+    });
+    vi.mocked(writeStoredRole).mockRejectedValueOnce(new Error("Storage quota exceeded"));
+    await user.click(screen.getByRole("button", { name: "Begin triage" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Storage quota exceeded");
+    expect(broadcast).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Recorded intent: beginTriage/)).not.toBeInTheDocument();
+  });
   const leavingIsBlocked = () => {
     const event = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(event);

@@ -1,5 +1,17 @@
 # Validation report
 
+## Local operation/report context in submission recovery — 2026-09-09
+
+New role submissions persist their circuit name and report identifier alongside the pre-wallet transaction identifier. Deployment uses a null report identifier. Payload version 5 retains drafts, working notes and prior entries; legacy entries migrate with explicit unknown intent. Strict validation rejects foreign report identifiers, role-inappropriate circuits, duplicate transaction identifiers, and additional metadata fields. The workspace and wallet-free inspector distinguish locally recorded intent from observed public transaction status. See [ADR 0017](adr/0017-submission-intent-context.md).
+
+The initial focused checks found a cross-realm byte-array mismatch in the newly shared report submission path. Normalizing the generated-circuit inputs with `Uint8Array.from` fixed it. The first full web run then passed 81 tests and identified one existing assertion still expecting payload version 4. Updating that assertion to version 5 and adding checks for persisted/restored intent produced a passing full web run: 20 files / 82 tests in 44.46 seconds. Component tests decrypt the saved checkpoint before a simulated wallet failure, verify report intent survives restoration, reject a late callback without active intent, and prevent the simulated broadcast when storage fails. These use mocked sessions/storage, not native Lace.
+
+Production browser checks for recovery journals, browser storage, drafts and notes passed 16 desktop/mobile cases in 1.4 minutes with 2 CI workers. These include both v2 and v5 journals opened from a file and real IndexedDB without wallet or network access; only an explicit transaction check sends a public request. This browser run preceded the byte-array normalization; the full component run above includes that fix.
+
+After the final code fix, a rebuilt/typechecked production app passed all 12 recovery-journal and bootstrap desktop/mobile cases in 1.0 minute, including encrypted export while WASM remains blocked.
+
+These labels do not authenticate actual transaction effects, preserve complete command arguments or private transition history, or establish safe retry. Those reconciliation requirements remain open.
+
 ## Encrypted backup export during startup failure — 2026-09-09
 
 The root error screen now reuses the browser-copy catalog in export-only mode. Its React/storage imports do not require the Midnight SDK, wallet connection or decryption password. Deletion controls are available only when the normal workspace supplies its deletion callback. Downloads retain the stored ciphertext and existing password, with the existing revision check before export.

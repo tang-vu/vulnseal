@@ -25,7 +25,8 @@ it("blocks unjournaled submission, saves before an uncertain result, and restore
     await checkpoint(txId);
     const durable = await decryptRoleVault(row!.encrypted, password);
     expect(durable.submissionAttempts?.[0]?.transactionId).toBe(txId);
-    expect(durable.version).toBe(4);
+    expect(durable.version).toBe(5);
+    expect(durable.submissionAttempts?.[0]?.intent).toEqual({ circuit: "beginTriage", reportId: vault.reports[0]!.reportId });
     expect(durable.reportNotes?.[0]?.text).toBe("Retain these private working notes");
     expect(screen.getByRole("button", { name: "Lock and switch workspace" })).toBeDisabled();
     broadcast(); throw new Error("Finality response lost after submission");
@@ -71,4 +72,5 @@ it("blocks unjournaled submission, saves before an uncertain result, and restore
   await screen.findByRole("heading", { name: "Vendor workspace" });
   await screen.findByText(new RegExp(txId));
   expect(broadcast).toHaveBeenCalledOnce();
+  expect(screen.getByText(/Recorded intent: beginTriage/)).toHaveTextContent(vault.reports[0]!.reportId);
 }, 30_000);

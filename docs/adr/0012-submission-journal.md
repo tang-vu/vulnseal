@@ -21,3 +21,7 @@ Existing payload version 1 is accepted unchanged. Recording the first attempt cr
 An entry means the app saved an intention to call the wallet. A crash between the save and the call can leave an entry for a transaction never broadcast. A saved entry is therefore neither a success receipt nor evidence of network rejection. The restored UI displays identifiers with an explicit reconciliation label and does not automatically resubmit them. Duplicate identifiers are rejected by the checkpoint; a newly constructed transaction may have a different identifier, so this is not complete semantic retry protection.
 
 Users can reopen the encrypted browser copy or export its encrypted file and inspect identifiers in the wallet/indexer. Automatic transaction lookup, finality reconciliation, circuit/report association, terminal outcome records and safe resubmission policy are still required. A later failure cannot erase the already-persisted identifier. Clearing browser data, eviction or device loss still requires an independent downloaded backup, which may predate the most recent attempt. Native Lace interruption/recovery has not been established by mocked provider tests.
+
+## Operation context extension
+
+[ADR 0017](0017-submission-intent-context.md) extends new entries with local circuit/report intent in payload version 5, while preserving unknown intent for older entries. This does not authenticate transaction contents or make retries safe.

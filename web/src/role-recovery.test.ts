@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { decryptRoleVault, encryptRoleVault, parseInvitation, validateRoleVault, withRoleDraft, withReportNotes, type RoleVault } from "./role-recovery.js";
+import { decryptRoleVault, encryptRoleVault, parseInvitation, validateRoleVault, withRoleDraft, withReportNotes, withSubmissionAttempt, type RoleVault } from "./role-recovery.js";
 import { recoveryFixture } from "./test/recovery-fixture.js";
 
 export const roleFixture = async (role: "researcher" | "vendor" = "researcher"): Promise<RoleVault> => {
@@ -8,6 +8,32 @@ export const roleFixture = async (role: "researcher" | "vendor" = "researcher"):
   return { version: 1, role, network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, actorSecret: role === "researcher" ? snapshot.researcherSecret : snapshot.vendorSecret, reports: [{ network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: snapshot.report!.id, envelope: snapshot.report!.envelope, key: snapshot.report!.key, salt: snapshot.report!.salt }] };
 };
 describe("single-role encrypted recovery", () => {
+  it("migrates legacy attempts without inventing intent and preserves new report context through encrypted edits", async () => {
+    const original = await roleFixture("vendor");
+    const old = { transactionId: "ab".repeat(32), recordedAt: "2026-09-09T04:00:00.000Z" };
+    const intent = { circuit: "beginTriage" as const, reportId: original.reports[0]!.reportId };
+    const vault = await withSubmissionAttempt({ ...original, version: 2, submissionAttempts: [old] }, "cd".repeat(33), intent);
+    expect(vault.version).toBe(5);
+    expect(vault.submissionAttempts![0]).toEqual({ ...old, intent: null });
+    const edited = withRoleDraft(withReportNotes(vault, { reportId: intent.reportId, tier: "2", text: "Later private edits" }), null);
+    expect(edited.version).toBe(5);
+    expect(edited.submissionAttempts![1]!.intent).toEqual(intent);
+    const encrypted = await encryptRoleVault(edited, "Contextual journal recovery password");
+    expect(encrypted).not.toContain(intent.reportId);
+    expect(await decryptRoleVault(encrypted, "Contextual journal recovery password")).toEqual(edited);
+    await expect(validateRoleVault({ ...vault, version: 4 })).rejects.toThrow("Unsupported role document");
+    await expect(withSubmissionAttempt(vault, "ef".repeat(32), { ...intent, reportId: "ff".repeat(32) })).rejects.toThrow("saved report");
+    await expect(withSubmissionAttempt(vault, "ef".repeat(32), { ...intent, circuit: "submitRetest" })).rejects.toThrow("circuit for this role");
+    await expect(withSubmissionAttempt(vault, old.transactionId, intent)).rejects.toThrow("Invalid submission journal entry");
+    await expect(validateRoleVault({ ...vault, submissionAttempts: [{ ...old, intent: { ...intent, status: "SUCCESS" } }] })).rejects.toThrow("Unsupported role document");
+  });
+  it("records deployment intent only for a vendor and without a report identifier", async () => {
+    const original = { ...await roleFixture("vendor"), contractAddress: null, reports: [] };
+    const vault = await withSubmissionAttempt(original, "ab".repeat(32), { circuit: "constructor", reportId: null });
+    expect(vault.submissionAttempts![0]!.intent).toEqual({ circuit: "constructor", reportId: null });
+    await expect(withSubmissionAttempt(await roleFixture(), "ab".repeat(32), { circuit: "constructor", reportId: null })).rejects.toThrow("deployment intent");
+    await expect(validateRoleVault({ ...vault, submissionAttempts: [{ ...vault.submissionAttempts![0], intent: { circuit: "constructor", reportId: "ab".repeat(32) } }] })).rejects.toThrow("deployment intent");
+  });
   it("encrypts report-bound working notes without losing draft/journal fields or accepting foreign notes", async () => {
     const original = await roleFixture("vendor");
     const note = { reportId: original.reports[0]!.reportId, text: "Private decision\n\n  unfinished patch notes  ", tier: "4" };

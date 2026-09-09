@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { decryptRoleVault, MAX_ROLE_BACKUP_BYTES, type SubmissionAttempt } from "./role-recovery.js";
 import { listStoredRoles, readStoredRole, type StoredRoleLabel } from "./role-storage.js";
+import { SubmissionIntentView } from "./SubmissionIntentView.js";
 import { TransactionCheck } from "./TransactionCheck.js";
 
 type JournalView = { network: string; contractAddress: string | null; attempts: readonly SubmissionAttempt[] };
@@ -60,7 +61,7 @@ export function RecoveryJournal() {
     {view && <div>
       <p>Backup network: {view.network}. These are local backup claims, not verified authority or transaction outcomes.</p>
       {view.contractAddress && <p className="public-value">Backup contract: {view.contractAddress}</p>}
-      {view.attempts.length ? <ul>{view.attempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt}<TransactionCheck network={view.network} transactionId={entry.transactionId} /></li>)}</ul> : <p>This backup contains no recorded submission attempts. It may predate a transaction; this does not prove that nothing was sent.</p>}
+      {view.attempts.length ? <ul>{view.attempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt}<SubmissionIntentView entry={entry} /><TransactionCheck network={view.network} transactionId={entry.transactionId} /></li>)}</ul> : <p>This backup contains no recorded submission attempts. It may predate a transaction; this does not prove that nothing was sent.</p>}
     </div>}
   </section>;
 }

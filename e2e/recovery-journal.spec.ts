@@ -2,10 +2,11 @@
 import { expect, test } from "@playwright/test";
 import { encryptRoleVault } from "../web/src/role-recovery.js";
 
-test("deployed-role journal can be inspected from file and browser storage without Lace or network requests", async ({ page }, testInfo) => {
+for (const version of [2, 5] as const) {
+test(`v${version} deployed-role journal can be inspected from file and browser storage without Lace or network requests`, async ({ page }, testInfo) => {
   const transactionId = "00315eaad1b87f436849790da0f0072be407dfdf9079b78f15e73c838b9ede2c19";
   const actorSecret = "34".repeat(32), password = "Offline recovery journal password";
-  const encrypted = await encryptRoleVault({ version: 2, role: "vendor", network: "preprod", contractAddress: "ab".repeat(32), programId: "12".repeat(32), actorSecret, reports: [], submissionAttempts: [{ transactionId, recordedAt: "2026-09-09T04:00:00.000Z" }] }, password);
+  const encrypted = await encryptRoleVault({ version, ...(version === 5 ? { draft: null, reportNotes: [] } : {}), role: "vendor", network: "preprod", contractAddress: "ab".repeat(32), programId: "12".repeat(32), actorSecret, reports: [], submissionAttempts: [{ transactionId, recordedAt: "2026-09-09T04:00:00.000Z", ...(version === 5 ? { intent: { circuit: "constructor" as const, reportId: null } } : {}) }] }, password);
   const posts: string[] = [];
   const requests: string[] = [];
   page.on("request", (request) => { requests.push(request.url()); if (request.method() === "POST") posts.push(request.url()); });
@@ -22,6 +23,7 @@ test("deployed-role journal can be inspected from file and browser storage witho
   await page.getByRole("button", { name: "Read recovery journal" }).click();
   await expect(page.getByText(new RegExp(transactionId))).toBeVisible();
   await expect(page.getByLabel("Journal backup password")).toHaveValue("");
+  await expect(page.getByText(version === 5 ? /Recorded intent: constructor/ : /Operation and report were not recorded/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Vendor workspace" })).toHaveCount(0);
   expect(await page.locator("body").innerText()).not.toContain(actorSecret);
   expect(posts).toEqual([]);
@@ -55,3 +57,4 @@ test("deployed-role journal can be inspected from file and browser storage witho
   await page.getByRole("button", { name: "Clear inspected journal" }).click();
   await expect(page.getByText(/Not found by this indexer/)).toHaveCount(0);
 });
+}
