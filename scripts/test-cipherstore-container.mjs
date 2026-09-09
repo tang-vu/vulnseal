@@ -31,8 +31,12 @@ function removeOwned(kind, target) {
 }
 try {
   docker("volume", "create", "--label", label, volume);
-  docker("run", "--detach", "--name", name, "--label", label, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--memory", "512m", "--pids-limit", "64", "--mount", `type=volume,source=${volume},target=/data`, "--publish", "127.0.0.1::8787", "--env", "CIPHERSTORE_MAX_STORED_BLOBS=1", "--env", "CIPHERSTORE_REQUEST_TIMEOUT_MS=1000", image);
+  docker("run", "--detach", "--name", name, "--label", label, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--memory", "512m", "--pids-limit", "64", "--mount", `type=volume,source=${volume},target=/data`, "--publish", "127.0.0.1::8787", "--env", "CIPHERSTORE_METRICS_ENABLED=1", "--env", "CIPHERSTORE_MAX_STORED_BLOBS=1", "--env", "CIPHERSTORE_REQUEST_TIMEOUT_MS=1000", image);
   await live();
+  const metrics = await request(`${baseUrl()}/metrics`);
+  assert.equal(metrics.status, 200);
+  assert.equal(metrics.headers.get("content-type"), "text/plain; version=0.0.4; charset=utf-8");
+  assert.match(await metrics.text(), /vulnseal_http_responses_total/);
   const inspection = JSON.parse(docker("inspect", name))[0];
   assert.equal(inspection.Config.User, "node");
   assert.equal(inspection.HostConfig.ReadonlyRootfs, true);
@@ -80,7 +84,7 @@ try {
   const decrypted = await webcrypto.subtle.decrypt({ name: "AES-GCM", iv: Buffer.from(envelope.iv, "base64url"), additionalData: new TextEncoder().encode(envelope.aad) }, key, Buffer.from(envelope.ciphertext, "base64url"));
   assert.deepEqual(new Uint8Array(decrypted), plaintext);
   docker("stop", "--time", "20", name);
-  process.stdout.write(JSON.stringify({ capturedAt: new Date().toISOString(), imageId: docker("image", "inspect", image, "--format", "{{.Id}}"), nonRoot: true, readOnlyRoot: true, readyBeforeUpload: true, trickledUploadTerminated: true, quotaRejectsNewBlob: true, fullStoreRemainsReadable: true, secondWriterRefused: true, gracefulRestart: true, persistedCiphertextDecrypted: true }) + "\n");
+  process.stdout.write(JSON.stringify({ capturedAt: new Date().toISOString(), imageId: docker("image", "inspect", image, "--format", "{{.Id}}"), nonRoot: true, readOnlyRoot: true, metricsEnabled: true, readyBeforeUpload: true, trickledUploadTerminated: true, quotaRejectsNewBlob: true, fullStoreRemainsReadable: true, secondWriterRefused: true, gracefulRestart: true, persistedCiphertextDecrypted: true }) + "\n");
 } finally {
   removeOwned("container", name);
   removeOwned("volume", volume);

@@ -18,6 +18,8 @@ if (isEntrypoint) {
     return Number(raw);
   };
   const host = process.env.CIPHERSTORE_HOST ?? "127.0.0.1";
+  const metricsEnabled = integer("CIPHERSTORE_METRICS_ENABLED", 0);
+  if (metricsEnabled > 1) throw new Error("CIPHERSTORE_METRICS_ENABLED must be 0 or 1");
   const port = integer("CIPHERSTORE_PORT", 8787);
   if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
     throw new Error("CIPHERSTORE_PORT must be a valid TCP port");
@@ -27,6 +29,7 @@ if (isEntrypoint) {
   );
   const server = createCipherstoreServer({
     dataDirectory,
+    metricsEnabled: metricsEnabled === 1,
     allowedOrigin: process.env.CIPHERSTORE_ALLOWED_ORIGIN ?? "http://127.0.0.1:5173",
     maxStoredBytes: integer("CIPHERSTORE_MAX_STORED_BYTES", 1024 * 1024 * 1024),
     maxStoredBlobs: integer("CIPHERSTORE_MAX_STORED_BLOBS", 10_000),

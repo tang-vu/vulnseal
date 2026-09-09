@@ -1,8 +1,9 @@
 {
-  "capturedAt": "2026-09-09T13:52:31.665Z",
-  "imageId": "sha256:f56e9ea927305fc6a4fea44bf9e78013b263f24d54fa4231345b0ff4f79b90ab",
+  "capturedAt": "2026-09-09T14:36:42.695Z",
+  "imageId": "sha256:95aaedbc2c46a992e4858bbbc97a8446a67c83bb9f891067cbb0222dc5ab623b",
   "nonRoot": true,
   "readOnlyRoot": true,
+  "metricsEnabled": true,
   "readyBeforeUpload": true,
   "trickledUploadTerminated": true,
   "quotaRejectsNewBlob": true,
@@ -10,8 +11,6 @@
   "secondWriterRefused": true,
   "gracefulRestart": true,
   "persistedCiphertextDecrypted": true,
-  "evidenceKind": "Local Linux container drill with synthetic AES-GCM ciphertext; not a public deployment",
-  "base": "node:24.20.0-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf",
   "previousVerification": {
     "capturedAt": "2026-09-09T07:37:06.004Z",
     "evidenceKind": "Local Linux container and Compose verification using synthetic AES-GCM ciphertext; not a public deployment",
@@ -50,8 +49,7 @@
     ]
   },
   "limits": [
-    "Latest drill checks local volume persistence, not physical off-device recovery.",
-    "Earlier Compose verification remains scoped to its earlier image.",
-    "Runtime scan is recorded separately in cipherstore-image-vulnerabilities.json."
+    "Local synthetic ciphertext and loopback volume only; no public deployment or off-device recovery.",
+    "Metrics expose aggregate process counters only; no collector or alert delivery tested."
   ]
 }

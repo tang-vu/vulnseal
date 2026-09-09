@@ -1,5 +1,15 @@
 # Validation report
 
+## Add opt-in aggregate ciphertext metrics -- 2026-09-09
+
+`CIPHERSTORE_METRICS_ENABLED=1` now exposes `GET /metrics` in Prometheus text 0.0.4 format; the default 0 returns 404. CLI and Compose wiring are included. Metrics track completed responses across five fixed status classes, aborted responses, active requests and active upload handlers. Scrapes exclude themselves. No request path, blob digest, IP, origin, program identifier or report content becomes a label. The endpoint is on the same listener, without authentication or browser CORS access headers; the operator guide requires a controlled listener/proxy boundary before enabling it.
+
+All **19 ciphertext tests across four files passed in 5.77 seconds** locally and **6.10 seconds** inside the Node/Alpine image. The new HTTP regression checks default-off behavior, stable repeated scrapes, success/not-found/quota response counts, no user-supplied identifiers in output, active upload/request gauges and exactly one aborted response when a client disconnects. CLI values `2`, `true` and `-1` were rejected before startup. The TypeScript build and Compose configuration validation passed.
+
+Final image **`sha256:95aaedbc2c46a992e4858bbbc97a8446a67c83bb9f891067cbb0222dc5ab623b`** passed the updated container drill at **14:36:42.695 UTC** with metrics explicitly enabled, including the existing non-root/read-only, quota, slow-upload, writer-lock, graceful-restart and authenticated-decryption checks. The process exited successfully after cleanup; no labelled drill container remained. The strict runtime vulnerability scan exited **0**; [scan evidence](evidence/cipherstore-metrics-scan.json) records its pin/image/log hash, and [container evidence](evidence/cipherstore-container-drill.json) records the drill. The scanner's missing Alpine 3.24 EOL entry still prevents this result from establishing an OS support horizon.
+
+Counters reset with each server instance and omit connections rejected before the HTTP request callback. Response completion is not peer acknowledgement or a durability assertion; upload work may continue after a socket closes. No stored-capacity gauge, collector deployment, dashboard, external alert delivery or production SLO is claimed. Browser/contract source and proving keys are unchanged; full browser suites were not repeated for this optional service endpoint. See [operator metrics](cipherstore-operations.md#operator-metrics).
+
 ## Verify the current demo recovery release in its hosting image -- 2026-09-09
 
 The web artifact from code revision **`13eeba4`** passed read-only verification and was rebuilt into image **`sha256:fdc958efa3bee5ab237103a1fbbdb2a38608d541478b9a6e8b54e18310b8c518`**. The Docker packaging gate checked **8 circuits, 62 files, 62,643,770 bytes** and Caddy configuration validation passed. The previously tested pinned Go runtime build was reused from cache.

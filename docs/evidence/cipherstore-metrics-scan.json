@@ -1,0 +1,12 @@
+{
+  "recordedAt": "2026-09-09T14:36:43.797870+00:00",
+  "imageId": "sha256:95aaedbc2c46a992e4858bbbc97a8446a67c83bb9f891067cbb0222dc5ab623b",
+  "scanner": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+  "command": "sh scripts/scan-container.sh",
+  "exitCode": 0,
+  "rawLogSha256": "c5025ebbd8c57ae44e86cd46cc6e14f332f70109c5f3bc983427e40508c85c19",
+  "limits": [
+    "Runtime scan only; no builder or host clearance.",
+    "Scanner EOL list does not recognize Alpine 3.24; OS support horizon is not verified."
+  ]
+}

@@ -3,7 +3,7 @@ import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { request as httpRequest, type Server } from "node:http";
 import { createCipherstoreServer, MEDIA_TYPE } from "./server.js";
 
@@ -23,12 +23,58 @@ describe("ciphertext-only content store", () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()) ?? resolve());
   });
 
+  it("exposes opt-in bounded metrics for errors, active uploads and disconnected clients", async () => {
+    const dataDirectory = await mkdtemp(path.join(tmpdir(), "vulnseal-metrics-"));
+    server = createCipherstoreServer({ dataDirectory, metricsEnabled: true, maxStoredBlobs: 0 });
+    await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
+    const address = server.address(); if (!address || typeof address === "string") throw new Error("No TCP address");
+    const base = `http://127.0.0.1:${address.port}`;
+    const scrape = async () => {
+      const response = await fetch(`${base}/metrics`);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toBe("text/plain; version=0.0.4; charset=utf-8");
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      return response.text();
+    };
+    const empty = await scrape();
+    expect(await scrape()).toBe(empty);
+    const digest = createHash("sha256").update(envelope).digest("hex");
+    await fetch(`${base}/healthz`);
+    await fetch(`${base}/private-user-supplied-path`);
+    expect((await fetch(`${base}/v1/blobs/sha256:${digest}`, { method: "PUT", headers: { "content-type": MEDIA_TYPE }, body: envelope })).status).toBe(507);
+    const counts = await scrape();
+    expect(counts).toContain('vulnseal_http_responses_total{status_class="2xx"} 1');
+    expect(counts).toContain('vulnseal_http_responses_total{status_class="4xx"} 1');
+    expect(counts).toContain('vulnseal_http_responses_total{status_class="5xx"} 1');
+    expect(counts).not.toContain(digest);
+    expect(counts).not.toContain("private-user-supplied-path");
+    expect(counts.endsWith("\n")).toBe(true);
+    const upload = httpRequest(`${base}/v1/blobs/sha256:${digest}`, { method: "PUT", headers: { "content-type": MEDIA_TYPE, "content-length": 1000 } });
+    upload.on("error", () => {});
+    try {
+      upload.write("{");
+      await vi.waitFor(async () => {
+        const active = await scrape();
+        expect(active).toContain("vulnseal_http_active_requests 1\n");
+        expect(active).toContain("vulnseal_active_uploads 1\n");
+      });
+      upload.destroy();
+      await vi.waitFor(async () => {
+        const closed = await scrape();
+        expect(closed).toContain("vulnseal_http_aborted_responses_total 1\n");
+        expect(closed).toContain("vulnseal_http_active_requests 0\n");
+        expect(closed).toContain("vulnseal_active_uploads 0\n");
+      });
+    } finally { upload.destroy(); }
+  });
+
   it("separates storage readiness from liveness and removes concurrent readiness probes", async () => {
     const dataDirectory = await mkdtemp(path.join(tmpdir(), "vulnseal-readiness-"));
     server = createCipherstoreServer({ dataDirectory, maxStoredBlobs: 1 });
     await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
     const address = server.address(); if (!address || typeof address === "string") throw new Error("No TCP address");
     const base = `http://127.0.0.1:${address.port}`;
+    expect((await fetch(`${base}/metrics`)).status).toBe(404);
     const probes = await Promise.all(Array.from({ length: 8 }, () => fetch(`${base}/readyz`)));
     expect(probes.every((response) => response.status === 200)).toBe(true);
     expect(await probes[0]!.json()).toEqual({ status: "ready", storage: "writable", capacity: "available" });

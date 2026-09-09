@@ -17,6 +17,7 @@ export type CipherstoreOptions = {
   readonly maxConcurrentUploads?: number;
   readonly requestTimeoutMs?: number;
   readonly maxConnections?: number;
+  readonly metricsEnabled?: boolean;
 };
 
 const json = (response: ServerResponse, status: number, body: unknown): void => {
@@ -114,6 +115,23 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
   }
   if (maxConcurrentUploads < 1) throw new Error("Cipherstore upload concurrency must be positive");
   let activeUploads = 0;
+  let activeRequests = 0, abortedResponses = 0;
+  const completed = [0, 0, 0, 0, 0];
+  const metrics = () => [
+    "# HELP vulnseal_http_responses_total Completed responses by status class, excluding metrics scrapes.",
+    "# TYPE vulnseal_http_responses_total counter",
+    ...completed.map((count, index) => `vulnseal_http_responses_total{status_class="${index + 1}xx"} ${count}`),
+    "# HELP vulnseal_http_aborted_responses_total Responses closed before completion, excluding metrics scrapes.",
+    "# TYPE vulnseal_http_aborted_responses_total counter",
+    `vulnseal_http_aborted_responses_total ${abortedResponses}`,
+    "# HELP vulnseal_http_active_requests Requests awaiting response completion, excluding metrics scrapes.",
+    "# TYPE vulnseal_http_active_requests gauge",
+    `vulnseal_http_active_requests ${activeRequests}`,
+    "# HELP vulnseal_active_uploads Upload handlers still receiving or storing ciphertext.",
+    "# TYPE vulnseal_active_uploads gauge",
+    `vulnseal_active_uploads ${activeUploads}`,
+    "",
+  ].join("\n");
   let readiness: Promise<void> | undefined;
   const checkReadiness = (): Promise<void> => {
     if (readiness) return readiness;
@@ -136,6 +154,11 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
   const handle = async (request: IncomingMessage, response: ServerResponse) => {
     response.setHeader("cache-control", "no-store");
     response.setHeader("x-content-type-options", "nosniff");
+    if (options.metricsEnabled && request.url === "/metrics" && request.method === "GET") {
+      response.writeHead(200, { "content-type": "text/plain; version=0.0.4; charset=utf-8" });
+      response.end(metrics());
+      return;
+    }
     if (options.allowedOrigin) {
       response.setHeader("access-control-allow-origin", options.allowedOrigin);
       response.setHeader("vary", "origin");
@@ -238,6 +261,20 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
     keepAliveTimeout: 5000,
     maxHeaderSize: 16 * 1024,
   }, (request, response) => {
+    if (options.metricsEnabled && !(request.url === "/metrics" && request.method === "GET")) {
+      activeRequests++;
+      let recorded = false;
+      const complete = (finished: boolean) => {
+        if (recorded) return;
+        recorded = true; activeRequests--;
+        if (finished) {
+          const index = Math.floor(response.statusCode / 100) - 1;
+          if (index >= 0 && index < completed.length) completed[index] = completed[index]! + 1;
+        } else abortedResponses++;
+      };
+      response.once("finish", () => complete(true));
+      response.once("close", () => complete(response.writableFinished));
+    }
     const operation = handle(request, response).catch(() => {
       if (!response.headersSent && !response.destroyed) json(response, 500, { error: "storage_unavailable" });
       else response.destroy();
