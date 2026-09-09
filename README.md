@@ -103,11 +103,11 @@ The browser reads public `VITE_*` settings from the repository-root `.env`, `.en
 # Full compile: managed TypeScript, ZKIR, and keys
 npm run compact
 
-# Fast syntax/binding compile used by ordinary unit tests
+# Syntax/binding compile for a fresh checkout, or a safe retained-output check
 npm run compact:skip-zk
 ```
 
-`compact:skip-zk` recreates the managed output without proving keys. Run the full `npm run compact` again before a wallet-backed deployment or transaction.
+On a fresh checkout without retained key files, `compact:skip-zk` generates bindings and ZKIR without proving keys. If any key files already exist, it instead compiles into a temporary directory and verifies the retained bindings/ZKIR against current source, preserving the entire managed directory. A mismatch or compiler failure stops with an error; use the full `npm run compact` when ready to regenerate artifacts. Full compilation is still required before wallet-backed deployment or transactions when keys are absent or the contract has changed. The safe check does not validate key semantics or regenerate keys.
 
 On older x86 CPUs, the compiler-bundled ZKIR key generator may exit with illegal-instruction status. The contract itself still compiles. A reproducible compatibility route is documented in [ADR-0004](docs/adr/0004-legacy-cpu-toolchain.md): build the official ledger `ledger-8.0.2` ZKIR binary with Rust `1.96.0`, then set `VULNSEAL_ZKIR_BINARY` before `npm run compact`. The successful local run generated all eight real key pairs; no mock keys were used.
 

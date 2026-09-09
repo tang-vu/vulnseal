@@ -1,5 +1,13 @@
 # Validation report
 
+## Preserve proving material during syntax checks — 2026-09-09
+
+`compact:skip-zk` now detects any retained key-directory entry, including a partial/empty key file, and runs the existing isolated compiler-source comparison instead of replacing managed output. A fresh checkout with no key entries still generates bindings/ZKIR normally. An existing key set whose compiler outputs no longer match the source is preserved and requires explicit full compilation. Unknown or repeated command arguments are rejected. This does not make full key generation transactional or validate proving-key semantics.
+
+Both compiler guard/comparison tests passed. A real `npm run compact:skip-zk` on the current checkout passed fresh compilation and preserved all **16 retained key-file SHA-256 hashes**. A separate synthetic fixture with invalid Compact source and a retained marker failed compilation with exit status 1 and kept its marker unchanged. That fixture remains under ignored `.compact/retained-guard-*`; the real contract source and key set were never replaced. No new proving keys, deployment or blockchain writes were produced.
+
+A second isolated fixture containing the current source and no managed output successfully ran the real syntax compiler and produced bindings, declarations, compiler metadata and ZKIR. It remains under ignored `.compact/fresh-compile-*`. The prior application/browser/release validation was not rerun for this compiler-launcher-only change; the three real compiler paths above are the new execution evidence.
+
 ## Consistent development service configuration — 2026-09-09
 
 The README's root `.env` previously configured the browser but was ignored by `npm run dev -w @vulnseal/cipherstore`. Loading its relative `./cipherstore/data` value from the nested workspace would also have selected a nested `cipherstore/cipherstore/data` directory. The dedicated development launcher now uses Vite's development env-file precedence, copies only `CIPHERSTORE_*` values and resolves storage paths from the repository root. It enters the existing server CLI in the same process, retaining server lease and shutdown behavior. Production `start`, containers and the backup CLI still require explicit environment configuration.

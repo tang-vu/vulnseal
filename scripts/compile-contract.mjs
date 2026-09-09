@@ -2,9 +2,23 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { hasRetainedKeys } from "./retained-keys.mjs";
+import { checkContractSource } from "./check-contract-source.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const contractDir = path.resolve(scriptDir, "..", "contract");
+if (process.argv.slice(2).some((argument) => argument !== "--skip-zk") || process.argv.slice(2).length > 1) {
+  throw new Error("Usage: compile-contract.mjs [--skip-zk]");
+}
+if (process.argv.includes("--skip-zk") && await hasRetainedKeys(path.join(contractDir, "src/managed/vulnseal"))) {
+  try {
+    await checkContractSource();
+    process.stdout.write("Retained proving keys detected. Fresh bindings and ZKIR match; existing managed artifacts were preserved.\n");
+  } catch (error) {
+    process.stderr.write(`Retained artifacts were preserved. Syntax-only compilation cannot replace an existing key set. Run a full npm run compact when ready to regenerate artifacts. Source check: ${error.message}\n`);
+    process.exitCode = 1;
+  }
+} else {
 const customZkir = process.env.VULNSEAL_ZKIR_BINARY;
 const skipZk = process.argv.includes("--skip-zk") || Boolean(customZkir);
 const compileArgs = [
@@ -52,4 +66,5 @@ if (process.platform !== "win32") {
     "-lc",
     `cd ${quote(wslDir)} && ${commands.join(" && ")}`,
   ]);
+}
 }
