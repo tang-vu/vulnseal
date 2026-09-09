@@ -1,5 +1,13 @@
 # Validation report
 
+## Role workspace leave protection — 2026-09-09
+
+The separate role workspace installs a conditional `beforeunload` handler when ownership/report changes are not saved, an operation is active, private draft/transition text remains, or receiving keys are loaded. Inline notices identify text and keys excluded from role autosave. The handler is removed when no condition applies and on unmount. Receiving keys conservatively retain the warning even after key export; downloading a file cannot confirm its retention.
+
+`npm run test:run -w @vulnseal/web -- src/RoleWorkspace.test.tsx` passed all 5 component cases, including unsaved identity → encrypted autosave, private notes added/cleared, draft retention across workspace tabs, and listener cleanup. `npm run test:e2e -- e2e/roles.spec.ts e2e/role-storage.spec.ts` rebuilt/typechecked the production web app and passed 14 desktop/mobile Chrome cases in 51.2 seconds. The new browser case dismissed a real before-unload dialog to retain the unsaved identity, then saved it to encrypted IndexedDB and closed without another dialog. Existing role-file, browser-copy and catalog recovery journeys passed alongside it.
+
+This is best-effort accidental-navigation protection, not draft persistence. Browser suppression, process crashes and mobile application termination can bypass the warning. No native Lace transaction or physical mobile-device termination was exercised in this increment.
+
 ## Fresh workspace artifacts and release-gate review — 2026-09-09
 
 The former `validate` order ran typechecks/tests before builds even though workspace exports resolve to `dist`. Removing all six workspace `dist` directories from their expected locations reproduced API TS2307 errors for missing contract/shared declarations. The original build directories were preserved in a temporary archive; generated Compact source artifacts and installed dependencies were retained. The workspace order now builds shared before contract/API/consumers, and `validate` builds first, then typechecks and tests current artifacts. CI and quick-start instructions follow that order.

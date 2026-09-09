@@ -42,6 +42,39 @@ const restore = async (role: "researcher" | "vendor", status: number) => {
 };
 
 describe("independent role workspace", () => {
+  const leavingIsBlocked = () => {
+    const event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+  it("warns before leaving an unsaved identity and removes the guard after encrypted persistence", async () => {
+    const user = userEvent.setup(); const view = render(<RoleWorkspace />);
+    expect(leavingIsBlocked()).toBe(false);
+    await user.click(screen.getByRole("button", { name: "Prepare vendor identity" }));
+    expect(leavingIsBlocked()).toBe(true);
+    await enableJournal(user);
+    expect(leavingIsBlocked()).toBe(false);
+    view.unmount();
+    expect(leavingIsBlocked()).toBe(false);
+  });
+  it("keeps warning for private notes and draft edits even when the role is autosaved", async () => {
+    const { user } = await restore("researcher", 4);
+    expect(leavingIsBlocked()).toBe(false);
+    const notes = screen.getByLabelText("Private decision, patch reference or retest notes");
+    await user.type(notes, "Private retest evidence");
+    expect(leavingIsBlocked()).toBe(true);
+    expect(screen.getByText(/Draft form edits and decision, patch or retest notes are only in this tab/)).toBeInTheDocument();
+    await user.clear(notes);
+    expect(leavingIsBlocked()).toBe(false);
+    await user.click(screen.getByRole("button", { name: "Prepare report" }));
+    const title = screen.getByLabelText("Report title");
+    await user.type(title, "An incomplete private report");
+    expect(leavingIsBlocked()).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Save role backup" }));
+    expect(leavingIsBlocked()).toBe(true);
+    cleanup();
+    expect(leavingIsBlocked()).toBe(false);
+  });
   it("joins with one researcher identity and backs up multiple prepared reports before submission", async () => {
     const snapshot = { ledger: { reports: { member: () => false } } };
     const session = { execute: vi.fn(async (_command: unknown) => ({ circuit: "submitReport", txId: "prepared-submit", blockHeight: "901" })), readPublicState: vi.fn().mockResolvedValue(snapshot) };

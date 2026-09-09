@@ -3,6 +3,28 @@ import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { decryptRoleVault } from "../web/src/role-recovery.js";
 
+test("closing an unsaved role can be cancelled, then closes without a warning after autosave", async ({ page }) => {
+  await page.goto("/#roles");
+  await page.getByRole("button", { name: "Prepare vendor identity" }).click();
+  const dialogPromise = page.waitForEvent("dialog");
+  await page.close({ runBeforeUnload: true });
+  const dialog = await dialogPromise;
+  expect(dialog.type()).toBe("beforeunload");
+  await dialog.dismiss();
+  expect(page.isClosed()).toBe(false);
+  await expect(page.getByRole("heading", { name: "Vendor workspace" })).toBeVisible();
+  await page.getByLabel("Browser copy password", { exact: true }).fill("Retain identity before leaving");
+  await page.getByLabel("Confirm browser copy password").fill("Retain identity before leaving");
+  await page.getByRole("button", { name: "Enable encrypted browser autosave" }).click();
+  await expect(page.getByText(/Saved encrypted browser copy/)).toBeVisible();
+  let unexpectedDialog = false;
+  page.on("dialog", async (next) => { unexpectedDialog = true; await next.accept(); });
+  const closed = page.waitForEvent("close");
+  await page.close({ runBeforeUnload: true });
+  await closed;
+  expect(unexpectedDialog).toBe(false);
+});
+
 test("researcher invitations reject private fields and require a real wallet before joining", async ({ page }) => {
   await page.goto("/#roles");
   const invitation = { format: "vulnseal-program-invitation", version: 1, network: "preprod", contractAddress: "ab".repeat(32), programId: "12".repeat(32) };

@@ -98,6 +98,8 @@ For independent client implementations, the [single-role transaction API](docs/r
 
 The role workspace supports password-encrypted browser autosave for identity and prepared/received reports, with fresh-tab unlock and revision checks against conflicting tab writes. Real role submissions require autosave so the transaction identifier can be persisted before calling the wallet; the [submission journal](docs/adr/0012-submission-journal.md) records attempts without claiming success or finality. Keep a downloaded backup too: clearing browser data removes local copies. Draft edits, transition notes and receiving keys are outside this autosave. See [the storage design](docs/adr/0011-encrypted-browser-autosave.md).
 
+The role workspace requests a browser leave warning while its identity/reports are unsaved, an operation is running, draft edits or transition notes remain, or receiving keys are loaded. Receiving keys keep the warning active even after a separate key export because the workspace cannot confirm that file was retained. This warning is best effort: browsers can suppress it, and crashes or mobile app termination may bypass it. It does not persist drafts or notes; prepare reports and retain notes and the separate encrypted receiving-key backup before leaving.
+
 ```bash
 npm run validate
 npm run test:e2e

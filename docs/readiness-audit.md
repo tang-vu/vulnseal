@@ -15,6 +15,7 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 - Canonicalization handles Unicode-normalized object keys deterministically, rejects collisions, preserves special object keys, and validates attachment digests and sizes. Decrypted report documents undergo schema normalization before rendering.
 - The UI no longer requests external fonts. Production browser journeys are included in CI configuration.
 - Private recovery exports password-encrypted session snapshots and restores incomplete drafts or sealed reports. Current network authority/state is checked before restoring; backup history does not become transaction finality evidence. The recovered ciphertext copy permits decryption when storage is unavailable.
+- The separate role workspace requests a leave warning for unsaved ownership/reports, private form edits/notes, loaded receiving keys and active operations. Chrome desktop/mobile can cancel closing an unsaved identity; the warning clears after encrypted identity persistence. Drafts and notes still require manual retention; this is not crash recovery or automatic draft persistence.
 
 See [validation-report.md](validation-report.md) for executed commands and their results. Mocked wallet tests do not establish that the native Lace integration works end-to-end.
 

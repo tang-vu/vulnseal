@@ -75,6 +75,17 @@ export function RoleWorkspace() {
   const record = snapshot && chosen && snapshot.ledger.reports.member(hexToBytes(chosen.reportId)) ? snapshot.ledger.reports.lookup(hexToBytes(chosen.reportId)) : undefined;
   const status = record ? contractStatusName(record.status) : undefined;
   const backedUp = vault !== undefined && saved === vault;
+  const hasPrivateEdits = JSON.stringify(draft) !== JSON.stringify(blank) || detail.length > 0;
+  const warnBeforeLeaving = working || (vault !== undefined && !backedUp) || hasPrivateEdits || keys !== undefined;
+  useEffect(() => {
+    if (!warnBeforeLeaving) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [warnBeforeLeaving]);
   const load = async (expected?: { id: Uint8Array; status: string }) => {
     if (!session) throw new Error("Join the program first");
     const current = await session.readPublicState();
@@ -109,6 +120,8 @@ export function RoleWorkspace() {
       {working && <p role="status">Working… A network operation may wait for Lace, proof generation and finality.</p>}
       {error && <p role="alert" className="operation-notice error">{error}</p>}
       {message && <p role="status" className="operation-notice">{message}</p>}
+      {hasPrivateEdits && <p className="operation-notice">Draft form edits and decision, patch or retest notes are only in this tab. Role backups and browser autosave do not include them. Prepare your report and retain your notes before leaving.</p>}
+      {keys && <p className="operation-notice">Receiving keys are held in this tab. Keep their separate encrypted key backup before leaving; the role backup does not include them.</p>}
       {receipt && <p className="operation-notice public-value">Finalized {receipt.circuit}: {receipt.txId} at block {receipt.blockHeight}. A failed follow-up read does not erase this transaction.</p>}
       <LocalRoleStorage vault={vault} disabled={working} onSaved={setSaved} onPersistence={(persist) => { persistJournal.current = persist; }} onRestore={(restored) => lock(async () => {
         if (vault) throw new Error("Restore in a fresh tab to preserve the open workspace");
