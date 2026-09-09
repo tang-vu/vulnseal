@@ -43,3 +43,4 @@ indexer-data/
 vulnseal-recovery*.json
 vulnseal-recipient-backup*.json
 vulnseal-disclosure*.json
+vulnseal-role-*-backup*.json

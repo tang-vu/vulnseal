@@ -1,6 +1,6 @@
 # Use a single-role transaction session
 
-`RoleSession` keeps one actor secret and a fixed role. Use separate providers and encrypted authority storage for independent users. This API is available now; the browser's experimental combined-role journey has not yet migrated to it.
+`RoleSession` keeps one actor secret and a fixed role. Use separate providers and encrypted authority storage for independent users. The dedicated [role workspace](role-workspace.md) uses this API; the original combined-role demo remains separate.
 
 ```ts
 import { RoleSession } from "@vulnseal/api/role-session";

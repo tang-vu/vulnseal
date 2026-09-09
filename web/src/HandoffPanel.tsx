@@ -15,7 +15,7 @@ const read = async (file: File | undefined, limit: number) => {
   return file.text();
 };
 
-export function HandoffPanel({ disclosure, keys, onKeys }: { readonly disclosure: Disclosure | undefined; readonly keys: RecipientKeys | undefined; readonly onKeys: (keys: RecipientKeys) => void }) {
+export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { readonly disclosure: Disclosure | undefined; readonly keys: RecipientKeys | undefined; readonly onKeys: (keys: RecipientKeys) => void; readonly onDisclosure?: (value: Disclosure) => Promise<void> }) {
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [restorePassword, setRestorePassword] = useState("");
@@ -104,6 +104,7 @@ export function HandoffPanel({ disclosure, keys, onKeys }: { readonly disclosure
       <h3>Researcher contact</h3><p>{opened.report.researcherContact || "Not provided"}</p>
       <AttachmentReview attachments={opened.report.attachments} />
       <p className="public-value">Report commitment: {opened.disclosure.reportId}</p>
+      {onDisclosure && <button className="primary-button" disabled={working} onClick={() => void run(undefined, async (commit) => { await onDisclosure(opened.disclosure); commit(() => setMessage("Disclosure added to the vendor workspace after ledger verification.")); })}>Add report to vendor workspace</button>}
       {opened.disclosure.contractAddress && <a className="secondary-button" target="_blank" rel="noreferrer noopener" href={publicReceiptLink(window.location.href, { kind: "vulnseal-public-receipt", version: 1, network: opened.disclosure.network, contractAddress: opened.disclosure.contractAddress, reportId: opened.disclosure.reportId, ciphertextDigest: opened.ciphertextDigest })}>Check this report in the independent verifier</a>}
     </section>}
   </section>;

@@ -1,0 +1,15 @@
+# Use independent browser roles
+
+Open **Open role workspace** from the demo, or visit `/#roles`. Use a separate browser profile for each participant. The workspace requires a compatible Lace connector and configured Midnight proof/indexer services for transactions; it has no guided transaction mode.
+
+1. **Vendor:** prepare a vendor identity and download its encrypted role backup. Open **Reports**, review program policy fields, and deploy. Save the updated role backup containing the contract address. Download the public program invitation and share it through your agreed channel.
+2. **Researcher:** open a fresh role workspace, confirm the invitation's origin/address, and join using Lace. Save the researcher role backup. Use **Prepare report** to encrypt/upload ciphertext and retain its commitment preimage. Save a new role backup before choosing **Submit prepared report**. Multiple prepared reports remain in the vault and selector.
+3. **Recipient/vendor:** create a receiving key in **Disclosure exchange** and save its separate receiving-key backup. Share only its public key; confirm the fingerprint independently. The researcher encrypts the selected report for that key. The vendor opens the received disclosure and chooses **Add report to vendor workspace**; this checks the current ledger. Save the updated vendor role backup.
+4. **Vendor:** select the report, read its private contents, begin triage and accept/reject with private decision notes. For accepted reports, anchor a patch reference.
+5. **Researcher:** refresh ledger, select the same report, perform the retest and submit its result with private notes. Failed retests allow a revised vendor patch; successful retests permit vendor payout authorization. Authorization does not transfer funds. The vendor can close rejected or authorized reports.
+
+To resume, restore the appropriate single-role file and password in a fresh role workspace. Existing-program restores connect Lace, verify authority and check saved reports before installing the session. Prepared reports may be absent from the ledger until submitted. If restoring a vendor backup made before deployment, enter the known contract address under **Reconnect an existing program**; the key must match the owner.
+
+Save a new role backup after adding reports/disclosures or learning a deployment address. Confirm each download is retained. Draft form edits, receiving keys, policy text, private transition notes and full transaction history are not in this file. Keep their separate records/backups. If a transaction response is uncertain, reconcile it independently; this workspace does not automatically recover pending transactions. A finalized receipt survives a failed follow-up read in the current tab and does not trigger automatic resubmission.
+
+The role workflow is implemented, with native Lace multi-profile transaction validation still outstanding. See [validation-report.md](validation-report.md) for the distinction between live browser file/crypto checks, mocked providers and generated-circuit simulator tests.

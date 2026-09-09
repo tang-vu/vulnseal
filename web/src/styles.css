@@ -400,4 +400,11 @@ input:focus, textarea:focus, select:focus { border-color: #536839; }
 .handoff-page .form-panel { margin-bottom: 24px; }
 .handoff-page form + form { margin-top: 28px; }
 .received-disclosure { overflow-wrap: anywhere; }
+.role-workspace .form-panel { margin: 24px 0; }
+.role-workspace .workspace-tabs { flex-wrap: wrap; margin: 20px 0; }
+.role-workspace .page .page { width: 100%; padding: 24px 0; }
+.role-workspace .topbar a { color: var(--accent); font-size: 12px; }
+.role-workspace .topbar { gap: 12px; }
+.role-workspace .saved-report { margin: 20px 0; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); overflow-wrap: anywhere; }
+.role-workspace summary { cursor: pointer; }
 button:disabled { cursor: wait; opacity: .55; }

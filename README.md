@@ -91,7 +91,7 @@ On older x86 CPUs, the compiler-bundled ZKIR key generator may exit with illegal
 
 ## Run tests and builds
 
-For independent client implementations, the [single-role transaction API](docs/role-session-api.md) provides fixed researcher/vendor sessions with current-ledger checks and serialized private witnesses. The combined experimental browser authority flow remains separate from this API.
+For independent client implementations, the [single-role transaction API](docs/role-session-api.md) provides fixed researcher/vendor sessions with current-ledger checks and serialized private witnesses. The dedicated [role workspace](docs/role-workspace.md) uses this API; the combined demo remains separate.
 
 ```bash
 npm run typecheck
@@ -174,6 +174,8 @@ The lookup checks the indexer's successful contract action against RPC finality 
 
 The production-ready narration is in [demo-script.md](docs/demo-script.md).
 
+For separate participants, open **Open role workspace** (`/#roles`) in distinct browser profiles. Vendor setup, public invitations, researcher join, one-role encrypted backup, multiple prepared reports, ledger-bound disclosure import and role-specific transactions are described in the [role workspace guide](docs/role-workspace.md). Its native Lace transaction ceremony still requires live verification.
+
 ## Security and honest limitations
 
 - Authorization proves knowledge of a program- or report-bound secret; loss or theft of that secret compromises the corresponding role.
@@ -186,7 +188,7 @@ The production-ready narration is in [demo-script.md](docs/demo-script.md).
 
 Read [SECURITY.md](SECURITY.md), [threat-model.md](docs/threat-model.md), and [claims-evidence.md](docs/claims-evidence.md) before treating VulnSeal as more than experimental software.
 
-The current completion audit and remaining end-to-end work are tracked in [readiness-audit.md](docs/readiness-audit.md). Browser role secrets are randomly generated per tab. Before closing it, open **Private recovery**, choose and confirm a password of at least 12 characters, and download the encrypted backup. Restore the file and password in a fresh tab; network recovery also connects Lace and checks the current ledger. Save a new backup after new reports or private evidence. The file controls **both experimental roles** and must not be shared as a vendor handoff. Independent researcher/vendor transaction sessions remain incomplete. See [ADR-0006](docs/adr/0006-encrypted-browser-recovery.md) for the format, checks, and limits.
+The current completion audit and remaining end-to-end work are tracked in [readiness-audit.md](docs/readiness-audit.md). Browser role secrets are randomly generated per tab. Before closing it, open **Private recovery**, choose and confirm a password of at least 12 characters, and download the encrypted backup. Restore the file and password in a fresh tab; network recovery also connects Lace and checks the current ledger. Save a new backup after new reports or private evidence. The file controls **both experimental roles** and must not be shared as a vendor handoff. A dedicated [role workspace](docs/role-workspace.md) now holds one actor authority; native Lace multi-profile transaction validation remains outstanding. See [ADR-0006](docs/adr/0006-encrypted-browser-recovery.md) for the format, checks, and limits.
 
 Use **Private exchange** for confidential report delivery. The recipient creates a receiving key, saves its encrypted backup, and shares only the public receiving-key file. The researcher imports that public file, verifies its fingerprint through an agreed channel, and downloads a recipient-encrypted disclosure from a sealed report. The recipient can restore its receiving-key backup in another browser and open the disclosure without a wallet or actor secrets. Exchange the downloaded files through your agreed channel; the app does not send them. Receiving keys do not authorize contract transitions, and decryption alone does not prove on-chain submission. See [ADR-0008](docs/adr/0008-recipient-bound-disclosure.md).
 

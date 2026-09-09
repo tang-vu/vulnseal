@@ -1,5 +1,18 @@
 # Validation report
 
+## Independent role workspace validation — 2026-09-09
+
+| Check | Command / environment | Observed result |
+| --- | --- | --- |
+| Final consolidated checks | `npm run validate` | Exit 0; all six workspaces typechecked/built; 18 test files / 92 tests passed (web: 12 files / 48 tests) |
+| Role backup and invitation | Three cryptographic/schema tests | Fresh encrypted round trip; wrong password; second actor field, duplicate/foreign reports and private invitation fields rejected; only vendor identities permit pre-deployment backups |
+| Network restoration | Four mocked-provider tests | Backup network and single identity passed to join; wrong researcher authority and ciphertext rejected; prepared but unsubmitted reports preserved |
+| Role workspace components | Three tests with mocked network providers | Researcher join and two-report preparation/backup; backup required before submission; role-only controls; finalized receipt retained while stale/failed public reads block writes; private saved report readable after restore |
+| Production browser suite | `VULNSEAL_CAPTURE_VISUALS=1 npm run test:e2e` | Exit 0; 20 cases passed before two additional invitation cases |
+| Final role browser cases | `VULNSEAL_CAPTURE_VISUALS=1 npm run test:e2e -- e2e/roles.spec.ts` | Exit 0; 4 passed in 37.8 seconds; desktop/mobile actual vendor identity export, closed-tab recovery, wrong-password rejection, backup-gated deployment, strict public invitation parsing and real missing-Lace failures; 22 distinct browser cases covered across these runs |
+
+The final workspace component suite was rerun after adding the saved-report reader and post-finality stale-read assertions. Production role screenshots are in `docs/screenshots/*-roles.png`. Conventional vendor/researcher role-backup filenames are Git-ignored. No wallet was injected in these production browser checks, and no real network transaction was submitted. The component network operations are mocked; the separate API tests invoke generated circuits in a simulator. Native Lace multi-profile transaction verification, durable pending recovery, automatic persistence and full per-report histories remain outstanding. See [ADR-0010](adr/0010-independent-role-workspace.md) and the [workspace guide](role-workspace.md).
+
 ## Fixed-role API validation — 2026-09-09
 
 | Check | Command / environment | Observed result |
