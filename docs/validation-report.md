@@ -1,5 +1,15 @@
 # Validation report
 
+## Indexer-reported contract and circuit comparison — 2026-09-09
+
+Transaction status checks now query contract action types, addresses and call entry points, then compare them with local journal contract/circuit intent. Results distinguish one matching action, mismatches, ambiguous multiple matches, absent metadata and unknown intent. They list the source-reported actions without automatically installing a deployment address or claiming that a report was affected. Failed transaction status is not promoted to success by a matching action.
+
+The observer suite passed all 8 tests, including call/deploy/update parsing, case normalization, different contracts/circuits, ambiguous and absent action data, malformed responses and existing finality checks. The actual application observer was also run against the official Preprod indexer and RPC at `2026-09-09T06:18:13.419Z`. It observed the historical transaction as finalized SUCCESS at block 2371914, with one `authorizePayout` call at contract `83c5aa340bd149b447c873fc2eecc4a9dadd183e5b26f9c3784e4c9acdaba9eb`; the finalized head was 2470340. The complete observation and trust scope are retained in [the evidence file](evidence/preprod-contract-action-observation.json). This was read-only; no new transaction was submitted and no payment transfer is claimed.
+
+The production build/typecheck and `CI=true npm run test:e2e -- e2e/recovery-journal.spec.ts e2e/role-storage.spec.ts` passed all 12 desktop/mobile cases in 1.1 minutes. Browser tests include a matching deployment action, a subsequent wrong-contract response that replaces the prior match, explicit clearing, legacy/v5 wallet-free inspection and existing encrypted storage recovery. Browser indexer responses are fixtures; the separate observer execution above is the live network evidence.
+
+Contract/circuit comparison trusts indexer metadata and RPC finality. It does not authenticate raw transaction contents or prove report-specific effects, complete command arguments, or retry safety. Those requirements remain open.
+
 ## Durable deployment address before follow-up reads — 2026-09-09
 
 Role deployment now awaits an encrypted checkpoint containing the returned contract address before session attachment/public reads. Previously the address relied on the routine 400 ms autosave debounce while follow-up network work had already begun. The finalized receipt remains visible; a failed address write retains the updated vault in memory, opens the backup form, keeps the saved gate false and explicitly warns that deployment finalized and must not be repeated. Storage callback wording is now neutral about broadcast because it serves both pre-wallet and post-deployment checkpoints.

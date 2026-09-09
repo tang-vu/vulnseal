@@ -1,0 +1,21 @@
+{
+  "scope": "Read-only observation of a historical transaction using the application observer. Trusts indexer/RPC; does not authenticate transaction contents, report effects or token transfers. No new transaction submitted.",
+  "observation": {
+    "transactionId": "00315eaad1b87f436849790da0f0072be407dfdf9079b78f15e73c838b9ede2c19",
+    "checkedAt": "2026-09-09T06:18:13.419Z",
+    "indexerUrl": "https://indexer.preprod.midnight.network/api/v4/graphql",
+    "kind": "finalized",
+    "status": "SUCCESS",
+    "transactionHash": "8e02f5bd2405c40e7fc0e6577dda80c8a8d23c2f6667ea0de3fdfb3599d3a271",
+    "blockHeight": 2371914,
+    "blockHash": "71acb36d1d46364ca4fca5b6f30ed9bf5f4538fd262dabc772adafa02a5e5585",
+    "finalizedHead": 2470340,
+    "contractActions": [
+      {
+        "kind": "ContractCall",
+        "address": "83c5aa340bd149b447c873fc2eecc4a9dadd183e5b26f9c3784e4c9acdaba9eb",
+        "entryPoint": "authorizePayout"
+      }
+    ]
+  }
+}

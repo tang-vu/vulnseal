@@ -61,7 +61,7 @@ export function RecoveryJournal() {
     {view && <div>
       <p>Backup network: {view.network}. These are local backup claims, not verified authority or transaction outcomes.</p>
       {view.contractAddress && <p className="public-value">Backup contract: {view.contractAddress}</p>}
-      {view.attempts.length ? <ul>{view.attempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt}<SubmissionIntentView entry={entry} /><TransactionCheck network={view.network} transactionId={entry.transactionId} /></li>)}</ul> : <p>This backup contains no recorded submission attempts. It may predate a transaction; this does not prove that nothing was sent.</p>}
+      {view.attempts.length ? <ul>{view.attempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt}<SubmissionIntentView entry={entry} /><TransactionCheck network={view.network} transactionId={entry.transactionId} contractAddress={view.contractAddress} circuit={entry.intent?.circuit} /></li>)}</ul> : <p>This backup contains no recorded submission attempts. It may predate a transaction; this does not prove that nothing was sent.</p>}
     </div>}
   </section>;
 }

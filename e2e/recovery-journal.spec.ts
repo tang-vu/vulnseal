@@ -54,7 +54,24 @@ test(`v${version} deployed-role journal can be inspected from file and browser s
   await page.getByRole("button", { name: "Check transaction status" }).click();
   await expect(page.getByText(/Not found by this indexer/)).toBeVisible();
   expect(posts).toHaveLength(1);
+  if (version === 5) {
+    const blockHash = "cd".repeat(32), contractAddress = "ab".repeat(32);
+    let observedAddress = contractAddress;
+    await page.route("https://indexer.preprod.midnight.network/api/v4/graphql", (route) => route.fulfill({ json: { data: { transactions: [{ identifiers: [transactionId], hash: "ef".repeat(32), block: { height: 100, hash: blockHash }, transactionResult: { status: "SUCCESS" }, contractActions: [{ __typename: "ContractDeploy", address: observedAddress }] }] } } }));
+    await page.route("https://rpc.preprod.midnight.network/", (route) => {
+      const body = route.request().postDataJSON();
+      return route.fulfill({ json: { jsonrpc: "2.0", id: 1, result: body.method === "chain_getHeader" ? { number: "0x64" } : `0x${blockHash}` } });
+    });
+    await page.getByRole("button", { name: "Check transaction status" }).click();
+    await expect(page.getByText(/one action for the recorded contract and circuit/)).toBeVisible();
+    await expect(page.getByText(`Deployment: ${contractAddress}`, { exact: true })).toBeVisible();
+    observedAddress = "ff".repeat(32);
+    await page.getByRole("button", { name: "Check transaction status" }).click();
+    await expect(page.getByText(/actions do not match the recorded contract and circuit/)).toBeVisible();
+    await expect(page.getByText(/one action for the recorded contract and circuit/)).toHaveCount(0);
+  }
   await page.getByRole("button", { name: "Clear inspected journal" }).click();
   await expect(page.getByText(/Not found by this indexer/)).toHaveCount(0);
+  await expect(page.getByText(/actions do not match the recorded contract and circuit/)).toHaveCount(0);
 });
 }
