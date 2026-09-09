@@ -3,9 +3,10 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { decryptRoleVault, MAX_ROLE_BACKUP_BYTES, type SubmissionAttempt } from "./role-recovery.js";
 import { listStoredRoles, readStoredRole, type StoredRoleLabel } from "./role-storage.js";
 import { SubmissionIntentView } from "./SubmissionIntentView.js";
+import { ReportEffectCheck } from "./ReportEffectCheck.js";
 import { TransactionCheck } from "./TransactionCheck.js";
 
-type JournalView = { network: string; contractAddress: string | null; attempts: readonly SubmissionAttempt[] };
+type JournalView = { programId: string; network: string; contractAddress: string | null; attempts: readonly SubmissionAttempt[] };
 
 /** Read-only recovery: only the journal projection enters React state, never actor authority. */
 export function RecoveryJournal() {
@@ -31,14 +32,14 @@ export function RecoveryJournal() {
       } else { encrypted = (await readStoredRole(selected)).encrypted; }
       const vault = await decryptRoleVault(encrypted, password);
       if (token !== generation.current) return;
-      setView({ network: vault.network, contractAddress: vault.contractAddress, attempts: vault.submissionAttempts ?? [] });
+      setView({ programId: vault.programId, network: vault.network, contractAddress: vault.contractAddress, attempts: vault.submissionAttempts ?? [] });
       setPassword("");
     } catch (cause) { if (token === generation.current) setError(cause instanceof Error ? cause.message : "Could not inspect the recovery journal"); }
     finally { if (token === generation.current) setWorking(false); }
   };
   return <section className="form-panel">
     <h2>Inspect recovery journal without a wallet</h2>
-    <p>Read transaction identifiers from an encrypted role backup when workspace recovery is unavailable. This does not open a role session or verify authority. Decryption stays on this device; public services are contacted only when you choose a transaction status check.</p>
+    <p>Read transaction identifiers from an encrypted role backup when workspace recovery is unavailable. This does not open a role session or verify authority. Decryption stays on this device; public services are contacted only when you choose a status or report-effects check.</p>
     <form onSubmit={(event) => void inspect(event)}>
       <fieldset className="workflow-controls" disabled={working}>
         <label>Journal recovery source<select value={source} onChange={(event) => { clear(); setPassword(""); setSource(event.target.value); }}><option value="file">Downloaded role backup</option><option value="browser">Saved browser copy</option></select></label>
@@ -61,7 +62,7 @@ export function RecoveryJournal() {
     {view && <div>
       <p>Backup network: {view.network}. These are local backup claims, not verified authority or transaction outcomes.</p>
       {view.contractAddress && <p className="public-value">Backup contract: {view.contractAddress}</p>}
-      {view.attempts.length ? <ul>{view.attempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt}<SubmissionIntentView entry={entry} /><TransactionCheck network={view.network} transactionId={entry.transactionId} contractAddress={view.contractAddress} circuit={entry.intent?.circuit} /></li>)}</ul> : <p>This backup contains no recorded submission attempts. It may predate a transaction; this does not prove that nothing was sent.</p>}
+      {view.attempts.length ? <ul>{view.attempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt}<SubmissionIntentView entry={entry} /><TransactionCheck network={view.network} transactionId={entry.transactionId} contractAddress={view.contractAddress} circuit={entry.intent?.circuit} />{view.contractAddress && entry.intent?.reportId && <ReportEffectCheck network={view.network} transactionId={entry.transactionId} contractAddress={view.contractAddress} programId={view.programId} reportId={entry.intent.reportId} circuit={entry.intent.circuit} />}</li>)}</ul> : <p>This backup contains no recorded submission attempts. It may predate a transaction; this does not prove that nothing was sent.</p>}
     </div>}
   </section>;
 }

@@ -1,5 +1,15 @@
 # Validation report
 
+## Browser worker report-effect reconciliation — 2026-09-09
+
+The full `CI=true npm run test:e2e` run passed all **60 desktop/mobile cases in 3.3 minutes**, using two workers and no exclusions or retries. This includes the four new worker/journal cases alongside all prior recovery, storage, bootstrap and disclosure journeys.
+
+Both role journals now offer an explicit report-effects check for entries with saved report intent. Public metadata goes to a terminable worker, which requires successful finalized observation, discovers the predecessor, checks target/history/RPC consistency and replays the actual raw transaction through the shared ledger SDK. A result requires the saved program and exactly the saved changed report. Cancellation, identity replacement, unmount and a 90-second overall deadline terminate the worker; stale callbacks cannot restore a result. Results remain ephemeral and do not authorize retry.
+
+The first production browser run failed all four new cases because bundling retained the ledger deserializer without initializing its WASM. Chunk separation alone did not fix it. An explicit dynamic ledger import before the replay module resolved the error, and the targeted run passed all four desktop/mobile cases in 44.2 seconds. These tests execute the emitted worker and actual SDK VM with routed captured public evidence. They reproduce RETEST_PASSED → PAYOUT_AUTHORIZED and reject a wrong report; the encrypted-journal UI independently rejects a different program and supports cancellation. The historical headless report is not a canonical browser-authored disclosure, so no positive native-role-backup recovery is claimed.
+
+The production web build/typecheck passed. The existing web suite passed 21 files / 86 tests, and the new component suite separately passed 1 file / 3 tests for explicit public-only input, timeout, cancellation, stale workers, identity replacement, unmount and clearing an earlier successful result on failure. Declaring the already-installed ledger 8.1.0 dependency directly changed only its workspace manifest/lock entry; npm reported zero vulnerabilities. This is not a new full-root validation run or a live network transaction. See [the investigation](transaction-content-investigation.md#browser-recovery-journal-check) for retrieval bounds, cost-model assumptions, source-trust limits and the outstanding native Lace drill.
+
 ## Shared API replay core without direct Node dependencies — 2026-09-09
 
 Raw transaction inspection and report replay now use exported API modules, with integration re-exports retaining the existing collector interfaces. The shared implementation uses Uint8Array/hex helpers and SDK serialization to compare the complete data state while holding other contract container fields fixed. It compares generated report fields explicitly and no longer imports `node:util` or uses Node Buffer. The affected CLI scripts now build the API dependency before integration.

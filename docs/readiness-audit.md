@@ -23,6 +23,8 @@ The startup error screen also offers export-only access to encrypted browser cop
 
 ## Work still required
 
+Recovery journals now also offer an explicit worker-based report-effects check: finalized successful transaction observation, bounded predecessor discovery, RPC block checks and shared SDK data-state replay must match the saved program and report. The production worker passed captured-transaction browser tests, while the valid encrypted-backup UI test covers program mismatch and cancellation. Native Lace recovery, intended-argument matching, authenticated history/code and safe-retry decisions remain open; see [the precise scope](transaction-content-investigation.md#browser-recovery-journal-check).
+
 | Requirement | Current evidence / gap | Completion evidence needed |
 | --- | --- | --- |
 | Durable ownership and report recovery | Encrypted file recovery plus encrypted IndexedDB role autosave; catalog export and revision-checked deletion; origin-wide storage estimates, explicit retention requests and quota-failure recovery guidance; role submissions checkpoint identifiers plus local operation/report intent before wallet calls; finalized deployment addresses are checkpointed before follow-up reads; per-identifier indexer/RPC finality observation and source-reported contract/circuit comparison, including live Preprod evidence; isolated-browser file recovery drill; restored deployed roles verify authority/report bindings | Real Lace network recovery, circuit/report-bound reconciliation and safe retry, durable terminal history, real-device storage-pressure/eviction and physical cross-device recovery drills |

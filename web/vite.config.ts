@@ -7,6 +7,15 @@ import wasm from "vite-plugin-wasm";
 export default defineConfig({
   cacheDir: "./.vite",
   plugins: [react(), wasm()],
+  worker: {
+    format: "es", plugins: () => [wasm()],
+    rollupOptions: { output: { manualChunks(id) {
+      // Keep runtime initialization ahead of Compact's module-level WASM calls.
+      if (id.includes("onchain-runtime-v3")) return "worker-midnight-wasm";
+      if (id.includes("@midnight-ntwrk")) return "worker-midnight-sdk";
+      return undefined;
+    } } },
+  },
   build: {
     target: "esnext",
     sourcemap: true,
