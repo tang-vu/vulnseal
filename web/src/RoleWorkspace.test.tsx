@@ -45,6 +45,41 @@ const restore = async (role: "researcher" | "vendor", status: number) => {
 };
 
 describe("independent role workspace", () => {
+  it.each([{ passed: true, saveFails: false }, { passed: false, saveFails: false }, { passed: false, saveFails: true }])("waits for encrypted retest context before continuing: $passed / storage failure $saveFails", async ({ passed, saveFails }) => {
+    const { user, session, vault } = await restore("researcher", 4);
+    const text = "  Retest evidence\nExact whitespace  ";
+    fireEvent.change(screen.getByLabelText("Private decision, patch reference or retest notes"), { target: { value: text } });
+    const button = screen.getByRole("button", { name: passed ? "Pass retest" : "Fail retest" });
+    await waitFor(() => expect(button).toBeEnabled());
+    const checkpoint = mocks.join.mock.calls.at(-1)![1] as (id: string) => Promise<void>;
+    const continueSubmission = vi.fn();
+    session.execute.mockImplementationOnce(async (command) => {
+      expect(command).toMatchObject({ kind: "submitRetest", passed });
+      await checkpoint(roleTransactionId);
+      continueSubmission();
+      throw new Error("Stopped after durable retest checkpoint");
+    });
+    let release!: () => void;
+    let attemptedCiphertext: string | undefined;
+    vi.mocked(writeStoredRole).mockImplementationOnce((id, label, encrypted, revision) => {
+      attemptedCiphertext = encrypted;
+      return new Promise((resolve, reject) => { release = () => saveFails ? reject(new Error("Retest storage unavailable")) : resolve({ id, label, encrypted, revision: (revision ?? 0) + 1, updatedAt: new Date().toISOString() }); });
+    });
+    await user.click(button);
+    await waitFor(() => expect(attemptedCiphertext).toBeDefined());
+    const checkpointVault = await decryptRoleVault(attemptedCiphertext!, "Workspace journal password");
+    expect(checkpointVault.version).toBe(9);
+    expect(checkpointVault.submissionAttempts![0]).toMatchObject({ transactionId: roleTransactionId, intent: { circuit: "submitRetest", reportId: vault.reports[0]!.reportId }, notes: { reportId: vault.reports[0]!.reportId, text, tier: "3" }, retestPassed: passed, finalization: null });
+    expect(continueSubmission).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Private decision, patch reference or retest notes")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: passed ? "Pass retest" : "Fail retest" })).not.toBeInTheDocument();
+    release();
+    expect(await screen.findByRole("alert")).toHaveTextContent(saveFails ? "Retest storage unavailable" : "Stopped after durable retest checkpoint");
+    expect(continueSubmission).toHaveBeenCalledTimes(saveFails ? 0 : 1);
+    expect(session.readPublicState).not.toHaveBeenCalled();
+    expect(session.execute).toHaveBeenCalledOnce();
+    await expect(checkpoint("ef".repeat(32))).rejects.toThrow(saveFails ? "Enable encrypted browser autosave" : "Submission intent is missing");
+  }, 15_000);
   it.each(["stop", "unmount"])("does not upload later saved reports after %s", async (mode) => {
     const { snapshot } = await recoveryFixture();
     const second = (await recoveryFixture({ ...recoveryDraft, title: "Another private report" })).snapshot.report!;

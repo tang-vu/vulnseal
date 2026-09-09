@@ -1,5 +1,11 @@
 # Validation report
 
+## Verify retest checkpoint ordering from workspace controls — 2026-09-09
+
+Three component regressions now drive the real workspace Pass/Fail controls while holding the mocked storage write unresolved. They decrypt the pending write and require v9, the matching report/operation, exact note whitespace, the explicit choice and no finalization. Submission continuation must remain untouched until storage resolves, and stay untouched when storage rejects. A later callback outside the operation must fail; no follow-up ledger read or automatic retry occurs. Storage and role session are mocked, so these establish application ordering, not native-wallet or physical-disk durability.
+
+The first run passed the 12 existing workspace cases; all three new cases reached the checkpoint assertions but initially checked a detached button, which the UI removes when its ledger snapshot is cleared. The tests now assert the live disabled form and absent action. The storage-failure case also correctly expects autosave to be disabled before a later callback. The final focused run passed **3 new cases in 20.35 seconds**, with 12 existing cases excluded by the explicit filter; this is not a claim of one green 15-case run. Web typechecking and read-only `release:check` passed. No production code changed: the existing artifact remains **8 circuits, 62 files, 62,616,549 bytes**.
+
 ## Compare saved retest notes and explicit choice — 2026-09-09
 
 Report replay returns public retest commitment and Pass/Fail alongside the patch commitment. The unlocked role journal compares the explicit v9 choice and a Compact persistent hash of report ID, replayed patch, exact saved note text and saved choice against those fields. Missing older choices are never inferred, and malformed/foreign evidence cannot produce a match. Private notes and choice remain outside worker messages. The patch input is replayed public evidence, not a separately retained intended patch; complete intended-argument reconciliation and safe retry remain open.
