@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Combine with cipherstore.yml; this explicitly enables its operator endpoint.
+# Local evaluation only: this collector currently fails the vulnerability gate.
+# See docs/evidence/prometheus-runtime-scan.json before production adoption.
 services:
   cipherstore:
     environment:

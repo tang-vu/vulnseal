@@ -1,0 +1,138 @@
+{
+  "recordedAt": "2026-09-09T14:53:48.164909+00:00",
+  "image": "prom/prometheus@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0",
+  "imageConfigId": "sha256:31c1e0aacb3a1914563c4e9b1e8d0a55095bf433aa43c1b0fe695959742845bd",
+  "scanner": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+  "command": "sh scripts/scan-container.sh prom/prometheus@sha256:5ce7540c3c00ef4ab0c9d2c995c6a5b9c421f44b4a115d97a2c7af3b1c21cbb0",
+  "exitCode": 1,
+  "rawReportSha256": "177f80a56ba62a2dc64fc1bcd60ea50ad465fe17cf5d68ec2bc47420880d369b",
+  "rawGateLogSha256": "2f5fbd984bf336d98d3c7b55dbdf9bcd046eaee005238b1d55854fc1cd0381b7",
+  "results": [
+    {
+      "target": "bin/prometheus",
+      "counts": {
+        "CRITICAL": 1,
+        "UNKNOWN": 3,
+        "HIGH": 2,
+        "MEDIUM": 1
+      },
+      "findings": [
+        {
+          "id": "CVE-2026-56854",
+          "package": "golang.org/x/crypto",
+          "installedVersion": "v0.54.0",
+          "fixedVersion": "0.55.0",
+          "severity": "CRITICAL"
+        },
+        {
+          "id": "CVE-2026-56855",
+          "package": "golang.org/x/crypto",
+          "installedVersion": "v0.54.0",
+          "fixedVersion": "0.56.0",
+          "severity": "UNKNOWN"
+        },
+        {
+          "id": "CVE-2026-78662",
+          "package": "golang.org/x/crypto",
+          "installedVersion": "v0.54.0",
+          "fixedVersion": "0.56.0",
+          "severity": "UNKNOWN"
+        },
+        {
+          "id": "GO-2026-5932",
+          "package": "golang.org/x/crypto",
+          "installedVersion": "v0.54.0",
+          "fixedVersion": null,
+          "severity": "UNKNOWN"
+        },
+        {
+          "id": "CVE-2026-84304",
+          "package": "google.golang.org/grpc",
+          "installedVersion": "v1.82.1",
+          "fixedVersion": "1.83.1",
+          "severity": "HIGH"
+        },
+        {
+          "id": "CVE-2026-84445",
+          "package": "google.golang.org/grpc",
+          "installedVersion": "v1.82.1",
+          "fixedVersion": "1.82.2, 1.83.2, 1.85.0-dev.0.20260825072537-93e31b48545e",
+          "severity": "HIGH"
+        },
+        {
+          "id": "CVE-2026-84303",
+          "package": "google.golang.org/grpc",
+          "installedVersion": "v1.82.1",
+          "fixedVersion": "1.83.1",
+          "severity": "MEDIUM"
+        }
+      ]
+    },
+    {
+      "target": "bin/promtool",
+      "counts": {
+        "CRITICAL": 1,
+        "UNKNOWN": 3,
+        "HIGH": 2,
+        "MEDIUM": 1
+      },
+      "findings": [
+        {
+          "id": "CVE-2026-56854",
+          "package": "golang.org/x/crypto",
+          "installedVersion": "v0.54.0",
+          "fixedVersion": "0.55.0",
+          "severity": "CRITICAL"
+        },
+        {
+          "id": "CVE-2026-56855",
+          "package": "golang.org/x/crypto",
+          "installedVersion": "v0.54.0",
+          "fixedVersion": "0.56.0",
+          "severity": "UNKNOWN"
+        },
+        {
+          "id": "CVE-2026-78662",
+          "package": "golang.org/x/crypto",
+          "installedVersion": "v0.54.0",
+          "fixedVersion": "0.56.0",
+          "severity": "UNKNOWN"
+        },
+        {
+          "id": "GO-2026-5932",
+          "package": "golang.org/x/crypto",
+          "installedVersion": "v0.54.0",
+          "fixedVersion": null,
+          "severity": "UNKNOWN"
+        },
+        {
+          "id": "CVE-2026-84304",
+          "package": "google.golang.org/grpc",
+          "installedVersion": "v1.82.1",
+          "fixedVersion": "1.83.1",
+          "severity": "HIGH"
+        },
+        {
+          "id": "CVE-2026-84445",
+          "package": "google.golang.org/grpc",
+          "installedVersion": "v1.82.1",
+          "fixedVersion": "1.82.2, 1.83.2, 1.85.0-dev.0.20260825072537-93e31b48545e",
+          "severity": "HIGH"
+        },
+        {
+          "id": "CVE-2026-84303",
+          "package": "google.golang.org/grpc",
+          "installedVersion": "v1.82.1",
+          "fixedVersion": "1.83.1",
+          "severity": "MEDIUM"
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "Module-level findings do not establish reachable exploitation in the configured collector.",
+    "No OS result was emitted for this BusyBox image; this is not OS vulnerability clearance.",
+    "No suppression, dependency rebuild or remediation was performed.",
+    "Functional monitoring drill success is independent of this failed security gate."
+  ]
+}

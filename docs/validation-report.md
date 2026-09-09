@@ -1,5 +1,13 @@
 # Validation report
 
+## Enforce runtime security in manual release verification -- 2026-09-09
+
+The optional Prometheus image was scanned after the functional drill. The exact pinned `scan-container.sh` invocation terminated with **exit 1**. It reports seven distinct advisories in both `bin/prometheus` and `bin/promtool`: **14 occurrences, comprising 2 critical, 4 high, 2 medium and 6 unknown**. Findings concern `golang.org/x/crypto v0.54.0` and `google.golang.org/grpc v1.82.1`; scanner-reported fixed versions are recorded per advisory in [machine-readable evidence](evidence/prometheus-runtime-scan.json), together with the image config ID and hashes of the raw JSON and gate log. No OS result was emitted for this BusyBox image; absence of that result is not OS clearance. No reachability analysis or dependency remediation is claimed.
+
+The operator guide and Compose comments now mark this collector for local evaluation pending remediation. The manual release-verification workflow adds an independent collector-security job that pulls and scans the image selected by Compose, and scans the exact built web image after its hosting drill. Neither step ignores vulnerabilities or permits failed scans. The current collector findings and the previously recorded web UNKNOWN finding therefore prevent a clean release-security result. Ordinary functional CI remains a separate check.
+
+The exact collector scan completed locally; workflow YAML and the Compose image selection were checked locally. The modified workflow has not run on GitHub. No running service, application code, release bytes or proving keys changed. This increment exposes and gates unresolved security work; it does not remediate the collector or claim production readiness.
+
 ## Collect ciphertext metrics and validate local alerts -- 2026-09-09
 
 An optional Compose overlay now runs digest-pinned **Prometheus 3.14.0**, enables cipherstore metrics, and scrapes the internal service every fifteen seconds. It publishes the collector only on loopback, runs non-root/read-only with resource/log bounds, and uses a named TSDB volume with 24-hour/256 MB retention targets. The default ciphertext-only Compose file still leaves metrics disabled. No Alertmanager, remote-write target or external notification destination is configured.

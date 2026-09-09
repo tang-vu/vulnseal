@@ -32,6 +32,8 @@ From the host with metrics explicitly enabled, inspect `http://127.0.0.1:8787/me
 
 ### Internal collector and local alerts
 
+**Local evaluation only:** the pinned collector currently fails the all-severity vulnerability gate. The September 9 scan reports seven distinct advisories in each of `prometheus` and `promtool` (14 occurrences: 2 critical, 4 high, 2 medium, 6 unknown). See [the exact scan evidence](evidence/prometheus-runtime-scan.json). Container restrictions and successful scrape tests do not resolve these dependency findings. Production adoption requires remediation and a fresh scan; the release-verification workflow now checks the configured image without suppressions.
+
 The optional [monitoring Compose overlay](../infra/cipherstore-monitoring.yml) runs digest-pinned Prometheus 3.14.0, enables cipherstore metrics explicitly and scrapes the service over the Compose network every 15 seconds. Start it using the same project name as your existing ciphertext store so its volume remains attached:
 
 ```text

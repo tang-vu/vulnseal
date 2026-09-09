@@ -42,3 +42,20 @@ jobs:
         run: docker build -f infra/web.Dockerfile -t vulnseal-web:local .
       - name: Verify served bytes, browser lookup and container restart
         run: node scripts/test-web-container.mjs
+      - name: Scan the exact web runtime image
+        run: sh scripts/scan-container.sh vulnseal-web:local
+
+  monitoring-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Pull the configured collector image
+        run: docker compose -f infra/cipherstore.yml -f infra/cipherstore-monitoring.yml pull prometheus
+      - name: Scan the configured collector image
+        run: |
+          image=$(docker compose -f infra/cipherstore.yml -f infra/cipherstore-monitoring.yml config --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["services"]["prometheus"]["image"])')
+          sh scripts/scan-container.sh "$image"
