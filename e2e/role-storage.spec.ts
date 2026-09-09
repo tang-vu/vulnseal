@@ -101,6 +101,28 @@ test("IndexedDB revision comparison rejects concurrent and plaintext overwrites 
   }, id);
   expect(final.rejected).toBe(true); expect(final.row.revision).toBe(2); expect(final.row.encrypted).toBe(encrypted);
   expect(final.labels[0]).not.toHaveProperty("encrypted");
+  for (const mode of ["sync", "async"] as const) {
+    const quota = await page.evaluate(async ({ id, encrypted, mode }) => {
+      const storage = (window as unknown as { __roleStorageTest: typeof Storage }).__roleStorageTest;
+      const put = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function (value) {
+        if (mode === "sync") throw new DOMException("Injected full quota", "QuotaExceededError");
+        // A duplicate add produces a real asynchronous request error/abort;
+        // expose the quota error shape to exercise the application's error mapping.
+        const request = this.add(value);
+        Object.defineProperty(request, "error", { get: () => new DOMException("Injected full quota", "QuotaExceededError") });
+        return request;
+      };
+      let message = "";
+      try { await storage.writeStoredRole(id, "Must not replace saved copy", encrypted, 2); }
+      catch (error) { message = String(error); }
+      finally { IDBObjectStore.prototype.put = put; }
+      return { message, row: await storage.readStoredRole(id) };
+    }, { id, encrypted, mode });
+    expect(quota.message).toContain("Browser storage quota was exceeded");
+    expect(quota.message).toContain("download an encrypted file backup");
+    expect(quota.row).toEqual(final.row);
+  }
   const deletion = await page.evaluate(async ({ id, encrypted }) => {
     const storage = (window as unknown as { __roleStorageTest: typeof Storage }).__roleStorageTest;
     let staleDelete = "", staleWrite = "";

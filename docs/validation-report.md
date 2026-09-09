@@ -1,5 +1,15 @@
 # Validation report
 
+## Browser storage visibility and quota recovery — 2026-09-09
+
+The encrypted-copy section now exposes timestamped origin-wide usage/quota estimates and browser-reported persistent/best-effort/unknown retention. It reads status automatically, but calls `persist()` only from the explicit request button. Missing capabilities, partial failures and denial do not become claims of protected storage. The panel never reads or decrypts a role copy. Quota errors from database opening or writes provide backup-first recovery guidance; write request errors are captured before transaction error propagation.
+
+The storage-health and local-storage component selection passed 5 tests in 2 files, and the web typecheck passed. Coverage includes no automatic retention request, denial followed by a later grant, request rejection without retry, partial browser API failure, invalid estimates, and existing persistence/save-gate behavior.
+
+`npm run test:e2e -- e2e/storage-health.spec.ts e2e/role-storage.spec.ts` rebuilt/typechecked the production web app and passed all 10 desktop/mobile Chrome cases in 46.8 seconds. The health case uses native StorageManager estimates/status and counts persistence calls; no request occurs before an explicit click. It permits either browser denial or grant and does not establish that persistence was granted on a physical device. The IndexedDB primitive case injects synchronous quota exceptions and an asynchronous request error with the quota-error shape (backed by a real duplicate-key transaction abort). Both produce the new recovery message while leaving the previous row/revision/ciphertext intact. Existing encrypted-copy, journal and catalog recovery journeys also passed.
+
+The quota drill does not fill an actual disk or exhaust a browser's real quota. Browser estimates cover the entire origin and do not reserve space. Retention grants do not protect against user deletion, device loss or all storage failures; physical storage-pressure and eviction drills remain open.
+
 ## Locking and switching role workspaces — 2026-09-09
 
 The role entry point can lock a saved active workspace and return to the encrypted-copy picker in the same tab. Locking remounts the active role tree, stops its autosave writer and clears the old view/password fields. Unsaved vaults and active workflow operations cannot lock. Loaded receiving keys require acknowledgment of their separate retained backup. See [ADR-0016](adr/0016-role-workspace-locking.md).

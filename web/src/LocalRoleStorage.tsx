@@ -4,6 +4,7 @@ import { decryptRoleVault, encryptRoleVault, type RoleVault } from "./role-recov
 import { listStoredRoles, readStoredRole, writeStoredRole, type StoredRoleLabel } from "./role-storage.js";
 import { RoleAutosave } from "./role-autosave.js";
 import { RoleCopyCatalog } from "./RoleCopyCatalog.js";
+import { BrowserStorageHealth } from "./BrowserStorageHealth.js";
 
 export function LocalRoleStorage({ vault, disabled, onRestore, onSaved, onPersistence }: {
   readonly vault: RoleVault | undefined; readonly disabled: boolean;
@@ -80,6 +81,7 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved, onPersis
   return <section className="form-panel local-role-storage">
     <h2>Encrypted browser copies</h2>
     <p>Keep a password-encrypted role vault on this device. Only the label, update time and revision are visible without the password. Keep a downloaded backup too: clearing browser data removes these copies.</p>
+    <BrowserStorageHealth />
     {message && <p>{message}</p>}{pending > 0 && <p role="status">Saving encrypted browser copy… Keep this tab open until saved.</p>}
     {error && <p className="operation-notice error" role="status">{error}{vault && " Your open workspace is retained; download a file backup before closing."}</p>}
     {scheduled && <p role="status">Draft or workspace changes are waiting to be encrypted. Keep this tab open until saved.</p>}

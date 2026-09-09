@@ -3,6 +3,9 @@ export type StoredRole = { readonly id: string; readonly label: string; readonly
 export type StoredRoleLabel = Omit<StoredRole, "encrypted">;
 const databaseName = "vulnseal-encrypted-roles";
 const storeName = "roles";
+const writeFailure = (cause: unknown): unknown => cause && typeof cause === "object" && "name" in cause && cause.name === "QuotaExceededError"
+  ? new Error("Browser storage quota was exceeded. Keep this workspace open and download an encrypted file backup. After verifying that backup, remove unneeded browser copies or free device space before enabling autosave again.")
+  : cause;
 const open = () => new Promise<IDBDatabase>((resolve, reject) => {
   if (!globalThis.indexedDB) { reject(new Error("Encrypted browser storage is unavailable")); return; }
   const request = indexedDB.open(databaseName, 1);
@@ -55,7 +58,7 @@ export const readStoredRole = async (id: string): Promise<StoredRole> => {
 /** Compare revision and write in one IndexedDB transaction; stale tabs cannot overwrite newer copies. */
 export const writeStoredRole = async (id: string, labelText: string, encrypted: string, expectedRevision: number | null): Promise<StoredRole> => {
   const next = validate({ id, label: labelText.trim(), encrypted, revision: (expectedRevision ?? 0) + 1, updatedAt: new Date().toISOString() });
-  const db = await open();
+  const db = await open().catch((cause: unknown) => { throw writeFailure(cause); });
   return new Promise((resolve, reject) => {
     const tx = db.transaction(storeName, "readwrite", { durability: "strict" }); const store = tx.objectStore(storeName); const request = store.get(id);
     let failure: unknown;
@@ -63,11 +66,12 @@ export const writeStoredRole = async (id: string, labelText: string, encrypted: 
       try {
         const previous = request.result === undefined ? undefined : validate(request.result);
         if ((previous?.revision ?? null) !== expectedRevision) throw new Error("This browser copy changed in another tab. Autosave stopped; reopen the latest copy or save this workspace to a separate file.");
-        store.put(next);
+        const write = store.put(next);
+        write.onerror = () => { failure = write.error; };
       } catch (error) { failure = error; tx.abort(); }
     };
     tx.oncomplete = () => { db.close(); resolve(next); };
-    tx.onabort = tx.onerror = () => { db.close(); reject(failure ?? tx.error ?? new Error("Encrypted browser storage write failed")); };
+    tx.onabort = tx.onerror = () => { db.close(); reject(writeFailure(failure ?? tx.error ?? new Error("Encrypted browser storage write failed"))); };
   });
 };
 
