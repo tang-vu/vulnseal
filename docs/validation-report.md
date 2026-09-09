@@ -1,5 +1,13 @@
 # Validation report
 
+## Web release packaging gate — 2026-09-09
+
+`npm run release:build` passed all six workspace builds and generated an inventory for eight proving circuits, 62 files and 62,521,837 bytes. A subsequent read-only `npm run release:check` passed against that manifest. The 24 required prover/verifier/binary-ZKIR files match the existing local compiler outputs by size and SHA-256. [The retained packaging evidence](evidence/web-release-packaging.json) records the manifest hash and source/metadata digests. Generated release files remain outside Git.
+
+`npm run test:release` passed its synthetic fixture test covering missing, empty and mismatched prover data, missing HTML/lazy asset references, unexpected files, stale manifests and WASM import-object names. The initial static-reference scan misclassified a WASM namespace property as a fetched module; excluding object-property names resolved that false positive, and the actual production artifact passed. CI now runs these rejection rules alongside its existing checks; no remote CI run is claimed.
+
+This gate verifies packaging against existing outputs, not compilation freshness, key semantics, arbitrary runtime URL closure or hosted availability. No compiler run, public deployment or native-wallet ceremony was performed in this increment. This is not a new full workspace/browser test run. See [the release guide](web-release.md) for the required preparation and remaining release gates.
+
 ## Ciphertext transport occupancy limits — 2026-09-09
 
 The server now configures complete-request and socket-inactivity deadlines (30 seconds by default), a header deadline capped at 10 seconds, frequent timeout checks and a 64-connection default ceiling. It also explicitly configures a 16 KiB header limit, five-second keep-alive timeout and 100 requests per socket. CLI and Compose expose validated request-timeout and connection-limit settings; zero cannot disable either limit. These controls bound retained transport occupancy, not per-user fairness, operating-system buffering or the duration of underlying filesystem work.

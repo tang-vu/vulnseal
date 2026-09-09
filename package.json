@@ -17,6 +17,9 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "release:build": "npm run build && node scripts/check-web-release.mjs --write-manifest",
+    "release:check": "node scripts/check-web-release.mjs",
+    "test:release": "node --test scripts/check-web-release.test.mjs",
     "compact": "npm run compact --workspace @vulnseal/contract",
     "compact:skip-zk": "npm run compact:skip-zk --workspace @vulnseal/contract",
     "lint": "npm run lint --workspaces --if-present",

@@ -1,0 +1,31 @@
+{
+    "capturedAt":  "2026-09-09T08:00:58.4971820Z",
+    "scope":  "Local packaging against existing compiler outputs; no compilation, publishing or wallet ceremony",
+    "commands":  {
+                     "releaseCheck":  "passed",
+                     "releaseBuild":  "passed: all six workspace builds and manifest generation",
+                     "releaseTests":  "passed: one synthetic rejection test"
+                 },
+    "manifestSha256":  "881c5011dfbf4eaa64f92c9771821900173ced7f3c71e4f7e959924160de91f0",
+    "compilerVersion":  "0.31.1",
+    "contractSource":  {
+                           "bytes":  14357,
+                           "sha256":  "cf4a98e7256d7f10d9ea9a2ce009875ed7fb2de17b0c3c9c13de2db7b95e6d39"
+                       },
+    "compilerMetadata":  {
+                             "bytes":  11499,
+                             "sha256":  "422c95f08094a23de7abba4fe5050b33d94018d2fbd2f3891a98b5f235d92bee"
+                         },
+    "circuits":  [
+                     "acceptReport",
+                     "anchorPatch",
+                     "authorizePayout",
+                     "beginTriage",
+                     "closeReport",
+                     "rejectReport",
+                     "submitReport",
+                     "submitRetest"
+                 ],
+    "fileCount":  62,
+    "totalBytes":  62521837
+}

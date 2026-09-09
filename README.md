@@ -63,6 +63,8 @@ The client also enforces the 5 MiB ciphertext limit independently of the server.
 
 Startup now shows a loading screen before the Midnight components finish downloading. A component load/render failure shows recovery guidance and an explicit reload button. Avoid clearing site data when troubleshooting: it may contain your encrypted role copies. Only previously saved data is recoverable; unsaved edits can be lost after an application failure. Basic HTML instructions remain available when JavaScript cannot start.
 
+For a network-capable web release, use the [release artifact gate](docs/web-release.md). It requires every proving circuit's key/ZKIR files and records their hashes in a build manifest; an ordinary demo build does not establish this completeness.
+
 ## Prerequisites
 
 - Node.js `>=24.11.1` (validated with `24.14.1`)
