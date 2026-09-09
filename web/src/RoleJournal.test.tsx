@@ -27,6 +27,7 @@ it("blocks unjournaled submission, saves before an uncertain result, and restore
     expect(durable.submissionAttempts?.[0]?.transactionId).toBe(txId);
     expect(durable.version).toBe(4);
     expect(durable.reportNotes?.[0]?.text).toBe("Retain these private working notes");
+    expect(screen.getByRole("button", { name: "Lock and switch workspace" })).toBeDisabled();
     broadcast(); throw new Error("Finality response lost after submission");
   }) };
   mocks.join.mockImplementation(async (_vault, beforeSubmit) => { checkpoint = beforeSubmit; return { session, snapshot: state }; });

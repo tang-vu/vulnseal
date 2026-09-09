@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { decryptRoleVault, encryptRoleVault } from "./role-recovery.js";
 import { recoveryFixture } from "./test/recovery-fixture.js";
+import { RoleAutosave } from "./role-autosave.js";
 const mocks = vi.hoisted(() => ({ join: vi.fn() }));
 vi.mock("./role-network.js", () => ({ joinRoleVault: mocks.join }));
 vi.mock("./role-storage.js", () => ({
@@ -57,6 +58,41 @@ describe("independent role workspace", () => {
     view.unmount();
     expect(leavingIsBlocked()).toBe(false);
   });
+  it("requires saved ownership before locking and starts a fresh password-gated workspace", async () => {
+    const stopped = vi.spyOn(RoleAutosave.prototype, "stop");
+    const user = userEvent.setup(); render(<RoleWorkspace />);
+    await user.click(screen.getByRole("button", { name: "Prepare vendor identity" }));
+    expect(screen.getByRole("button", { name: "Lock and switch workspace" })).toBeDisabled();
+    await enableJournal(user);
+    await user.click(screen.getByRole("button", { name: "Lock and switch workspace" }));
+    expect(screen.getByRole("heading", { name: "Work with your own authority" })).toBeInTheDocument();
+    expect(screen.getByText(/Workspace locked/)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Vendor workspace" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Stop browser autosave" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Browser unlock password")).toHaveValue("");
+    expect(screen.getByLabelText("Role restore password")).toHaveValue("");
+    expect(stopped).toHaveBeenCalled();
+    expect(leavingIsBlocked()).toBe(false);
+    await user.click(screen.getByRole("button", { name: "Prepare vendor identity" }));
+    expect(screen.getByRole("button", { name: "Lock and switch workspace" })).toBeDisabled();
+  });
+  it("requires retention of the separate receiving-key backup before locking loaded keys", async () => {
+    vi.stubGlobal("URL", class extends URL { static override createObjectURL = () => "blob:recipient-backup"; static override revokeObjectURL = vi.fn(); });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const user = userEvent.setup(); render(<RoleWorkspace />);
+    await user.click(screen.getByRole("button", { name: "Prepare vendor identity" }));
+    await enableJournal(user);
+    await user.click(screen.getByRole("button", { name: "Disclosure exchange" }));
+    fireEvent.change(screen.getByLabelText("Recipient backup password"), { target: { value: "Retain this receiving key password" } });
+    fireEvent.change(screen.getByLabelText("Confirm recipient backup password"), { target: { value: "Retain this receiving key password" } });
+    await user.click(screen.getByRole("button", { name: "Create receiving key and save backup" }));
+    await screen.findByText(/Your receiving fingerprint/);
+    expect(screen.getByRole("button", { name: "Lock and switch workspace" })).toBeDisabled();
+    await user.click(screen.getByLabelText("I retained the separate encrypted receiving-key backup and its password."));
+    await user.click(screen.getByRole("button", { name: "Lock and switch workspace" }));
+    expect(screen.queryByText(/Your receiving fingerprint/)).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Work with your own authority" })).toBeInTheDocument();
+  }, 15_000);
   it("warns for pending private notes and draft edits until encrypted autosave finishes", async () => {
     const { user } = await restore("researcher", 4);
     expect(leavingIsBlocked()).toBe(false);

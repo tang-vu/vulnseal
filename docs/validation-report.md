@@ -1,5 +1,15 @@
 # Validation report
 
+## Locking and switching role workspaces — 2026-09-09
+
+The role entry point can lock a saved active workspace and return to the encrypted-copy picker in the same tab. Locking remounts the active role tree, stops its autosave writer and clears the old view/password fields. Unsaved vaults and active workflow operations cannot lock. Loaded receiving keys require acknowledgment of their separate retained backup. See [ADR-0016](adr/0016-role-workspace-locking.md).
+
+The web typecheck passed. `RoleWorkspace.test.tsx` passed 7 cases, including the saved-vault gate, autosave stop on lock, fresh password fields and receiving-key acknowledgment. The journal/storage/autosave selection passed 6 cases across 3 files, including a lock control that remains disabled during the pre-wallet submission flow. These component checks use mocked wallet/storage boundaries where described in their fixtures.
+
+`npm run test:e2e -- e2e/role-switching.spec.ts e2e/role-notes.spec.ts e2e/roles.spec.ts` rebuilt/typechecked the production app and passed all 10 desktop/mobile Chrome cases in 1.2 minutes. The new journey creates two distinct undeployed vendor identities, stores both in real encrypted IndexedDB, locks/reopens each in the same tab, rejects wrong passwords, retains both catalog entries and verifies focus returns to the entry heading. Existing role backup, note recovery and no-wallet deployment gates passed alongside it.
+
+This demonstrates local application switching, not native Lace switching across deployed programs, wallet authorization revocation, locking other tabs or forensic erasure of secret bytes.
+
 ## Private working notes per report — 2026-09-09
 
 Role payload v4 retains editable text and tier selection for each saved report, while preserving older backups, drafts and submission journals. Switching reports no longer clears the shared text field. Offline workspaces now expose saved report contents and their notes; contract actions still require a verified session/current snapshot and saved vault. See [ADR-0015](adr/0015-private-report-notes.md).

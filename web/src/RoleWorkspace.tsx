@@ -30,6 +30,14 @@ const readFile = async (file: File | undefined, max: number) => {
 
 /** Separate entry point: this component never creates the combined demo actor session. */
 export function RoleWorkspace() {
+  const [generation, setGeneration] = useState(0);
+  return <ActiveRoleWorkspace key={generation} justLocked={generation > 0} onLock={() => setGeneration((value) => value + 1)} />;
+}
+
+/** Remounting discards the old component tree and stops its autosave writer. */
+function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => void; readonly justLocked: boolean }) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { if (justLocked) heading.current?.focus(); }, [justLocked]);
   const [vault, setVault] = useState<RoleVault>();
   const [saved, setSaved] = useState<RoleVault>();
   const currentVault = useRef(vault); currentVault.current = vault;
@@ -53,6 +61,7 @@ export function RoleWorkspace() {
   const [offlineRestore, setOfflineRestore] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [keys, setKeys] = useState<RecipientKeys>();
+  const [retainedKeys, setRetainedKeys] = useState<RecipientKeys>();
   const [file, setFile] = useState<File>();
   const [invitationFile, setInvitationFile] = useState<File>();
   const [password, setPassword] = useState("");
@@ -74,6 +83,7 @@ export function RoleWorkspace() {
   const record = snapshot && chosen && snapshot.ledger.reports.member(hexToBytes(chosen.reportId)) ? snapshot.ledger.reports.lookup(hexToBytes(chosen.reportId)) : undefined;
   const status = record ? contractStatusName(record.status) : undefined;
   const backedUp = vault !== undefined && saved === vault;
+  const canLock = backedUp && !working && (!keys || retainedKeys === keys);
   const notes = vault?.reportNotes?.find((entry) => entry.reportId === selectedId);
   const detail = notes?.text ?? "", tier = notes?.tier ?? "3";
   const updateNotes = (text: string, selectedTier: string) => {
@@ -120,11 +130,18 @@ export function RoleWorkspace() {
   });
   return <div className="app-shell role-workspace">
     <header className="topbar"><strong>VulnSeal · Role workspace</strong><a href="/" target="_blank" rel="noreferrer noopener">Open demo / public verifier</a></header>
-    <main className="page narrow-page"><h1>{vault ? `${vault.role === "vendor" ? "Vendor" : "Researcher"} workspace` : "Work with your own authority"}</h1>
+    <main id="main-content" className="page narrow-page"><h1 ref={heading} tabIndex={-1}>{vault ? `${vault.role === "vendor" ? "Vendor" : "Researcher"} workspace` : "Work with your own authority"}</h1>
       <p>Each workspace holds one contract actor secret. Use a separate browser profile for the other participant. Transactions require Lace and the selected Midnight network; this workspace has no simulated transaction mode.</p>
       {working && <p role="status">Working… A network operation may wait for Lace, proof generation and finality.</p>}
       {error && <p role="alert" className="operation-notice error">{error}</p>}
       {message && <p role="status" className="operation-notice">{message}</p>}
+      {!vault && justLocked && <p role="status">Workspace locked. Unlock a saved browser copy or restore a file to continue with that role or another program.</p>}
+      {vault && <section className="form-panel"><h2>Lock or switch workspace</h2>
+        <p>Save current changes before locking. Locking closes this tab's active role and stops its autosave; encrypted browser copies and downloaded files remain available. Reopening a copy requires its password. Your Lace connection and other tabs are managed separately.</p>
+        {keys && <label><input type="checkbox" checked={retainedKeys === keys} onChange={(event) => setRetainedKeys(event.target.checked ? keys : undefined)} />I retained the separate encrypted receiving-key backup and its password.</label>}
+        <button className="secondary-button" disabled={!canLock} onClick={() => { if (!busy.current && canLock) onLock(); }}>Lock and switch workspace</button>
+        {!backedUp && <p>Save the current role backup or wait for encrypted autosave before locking.</p>}
+      </section>}
       {keys && <p className="operation-notice">Receiving keys are held in this tab. Keep their separate encrypted key backup before leaving; the role backup does not include them.</p>}
       {receipt && <p className="operation-notice public-value">Finalized {receipt.circuit}: {receipt.txId} at block {receipt.blockHeight}. A failed follow-up read does not erase this transaction.</p>}
       {!vault && <label><input type="checkbox" checked={offlineRestore} onChange={(event) => setOfflineRestore(event.target.checked)} />Restore backups without connecting Lace</label>}
