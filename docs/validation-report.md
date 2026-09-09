@@ -1,5 +1,15 @@
 # Validation report
 
+## Saved submission ciphertext reconciliation — 2026-09-09
+
+For a recorded `submitReport`, the role workspace now compares SHA-256 of the exact saved disclosure envelope with the ciphertext digest returned by report replay. The envelope is selected by the journal report ID from the validated vault and hashed locally. Neither envelope nor decryption key is sent to the worker or evidence services. A mismatch gives explicit investigation guidance; absent saved material or malformed digest does not yield a match. The comparison does not test ciphertext-service retention, authenticate chain data, verify every submission argument or enable retry. The backup schema is unchanged.
+
+The focused ciphertext/decision/worker suite passed **eight tests**. The complete web suite passed **26 files / 118 tests in 55.61 seconds**, and web typechecking passed. The new tests verify exact bytes (including a trailing newline mismatch), missing/invalid evidence and clearing a prior match; the worker-boundary test includes a saved envelope and still requires a public-only outgoing payload.
+
+All four historical replay desktop/mobile cases passed in **43.7 seconds**. The two production-worker cases were subsequently strengthened and rerun in **41.5 seconds**, requiring the exact ciphertext digest from the earlier captured public lookup (`37ba2e…982eff9`) rather than only hex syntax. These are captured historical inputs and local Chrome execution, not a new network transaction or native-wallet recovery ceremony. The previous full browser and workspace baselines were not rerun beyond the stated web/replay scope.
+
+The final normal-configuration release build passed compiler-source comparison, six workspace builds and manifest packaging: **eight circuits, 62 files, 62,579,106 bytes**. Proving keys, contract source and container images were retained.
+
 ## Saved decision versus replayed report — 2026-09-09
 
 The report worker now returns public decision-digest/severity/reward-tier values from the replayed changed record. The role workspace compares those values locally to the note snapshot attached to the selected submission attempt: exact UTF-8 decision text for acceptance/rejection, severity for acceptance, reward tier for payout authorization. Mismatches raise an alert; missing snapshots, mismatched report IDs and unsupported operations never receive a successful comparison message. The note snapshot is not sent to the worker or external services. This is partial source-trusting reconciliation, not authenticated arguments, a terminal journal result, token transfer evidence or permission to retry. See [ADR-0023](adr/0023-saved-decision-comparison.md).

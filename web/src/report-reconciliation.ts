@@ -6,7 +6,7 @@ import { readBoundedJson } from "./bounded-json.js";
 import { observeTransaction } from "./transaction-verification.js";
 
 export type ReportCheckInput = { transactionId: string; contractAddress: string; circuit: string; programId: string; reportId: string; indexerUrl: string; rpcUrl: string; websocketUrl: string };
-export type ReplayedPublicValues = { decisionDigest: string; severity: string; rewardTier: string };
+export type ReplayedPublicValues = { decisionDigest: string; severity: string; rewardTier: string; ciphertextDigest?: string };
 export type ReportCheckResult = { checkedAt: string; reportId: string; before: string; after: string; blockHeight: number; previousBlockHeight: number; actionsRead: number; publicValues?: ReplayedPublicValues };
 const post = async (url: string, body: unknown) => {
   const signal = AbortSignal.timeout(20_000);
@@ -49,5 +49,5 @@ export async function reconcileReport(input: ReportCheckInput): Promise<ReportCh
   if (replay.programId !== input.programId) throw new Error("Replayed program differs from this backup");
   if (replay.changedReports.length !== 1 || replay.changedReports[0]!.reportId !== input.reportId) throw new Error("Transaction did not change exactly the report recorded in this backup");
   const change = replay.changedReports[0]!;
-  return { checkedAt: new Date().toISOString(), reportId: input.reportId, before: change.before ? contractStatusName(change.before.status) : "Absent", after: change.after ? contractStatusName(change.after.status) : "Removed", blockHeight: observation.blockHeight, previousBlockHeight: history.previous.blockHeight, actionsRead: history.actionsRead, ...(change.after ? { publicValues: { decisionDigest: bytesToHex(change.after.decisionDigest), severity: change.after.severity.toString(), rewardTier: change.after.rewardTier.toString() } } : {}) };
+  return { checkedAt: new Date().toISOString(), reportId: input.reportId, before: change.before ? contractStatusName(change.before.status) : "Absent", after: change.after ? contractStatusName(change.after.status) : "Removed", blockHeight: observation.blockHeight, previousBlockHeight: history.previous.blockHeight, actionsRead: history.actionsRead, ...(change.after ? { publicValues: { ciphertextDigest: bytesToHex(change.after.ciphertextDigest), decisionDigest: bytesToHex(change.after.decisionDigest), severity: change.after.severity.toString(), rewardTier: change.after.rewardTier.toString() } } : {}) };
 }
