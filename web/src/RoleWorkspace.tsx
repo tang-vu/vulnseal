@@ -4,6 +4,7 @@ import { VulnSealApi } from "@vulnseal/api/api";
 import { RoleSession, type RoleCommand } from "@vulnseal/api/role-session";
 import { createCipherstoreClient, verifyCipherstoreCopies } from "@vulnseal/api/cipherstore-client";
 import { CipherstoreDestinations } from "./CipherstoreDestinations.js";
+import { SavedReportSelector } from "./SavedReportSelector.js";
 import { uploadSavedBatch } from "./ciphertext-batch.js";
 import type { PublicContractSnapshot, TransactionEvidence } from "@vulnseal/api/types";
 import { createVulnSealPrivateState, pureCircuits } from "@vulnseal/contract";
@@ -270,7 +271,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
             const joined = await joinRoleVault(updated, recordSubmission); setVault(updated); setSession(joined.session); setSnapshot(joined.snapshot);
           })}><h2>Reconnect an existing program</h2><p>For a pre-deployment backup, enter the address from your finalized deployment receipt. The vendor key must match.</p>{!vault.contractAddress && <label>Existing contract address<input value={address} required onChange={(event) => setAddress(event.target.value)} /></label>}<button className="secondary-button">Connect Lace and verify program</button></form>}
           {vault.contractAddress && tab === "reports" && <section className="form-panel"><h2>Program reports</h2>{session && <button className="secondary-button" onClick={() => run(load)}>Refresh ledger</button>}{session && vault.role === "vendor" && <button className="secondary-button" onClick={() => download(JSON.stringify({ format: "vulnseal-program-invitation", version: 1, network: vault.network, contractAddress: vault.contractAddress, programId: vault.programId }), "vulnseal-program-invitation.json")}>Download public program invitation</button>}
-            <label>Workspace report<select value={selectedId} onChange={(event) => { setSelectedId(event.target.value); setReceipt(undefined); }}><option value="">Choose a saved report</option>{vault.reports.map((entry) => <option value={entry.reportId} key={entry.reportId}>{entry.reportId}</option>)}</select></label>
+            <SavedReportSelector reports={vault.reports} selectedId={selectedId} onChange={(id) => { setSelectedId(id); setReceipt(undefined); }} />
             {chosen && <><p className="public-value">Report: {chosen.reportId}</p><SelectedRoleReport key={chosen.reportId} disclosure={chosen} /><p>{snapshot ? status ?? "Prepared locally; absent from the current ledger snapshot" : "Refresh ledger state before continuing. A prior transaction may still require reconciliation."}</p>
               <section aria-label="Saved ciphertext storage"><h3>Store this encrypted report</h3><p>Save an encrypted role backup first, then upload the exact saved ciphertext. You can repeat this upload after a storage failure or restore; its report ID, encryption key and content address stay the same. Only ciphertext is sent. This action does not connect Lace or submit a transaction.</p>
                 <CipherstoreDestinations urls={env.cipherstoreUrls} />

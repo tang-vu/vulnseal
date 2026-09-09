@@ -1,5 +1,13 @@
 # Validation report
 
+## Find saved reports by authenticated title — 2026-09-09
+
+Role report selection now decrypts titles/assets locally and offers case-insensitive filtering by those fields or full report ID. Report IDs remain visible so duplicate titles are distinguishable. Filtering does not select another report: the current selection remains available with an explicit outside-search label. Titles from failed authentication are never displayed; search state and title metadata are not added to backups. Sequential title reads stop starting more work when the component unmounts.
+
+The selector and role-workspace suites passed **14 tests in 54.67 seconds**, and web typechecking passed. Tests use real encrypted disclosures and cover private title/asset search without fetch, exact selected-ID preservation, explicit selection callbacks, no matches, unauthenticated metadata and remount clearing. Desktop/mobile browser cases cover duplicate titles, ID filtering and unchanged report-note/recovery behavior alongside lost-upload recovery. These are local browser tests; no wallet or ledger behavior changed.
+
+All **four browser cases passed in 1.5 minutes**, without retries or exclusions. The final normal-configuration release build passed source/compiler comparison, all six builds and packaging: **eight circuits, 62 files, 62,590,086 bytes**. Broader previous suites were not rerun for this selector-only increment. No contract source, proving key, backup schema or external state changed.
+
 ## Read back every ciphertext destination — 2026-09-09
 
 The role workspace can explicitly check the selected saved report at every configured ciphertext store, including offline-restored roles. The API probe reads destinations in parallel and returns ordered per-store digest verification or failure details with a timestamp. GET requests bypass browser caching and keep the existing bounds. It neither falls back silently nor repairs/uploads data. The UI clears the observation when selecting another report or starting an upload and describes it as a read-only snapshot, not retention or ledger evidence.

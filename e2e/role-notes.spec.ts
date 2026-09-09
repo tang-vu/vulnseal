@@ -25,6 +25,13 @@ test("private notes stay with their reports across offline switching and encrypt
   await expect(page.getByRole("button", { name: "Refresh ledger" })).toHaveCount(0);
   await page.getByText("Read selected private report").click();
   await expect(page.getByRole("heading", { name: "Private vulnerability" })).toBeVisible();
+  await expect(page.getByRole("option", { name: /Private vulnerability/ })).toHaveCount(2);
+  await page.getByLabel("Find saved reports").fill(second.reportId);
+  await expect(page.getByText(/1 of 2 reports match/)).toBeVisible();
+  await expect(page.getByLabel("Workspace report")).toHaveValue(first.reportId);
+  await page.getByLabel("Workspace report").selectOption(second.reportId);
+  await page.getByLabel("Find saved reports").fill("");
+  await page.getByLabel("Workspace report").selectOption(first.reportId);
   await page.getByLabel("Browser copy password", { exact: true }).fill(password);
   await page.getByLabel("Confirm browser copy password").fill(password);
   await page.getByRole("button", { name: "Enable encrypted browser autosave" }).click();
