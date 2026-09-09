@@ -1,5 +1,19 @@
 # Validation report
 
+## Pending combined-session preparation — 2026-09-09
+
+The combined browser now retains its exact encrypted preparation before upload. A storage-only retry reuses the original ciphertext, key, salt and report ID; pending data is separated from completed workflow state. Recovery v3 includes that preparation and a conservative submission-start flag. Once network submission setup begins, retry remains blocked after an error and after export/restore. Pending material is readable in the UI, and navigation cannot replace its draft/program or import over it. This is manual recovery, not a durable pre-wallet journal.
+
+Three focused files initially had 18 passing tests and one test-harness failure caused by an incorrect default program name; correcting the fixture gave **19 passing tests in 11.67 seconds**. The later expanded uncertain-submission test successfully exported its pending flag but failed to restore because the JSDOM click did not submit the form (no join call and no application error). Increasing its wait alone did not resolve that failure. Using the existing component suite's explicit form-submit approach completed the restore and verified the retry remained blocked, with only one original submission call. That complete network test file passed **five tests in 15.09 seconds**.
+
+The production browser regression passed **16 desktop/mobile cases in 1.5 minutes**, covering guided transitions, rejection/retest history, backup restore, attachments and storage failures. After adding the read-only pending report view, the focused storage run passed **four cases in 54.5 seconds**. Each stalled-upload case waits for the real 20-second client deadline, exports the pending encrypted file, restores it in an isolated browser, reads the private report and PUTs the original bytes/address to the real local service. A GET matches that envelope. No native wallet, live network transaction, public deployment or physical off-device recovery is claimed.
+
+After the restore harness correction and final wording changes, the complete web suite passed **23 files / 108 tests in 51.05 seconds**. The earlier full run with the unsent JSDOM form had 107 passes and one failure and is not counted as passing validation.
+
+The final normal-configuration `release:build` passed fresh compiler-source comparison, six workspace builds and the network-artifact packaging gate: eight proving circuits, 62 files and 62,550,933 bytes. Existing keys were reused; retained container images were not rebuilt.
+
+See [ADR-0022](adr/0022-pending-demo-preparation.md) for the pre-export crash window, old-backup ambiguity, conservative submission boundary and remaining identifier/reconciliation work. The full 16-case run preceded the final read-only view/copy additions; the focused browser run covers that view. This is not a new full browser-suite total.
+
 ## Prepared report recovery after upload uncertainty — 2026-09-09
 
 Independent role preparation now installs the locally encrypted disclosure in the vault before any storage request. The user saves it through the existing file/browser backup flow, then uploads the saved ciphertext. The same backed-up envelope is uploaded before an initial report contract call; a storage error prevents that call. No schema change, automatic upload retry or re-encryption on retry is introduced. Older saved disclosures also support the explicit upload action.

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hexToBytes, sha256, utf8 } from "@vulnseal/shared";
 import { pureCircuits } from "@vulnseal/contract";
 import { recoveryFixture } from "./test/recovery-fixture.js";
-import { encryptRecovery } from "./recovery.js";
+import { decryptRecovery, encryptRecovery } from "./recovery.js";
 import { programConstructor } from "./program.js";
 
 const mocks = vi.hoisted(() => ({ connect: vi.fn(), deploy: vi.fn(), join: vi.fn() }));
@@ -111,6 +111,54 @@ describe("browser network workflow with mocked wallet and finalized API results"
     expect(mocks.connect).not.toHaveBeenCalled();
     expect(screen.getByText(/Guided local receipt/)).toBeInTheDocument();
   });
+
+  it("blocks retry and replacement after an uncertain contract submission", async () => {
+    const user = userEvent.setup();
+    const api = { contractAddress: "ab".repeat(32), usePrivateState: vi.fn().mockResolvedValue(undefined), submitReport: vi.fn().mockRejectedValue(new Error("Wallet response interrupted")) };
+    mocks.deploy.mockResolvedValue({ api, evidence: { circuit: "constructor", txId: "deploy-tx", blockHeight: "100" } });
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Guided local" }));
+    await user.click(await screen.findByRole("button", { name: "Set up program" }));
+    await user.click(screen.getByRole("button", { name: "Create program" }));
+    await screen.findByRole("heading", { name: "Acme Security Program" });
+    await user.click(screen.getAllByRole("button", { name: /Submit/ })[0]!);
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
+    await screen.findByText("Wallet response interrupted");
+    expect(screen.queryByRole("button", { name: "Retry saved report upload" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Review report" }));
+    expect(screen.getByText(/Its outcome needs reconciliation/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Report title")).not.toBeInTheDocument();
+    expect(api.submitReport).toHaveBeenCalledOnce();
+    let downloaded: Blob | undefined;
+    vi.stubGlobal("URL", class extends URL { static override createObjectURL = (blob: Blob) => { downloaded = blob; return "blob:pending-backup"; }; static override revokeObjectURL = vi.fn(); });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    try {
+      await user.click(screen.getByRole("button", { name: "Private recovery" }));
+      await user.type(screen.getByLabelText("Backup password", { exact: true }), "Retain uncertain submission backup");
+      await user.type(screen.getByLabelText("Confirm backup password"), "Retain uncertain submission backup");
+      await user.click(screen.getByRole("button", { name: "Download encrypted backup" }));
+      await screen.findByText(/Encrypted backup download started/);
+      const serialized = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsText(downloaded!); });
+      const { snapshot } = await decryptRecovery(serialized, "Retain uncertain submission backup");
+      expect(snapshot.pendingReport?.submissionStarted).toBe(true);
+      expect(snapshot.report).toBeNull();
+      expect(snapshot.history).toEqual([]);
+      const programId = hexToBytes(snapshot.programId);
+      mocks.join.mockResolvedValue({ ...api, readPublicState: vi.fn().mockResolvedValue({ ledger: { ...await programConstructor(programId, snapshot.policy), ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(snapshot.vendorSecret)) } }) });
+      cleanup(); render(<App />);
+      await user.click(screen.getByRole("button", { name: "Private recovery" }));
+      const file = new File([serialized], "uncertain.json", { type: "application/json" });
+      Object.defineProperty(file, "text", { value: async () => serialized });
+      await user.upload(screen.getByLabelText("Recovery file"), file);
+      await user.type(screen.getByLabelText("Recovery password", { exact: true }), "Retain uncertain submission backup");
+      fireEvent.submit(screen.getByRole("button", { name: "Restore encrypted backup" }).closest("form")!);
+      await screen.findByRole("heading", { name: "Keep the prepared report" }, { timeout: 5000 });
+      expect(screen.getByText(/Its outcome needs reconciliation/)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Retry saved report upload" })).not.toBeInTheDocument();
+      expect(api.submitReport).toHaveBeenCalledOnce();
+    } finally { click.mockRestore(); }
+  }, 15_000);
 
   it("uses form policies, random role secrets, selected severity and rationale, and exact transaction evidence", async () => {
     const user = userEvent.setup();

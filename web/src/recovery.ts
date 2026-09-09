@@ -10,7 +10,8 @@ const aad = utf8("vulnseal:browser-recovery:v1");
 const buffer = (value: Uint8Array): ArrayBuffer => Uint8Array.from(value).buffer;
 
 export type RecoverySnapshot = {
-  readonly version: 1 | 2;
+  readonly version: 1 | 2 | 3;
+  readonly pendingReport?: { readonly report: NonNullable<RecoverySnapshot["report"]>; readonly submissionStarted: boolean } | null;
   readonly attachmentDraft?: AttachmentDraft | null;
   readonly mode: "guided-local" | "midnight";
   readonly network: string;
@@ -70,9 +71,9 @@ const validateDraft = (input: unknown): VulnerabilityReport => {
 };
 
 /** Validate decrypted input before allowing it to replace any live session. */
-export const validateRecovery = async (input: unknown): Promise<{ snapshot: RecoverySnapshot; sealed: SealedReport | undefined }> => {
+export const validateRecovery = async (input: unknown): Promise<{ snapshot: RecoverySnapshot; sealed: SealedReport | undefined; pendingSeal?: SealedReport | undefined }> => {
   const value = object(input);
-  if ((value.version !== 1 && value.version !== 2) || !["guided-local", "midnight"].includes(String(value.mode))) throw new Error("Unsupported recovery version or mode");
+  if (![1, 2, 3].includes(Number(value.version)) || typeof value.version !== "number" || !["guided-local", "midnight"].includes(String(value.mode))) throw new Error("Unsupported recovery version or mode");
   if (!["undeployed", "local", "preview", "preprod", "mainnet"].includes(String(value.network))) throw new Error("Unsupported recovery network");
   const mode = value.mode as RecoverySnapshot["mode"];
   const contractAddress = optionalHex(value.contractAddress);
@@ -110,7 +111,7 @@ export const validateRecovery = async (input: unknown): Promise<{ snapshot: Reco
     if ((mode === "guided-local" && history[0] !== "COMMITTED") || history.at(-1) !== status) throw new Error("Recovery history does not match its report");
   } else if (history.length !== 0 || status !== "COMMITTED") throw new Error("Recovery history has no report");
   const snapshot: RecoverySnapshot = {
-    version: value.version, ...(value.version === 2 ? { attachmentDraft: value.attachmentDraft === null ? null : validateAttachmentDraft(value.attachmentDraft) } : {}), mode, network: String(value.network), contractAddress, programId, policy, vendorSecret, researcherSecret, draft, report, status, history,
+    version: value.version as RecoverySnapshot["version"], ...(value.version >= 2 ? { attachmentDraft: value.attachmentDraft === null ? null : validateAttachmentDraft(value.attachmentDraft) } : {}), mode, network: String(value.network), contractAddress, programId, policy, vendorSecret, researcherSecret, draft, report, status, history,
     patch: optionalHex(value.patch), retest: optionalHex(value.retest), payout: optionalHex(value.payout), severity: Number(value.severity),
     rationale: text(value.rationale, "rationale"), patchReference: text(value.patchReference, "patch reference"), retestNotes: text(value.retestNotes, "retest notes"),
   };
@@ -124,6 +125,24 @@ export const validateRecovery = async (input: unknown): Promise<{ snapshot: Reco
     const retested = ["RETEST_FAILED", "RETEST_PASSED", "PAYOUT_AUTHORIZED"].includes(status) || (status === "CLOSED" && history.includes("RETEST_PASSED"));
     if ((snapshot.patch !== null) !== patched || (snapshot.retest !== null) !== retested || (snapshot.payout !== null) !== history.includes("PAYOUT_AUTHORIZED")) throw new Error("Recovery commitments do not match the workflow");
   }
+  let pendingSeal: SealedReport | undefined;
+  if (value.version === 3) {
+    let pendingReport: RecoverySnapshot["pendingReport"] = null;
+    if (value.pendingReport !== null) {
+      const pending = object(value.pendingReport);
+      if (Object.keys(pending).sort().join() !== "report,submissionStarted" || typeof pending.submissionStarted !== "boolean" || (mode === "guided-local" && pending.submissionStarted)) throw new Error("Invalid pending recovery operation");
+      if (report || history.length || snapshot.patch || snapshot.retest || snapshot.payout) throw new Error("Pending preparation cannot have a completed report history");
+      const material = object(pending.report);
+      if (Object.keys(material).sort().join() !== "envelope,id,key,salt") throw new Error("Invalid pending recovery report");
+      // Reuse all envelope/commitment checks without treating this local preparation as a completed report.
+      const checked = await validateRecovery({ ...snapshot, version: 2, report: material, status: "COMMITTED", history: ["COMMITTED"] });
+      pendingSeal = checked.sealed;
+      if (!pendingSeal || pendingSeal.canonicalReport !== canonicalizeReport(draft)) throw new Error("Pending recovery report differs from its draft");
+      pendingReport = { report: checked.snapshot.report!, submissionStarted: pending.submissionStarted };
+    }
+    return { snapshot: { ...snapshot, pendingReport }, sealed, pendingSeal };
+  }
+  if (value.pendingReport !== undefined) throw new Error("Pending reports require recovery version 3");
   return { snapshot, sealed };
 };
 

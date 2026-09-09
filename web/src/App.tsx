@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { VulnSealApi } from "@vulnseal/api/api";
 import { CipherstoreClient } from "@vulnseal/api/cipherstore-client";
 import type { TransactionEvidence, VulnSealProviders } from "@vulnseal/api/types";
@@ -154,6 +154,13 @@ function App() {
   const [report, setReport] = useState<VulnerabilityReport>(initialReport);
   const [attachmentDraft, setAttachmentDraft] = useState<AttachmentDraft>(emptyAttachmentDraft);
   const [sealed, setSealed] = useState<SealedReport>();
+  const [pendingPreparation, setPendingPreparation] = useState<{ sealed: SealedReport; salt: Uint8Array; id: Uint8Array; submissionStarted: boolean }>();
+  useEffect(() => {
+    if (!pendingPreparation) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [pendingPreparation]);
   const [vendorReport, setVendorReport] = useState<VulnerabilityReport>();
   const [usingLocalCiphertext, setUsingLocalCiphertext] = useState(false);
   const [reportSalt, setReportSalt] = useState<Uint8Array>();
@@ -230,8 +237,8 @@ function App() {
 
   const connectWallet = async (): Promise<void> => {
     if (busy.current || providers) return;
-    if (reportId) {
-      setOperation({ state: "error", label: "Local report remains local", detail: "A guided report cannot become a network report by connecting a wallet. Open its submission receipt and choose Seal another to start a fresh session first." });
+    if (reportId || pendingPreparation) {
+      setOperation({ state: "error", label: "Local report remains local", detail: pendingPreparation ? "Keep this prepared report and export its encrypted backup through Private recovery. Open a separate session for a network report." : "A guided report cannot become a network report by connecting a wallet. Open its submission receipt and choose Seal another to start a fresh session first." });
       return;
     }
     busy.current = true;
@@ -254,7 +261,7 @@ function App() {
   const createProgram = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (busy.current) return;
-    if (reportId || api) {
+    if (reportId || pendingPreparation || api) {
       setOperation({ state: "error", label: "Program already in use", detail: "Keep this program open to finish the current workflow. Create a separate program in a new tab." });
       return;
     }
@@ -290,22 +297,24 @@ function App() {
       changeScreen("receipt");
       return;
     }
+    if (pendingPreparation?.submissionStarted) {
+      setOperation({ state: "error", label: "Submission outcome needs reconciliation", detail: "Submission setup already started for this saved report. Keep an encrypted backup and check the wallet and ledger; this screen cannot safely resubmit it." });
+      return;
+    }
     if (!beginAction()) return;
     changeScreen("seal", "researcher");
     setOperation({ state: "working", label: "Canonicalizing report", detail: "Normalizing a deterministic private report document in this browser." });
     try {
       await Promise.resolve();
-      const encrypted = await sealReport(report, bytesToHex(programBytes));
+      const encrypted = pendingPreparation?.sealed ?? await sealReport(report, bytesToHex(programBytes));
+      const salt = pendingPreparation?.salt ?? randomBytes(32);
+      const commitment = pendingPreparation?.id ?? pureCircuits.deriveReportCommitment(Uint8Array.from(programBytes), Uint8Array.from(encrypted.canonicalReportDigest), Uint8Array.from(salt));
+      const prepared = { sealed: encrypted, salt, id: commitment, submissionStarted: false };
+      setPendingPreparation(prepared);
       setOperation({ state: "working", label: "Uploading ciphertext", detail: "Sending only the authenticated AES-256-GCM envelope to the local content store." });
       await new CipherstoreClient(env.cipherstoreUrl).put(
         encrypted.contentAddress,
         encrypted.serializedEnvelope,
-      );
-      const salt = randomBytes(32);
-      const commitment = pureCircuits.deriveReportCommitment(
-        Uint8Array.from(programBytes),
-        Uint8Array.from(encrypted.canonicalReportDigest),
-        Uint8Array.from(salt),
       );
       setOperation({
         state: "working",
@@ -316,6 +325,8 @@ function App() {
       });
       let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
+        // Conservatively retain uncertainty even if private-state setup fails before the wallet call.
+        setPendingPreparation({ ...prepared, submissionStarted: true });
         await api.usePrivateState(
           createVulnSealPrivateState(researcherSecret, {
             programId: programBytes,
@@ -328,13 +339,14 @@ function App() {
       setSealed(encrypted);
       setReportSalt(salt);
       setReportId(commitment);
+      setPendingPreparation(undefined);
       recordTransition("COMMITTED", transaction);
       setOperation({ state: "idle" });
       changeScreen("receipt", "researcher");
     } catch (error) {
       setOperation({
         state: "error",
-        label: "Sealing stopped safely",
+        label: "Report preparation interrupted",
         detail: error instanceof Error ? error.message : "Unknown sealing error",
       });
     } finally { busy.current = false; }
@@ -500,6 +512,7 @@ function App() {
   const resetDemo = (): void => {
     if (busy.current) return;
     setSealed(undefined);
+    setPendingPreparation(undefined);
     setVendorReport(undefined);
     setReportSalt(undefined);
     setReportId(undefined);
@@ -524,7 +537,7 @@ function App() {
     try {
       const encode = (value?: Uint8Array) => value ? bytesToHex(value) : null;
       const snapshot: RecoverySnapshot = {
-        version: 2, attachmentDraft, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
+        version: 3, attachmentDraft, pendingReport: pendingPreparation ? { report: { envelope: pendingPreparation.sealed.serializedEnvelope, key: bytesToHex(pendingPreparation.sealed.key), salt: bytesToHex(pendingPreparation.salt), id: bytesToHex(pendingPreparation.id) }, submissionStarted: pendingPreparation.submissionStarted } : null, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
         programId: bytesToHex(programBytes), policy: programPolicy, vendorSecret: bytesToHex(vendorSecret), researcherSecret: bytesToHex(researcherSecret), draft: report,
         report: sealed && reportSalt && reportId ? { envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt), id: bytesToHex(reportId) } : null,
         status, history: events.map((event) => event.status), patch: encode(patchCommitment), retest: encode(retestCommitment), payout: encode(payoutReceipt),
@@ -545,11 +558,11 @@ function App() {
   };
 
   const importRecovery = async (serialized: string, password: string): Promise<void> => {
-    if (busy.current || reportId || api) throw new Error("Restore in a fresh tab to preserve this active session");
+    if (busy.current || reportId || pendingPreparation || api) throw new Error("Restore in a fresh tab to preserve this active session");
     busy.current = true;
     setOperation({ state: "working", label: "Restoring private session", detail: "Decrypting and checking report bindings before replacing this tab’s draft." });
     try {
-      const { snapshot, sealed: restoredSeal } = await decryptRecovery(serialized, password);
+      const { snapshot, sealed: restoredSeal, pendingSeal } = await decryptRecovery(serialized, password);
       let restoredApi: VulnSealApi | undefined;
       let restoredProviders: VulnSealProviders | undefined;
       let current: Awaited<ReturnType<typeof verifyRecoveryLedger>>;
@@ -568,6 +581,7 @@ function App() {
       setProgramCreated(true); setProgramBytes(hexToBytes(snapshot.programId)); setProgramPolicy(snapshot.policy);
       setVendorSecret(hexToBytes(snapshot.vendorSecret)); setResearcherSecret(hexToBytes(snapshot.researcherSecret));
       setReport(snapshot.draft); setAttachmentDraft(snapshot.attachmentDraft ?? emptyAttachmentDraft); setSealed(restoredSeal); setVendorReport(undefined);
+      setPendingPreparation(snapshot.pendingReport && pendingSeal ? { sealed: pendingSeal, salt: hexToBytes(snapshot.pendingReport.report.salt), id: hexToBytes(snapshot.pendingReport.report.id), submissionStarted: snapshot.pendingReport.submissionStarted } : undefined);
       setReportSalt(snapshot.report ? hexToBytes(snapshot.report.salt) : undefined); setReportId(snapshot.report ? hexToBytes(snapshot.report.id) : undefined);
       setStatus(restoredStatus);
       setPatchCommitment(current ? nonzero(current.patchCommitment) : decode(snapshot.patch));
@@ -592,9 +606,10 @@ function App() {
       case "create":
         return <CreateProgram mode={runtimeMode} connected={providers !== undefined} operation={operation} onConnect={() => void connectWallet()} onSubmit={(event) => void createProgram(event)} />;
       case "submit":
+        if (pendingPreparation) return <section className="page narrow-page"><h1>Keep the prepared report</h1><p>The exact encrypted report is retained. Save it through Private recovery before closing this tab. Editing a replacement here could lose the original encryption material.</p><p className="public-value">Report: {bytesToHex(pendingPreparation.id)}</p><PreparedReportReview report={JSON.parse(pendingPreparation.sealed.canonicalReport) as VulnerabilityReport} />{pendingPreparation.submissionStarted ? <p role="alert">Submission setup already started. Its outcome needs reconciliation; resubmission is blocked. Check your wallet and ledger before deciding what to do next.</p> : <button className="primary-button" onClick={() => void submitSealedReport()}>Retry saved report upload</button>}</section>;
         return <ReportWizard attachmentDraft={attachmentDraft} onAttachmentDraftChange={setAttachmentDraft} report={report} onChange={setReport} onSeal={() => void submitSealedReport()} />;
       case "seal":
-        return <SealProgress operation={operation} onRetry={() => void submitSealedReport()} onBack={() => changeScreen("submit")} />;
+        return <SealProgress operation={operation} canRetry={!pendingPreparation?.submissionStarted} onRetry={() => void submitSealedReport()} onBack={() => changeScreen("submit")} />;
       case "receipt":
         return <Receipt sealed={sealed} reportId={reportId} evidence={evidence} network={api !== undefined} onTriage={() => void openVendorReview()} onReset={resetDemo} />;
       case "triage":
@@ -606,7 +621,7 @@ function App() {
       case "privacy":
         return <PrivacyModel />;
       case "recovery":
-        return <RecoveryPanel onExport={exportRecovery} onImport={importRecovery} canImport={!reportId && !api} />;
+        return <RecoveryPanel onExport={exportRecovery} onImport={importRecovery} canImport={!reportId && !pendingPreparation && !api} />;
       case "lookup":
         return <PublicLookup />;
       case "handoff":
@@ -668,6 +683,10 @@ function App() {
       </nav>
     </div>
   );
+}
+
+function PreparedReportReview({ report }: { readonly report: VulnerabilityReport }) {
+  return <details><summary>Read prepared private report</summary><h2>{report.title}</h2><p>{report.affectedAsset} · {report.weakness}</p><h3>Summary</h3><p>{report.summary}</p><h3>Impact</h3><p>{report.impact}</p><h3>Reproduction</h3><ol>{report.reproductionSteps.map((step, index) => <li key={index}>{step}</li>)}</ol><h3>Suggested remediation</h3><p>{report.suggestedRemediation || "Not provided"}</p><h3>Researcher contact</h3><p>{report.researcherContact || "Not provided"}</p><AttachmentReview attachments={report.attachments} /></details>;
 }
 
 function PageHeading({ eyebrow, title, detail, actions }: { readonly eyebrow: string; readonly title: string; readonly detail: string; readonly actions?: ReactNode }) {
@@ -804,12 +823,12 @@ export function ReportWizard({ report, onChange, onSeal, preserveDraftLines = fa
   );
 }
 
-function SealProgress({ operation, onRetry, onBack }: { readonly operation: Operation; readonly onRetry: () => void; readonly onBack: () => void }) {
+function SealProgress({ operation, canRetry, onRetry, onBack }: { readonly operation: Operation; readonly canRetry: boolean; readonly onRetry: () => void; readonly onBack: () => void }) {
   return (
     <section className="page focus-page">
       <div className={`progress-orb ${operation.state}`} aria-hidden="true"><span>{operation.state === "error" ? "!" : "V"}</span></div>
       <span className="eyebrow accent">Private computation</span>
-      <h1>{operation.state === "error" ? "Your report remains local" : operation.state === "working" ? operation.label : "Preparing your receipt"}</h1>
+      <h1>{operation.state === "error" ? "Keep your prepared report" : operation.state === "working" ? operation.label : "Preparing your receipt"}</h1>
       <p>{operation.state === "error" ? operation.detail : operation.state === "working" ? operation.detail : "Finalizing the next safe step."}</p>
       <div className="progress-list">
         <div className="complete"><span>✓</span><p>Canonical report<small>Deterministic UTF-8 JSON</small></p></div>
@@ -817,7 +836,7 @@ function SealProgress({ operation, onRetry, onBack }: { readonly operation: Oper
         <div><span>3</span><p>Generate ownership proof<small>Runs only in Midnight mode</small></p></div>
         <div><span>4</span><p>Finalize receipt<small>Transaction evidence when available</small></p></div>
       </div>
-      {operation.state === "error" && <div className="button-row"><button className="secondary-button" onClick={onBack}>Review report</button><button className="primary-button" onClick={onRetry}>Retry safely</button></div>}
+      {operation.state === "error" && <><p>Use Private recovery to retain an encrypted backup. {canRetry ? "Retry reuses the saved ciphertext, key, salt and report ID." : "Submission setup already started; its outcome needs reconciliation. Resubmission is blocked."}</p><div className="button-row"><button className="secondary-button" onClick={onBack}>Review report</button>{canRetry && <button className="primary-button" onClick={onRetry}>Retry saved report upload</button>}</div></>}
       <div className="privacy-footnote">No plaintext, key, salt, or researcher secret is sent to the ciphertext service.</div>
     </section>
   );

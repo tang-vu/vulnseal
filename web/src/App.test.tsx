@@ -6,6 +6,27 @@ import axe from "axe-core";
 import App from "./App.js";
 
 describe("VulnSeal product interface", () => {
+  it("retries a failed upload with the same prepared ciphertext and prevents draft replacement", async () => {
+    const user = userEvent.setup();
+    const upload = vi.fn().mockRejectedValueOnce(new Error("Upload response lost")).mockResolvedValueOnce(new Response("{}", { status: 201 }));
+    vi.stubGlobal("fetch", upload);
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: /Seal a vulnerability/i }));
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: /Encrypt & seal/i }));
+    await screen.findByText("Upload response lost");
+    const leaving = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(leaving);
+    expect(leaving.defaultPrevented).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Review report" }));
+    expect(screen.queryByLabelText("Report title")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Retry saved report upload" }));
+    await screen.findByRole("heading", { name: "Your report is sealed" });
+    expect(upload).toHaveBeenCalledTimes(2);
+    expect(upload.mock.calls[1]![0]).toBe(upload.mock.calls[0]![0]);
+    expect(upload.mock.calls[1]![1].body).toBe(upload.mock.calls[0]![1].body);
+    const finished = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(finished);
+    expect(finished.defaultPrevented).toBe(false);
+  });
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();

@@ -9,6 +9,21 @@ import { recoveryFixture, recoveryDraft as draft } from "./test/recovery-fixture
 const password = "test-only recovery password";
 
 describe("encrypted browser recovery", () => {
+  it("preserves pending ciphertext without completed history and rejects inconsistent pending recovery", async () => {
+    const { snapshot, sealed } = await recoveryFixture();
+    const pending = { ...snapshot, version: 3 as const, attachmentDraft: null, report: null, history: [], pendingReport: { report: snapshot.report!, submissionStarted: false } };
+    const restored = await decryptRecovery(await encryptRecovery(pending, password), password);
+    expect(restored.snapshot).toEqual(pending);
+    expect(restored.sealed).toBeUndefined();
+    expect(restored.pendingSeal?.serializedEnvelope).toBe(sealed.serializedEnvelope);
+    await expect(validateRecovery({ ...pending, pendingReport: { ...pending.pendingReport, submissionStarted: true } })).rejects.toThrow("Invalid pending");
+    await expect(validateRecovery({ ...pending, report: snapshot.report, history: snapshot.history })).rejects.toThrow("completed report history");
+    await expect(validateRecovery({ ...pending, pendingReport: { ...pending.pendingReport, report: { ...snapshot.report, salt: "ff".repeat(32) } } })).rejects.toThrow("commitment");
+    await expect(validateRecovery({ ...pending, draft: { ...draft, title: "Other report" } })).rejects.toThrow("differs from its draft");
+    await expect(validateRecovery({ ...pending, version: 2 })).rejects.toThrow("require recovery version 3");
+    const uncertain = { ...pending, mode: "midnight" as const, network: "preprod", contractAddress: "ab".repeat(32), pendingReport: { ...pending.pendingReport, submissionStarted: true } };
+    expect((await decryptRecovery(await encryptRecovery(uncertain, password), password)).snapshot.pendingReport?.submissionStarted).toBe(true);
+  });
   it("round-trips bounded unfinished attachment fields in v2 without interpreting them as sealed metadata", async () => {
     const { snapshot } = await recoveryFixture();
     const updated = { ...snapshot, version: 2 as const, attachmentDraft: { filename: "  draft.bin  ", mediaType: "", size: "not known", digest: "abc" } };
