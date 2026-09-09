@@ -40,3 +40,4 @@ npm-debug.log*
 proof-server-data/
 node-data/
 indexer-data/
+vulnseal-recovery*.json

@@ -5,6 +5,7 @@ import type { ReportStatusName } from "@vulnseal/shared";
 export type WorkflowEvent = {
   readonly status: ReportStatusName;
   readonly evidence?: TransactionEvidence;
+  readonly source?: "recovered" | "ledger";
 };
 
 export const workflowTimeline = (events: readonly WorkflowEvent[]) => {
@@ -13,8 +14,8 @@ export const workflowTimeline = (events: readonly WorkflowEvent[]) => {
   const next = last === "RETEST_FAILED" ? 3 : last === undefined ? 0 : upcoming.indexOf(last) + 1;
   const remaining = last === "REJECTED" || last === "CLOSED" ? [] : upcoming.slice(next);
   return [
-    ...events.map((event, index) => ({ entry: event.status, complete: true, current: index === events.length - 1, evidence: event.evidence })),
-    ...remaining.map((entry) => ({ entry, complete: false, current: false, evidence: undefined })),
+    ...events.map((event, index) => ({ entry: event.status, complete: true, current: index === events.length - 1, evidence: event.evidence, source: event.source })),
+    ...remaining.map((entry) => ({ entry, complete: false, current: false, evidence: undefined, source: undefined })),
   ];
 };
 

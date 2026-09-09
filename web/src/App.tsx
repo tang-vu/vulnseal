@@ -9,6 +9,7 @@ import {
 } from "@vulnseal/contract";
 import {
   bytesToHex,
+  hexToBytes,
   contractStatusName,
   openReport,
   publicStatusLabel,
@@ -24,6 +25,8 @@ import {
 import { initializeBrowserProviders } from "./midnight/browser-providers.js";
 import { workflowTimeline, workflowStatement, type WorkflowEvent, type WorkflowTimeline } from "./workflow.js";
 import { defaultProgram, readProgramForm, programConstructor, severityLabel, type ProgramPolicy } from "./program.js";
+import { encryptRecovery, decryptRecovery, verifyRecoveryLedger, type RecoverySnapshot } from "./recovery.js";
+import { RecoveryPanel } from "./RecoveryPanel.js";
 
 type Screen =
   | "home"
@@ -35,6 +38,7 @@ type Screen =
   | "triage"
   | "resolution"
   | "verify"
+  | "recovery"
   | "privacy";
 type Persona = "researcher" | "vendor" | "verifier";
 type RuntimeMode = "guided-local" | "midnight";
@@ -126,8 +130,9 @@ function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [persona, setPersona] = useState<Persona>("researcher");
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>(env.mode);
-  const [vendorSecret] = useState(() => randomBytes(32));
-  const [researcherSecret] = useState(() => randomBytes(32));
+  const [vendorSecret, setVendorSecret] = useState(() => randomBytes(32));
+  const [researcherSecret, setResearcherSecret] = useState(() => randomBytes(32));
+  const [activeNetwork, setActiveNetwork] = useState(env.network === "undeployed" ? "preprod" : env.network);
   const busy = useRef(false);
   const [providers, setProviders] = useState<VulnSealProviders>();
   const [api, setApi] = useState<VulnSealApi>();
@@ -140,6 +145,7 @@ function App() {
   const [report, setReport] = useState<VulnerabilityReport>(initialReport);
   const [sealed, setSealed] = useState<SealedReport>();
   const [vendorReport, setVendorReport] = useState<VulnerabilityReport>();
+  const [usingLocalCiphertext, setUsingLocalCiphertext] = useState(false);
   const [reportSalt, setReportSalt] = useState<Uint8Array>();
   const [reportId, setReportId] = useState<Uint8Array>();
   const [patchCommitment, setPatchCommitment] = useState<Uint8Array>();
@@ -221,7 +227,7 @@ function App() {
     busy.current = true;
     setOperation({ state: "working", label: "Connecting wallet", detail: "Waiting for a compatible Lace connector API." });
     try {
-      const initialized = await initializeBrowserProviders(env.network === "undeployed" ? "preprod" : env.network);
+      const initialized = await initializeBrowserProviders(activeNetwork);
       setProviders(initialized);
       setRuntimeMode("midnight");
       setProgramCreated(false);
@@ -337,9 +343,14 @@ function App() {
       detail: "Fetching the digest-validated ciphertext and decrypting it in this browser.",
     });
     try {
-      const serialized = await new CipherstoreClient(env.cipherstoreUrl).get(
-        sealed.contentAddress,
-      );
+      let serialized: string;
+      try {
+        serialized = await new CipherstoreClient(env.cipherstoreUrl).get(sealed.contentAddress);
+        setUsingLocalCiphertext(false);
+      } catch {
+        serialized = sealed.serializedEnvelope;
+        setUsingLocalCiphertext(true);
+      }
       setVendorReport(await openReport(serialized, sealed.key));
       setOperation({ state: "idle" });
       changeScreen("triage", "vendor");
@@ -495,6 +506,63 @@ function App() {
     changeScreen("submit", "researcher");
   };
 
+  const exportRecovery = async (password: string): Promise<string> => {
+    if (busy.current) throw new Error("Wait for the current operation to finish");
+    if (runtimeMode === "midnight" && !api) throw new Error("Create the network program before exporting its recovery material");
+    busy.current = true;
+    setOperation({ state: "working", label: "Encrypting recovery file", detail: "Deriving a password key locally. No private material is uploaded." });
+    try {
+      const encode = (value?: Uint8Array) => value ? bytesToHex(value) : null;
+      const snapshot: RecoverySnapshot = {
+        version: 1, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
+        programId: bytesToHex(programBytes), policy: programPolicy, vendorSecret: bytesToHex(vendorSecret), researcherSecret: bytesToHex(researcherSecret), draft: report,
+        report: sealed && reportSalt && reportId ? { envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt), id: bytesToHex(reportId) } : null,
+        status, history: events.map((event) => event.status), patch: encode(patchCommitment), retest: encode(retestCommitment), payout: encode(payoutReceipt),
+        severity: acceptedSeverity, rationale, patchReference, retestNotes,
+      };
+      return await encryptRecovery(snapshot, password);
+    } finally { busy.current = false; setOperation({ state: "idle" }); }
+  };
+
+  const importRecovery = async (serialized: string, password: string): Promise<void> => {
+    if (busy.current || reportId || api) throw new Error("Restore in a fresh tab to preserve this active session");
+    busy.current = true;
+    setOperation({ state: "working", label: "Restoring private session", detail: "Decrypting and checking report bindings before replacing this tab’s draft." });
+    try {
+      const { snapshot, sealed: restoredSeal } = await decryptRecovery(serialized, password);
+      let restoredApi: VulnSealApi | undefined;
+      let restoredProviders: VulnSealProviders | undefined;
+      let current: Awaited<ReturnType<typeof verifyRecoveryLedger>>;
+      if (snapshot.mode === "midnight") {
+        if (snapshot.network === "undeployed") throw new Error("A network backup must name its actual network");
+        restoredProviders = await initializeBrowserProviders(snapshot.network);
+        restoredApi = await VulnSealApi.join(restoredProviders, snapshot.contractAddress!, createVulnSealPrivateState(hexToBytes(snapshot.vendorSecret)));
+        const publicState = await restoredApi.readPublicState();
+        current = await verifyRecoveryLedger(snapshot, restoredSeal, publicState.ledger);
+      }
+      const decode = (value: string | null) => value === null ? undefined : hexToBytes(value);
+      const nonzero = (value: Uint8Array) => value.some((byte) => byte !== 0) ? value : undefined;
+      const restoredStatus = current ? contractStatusName(current.status) : snapshot.status;
+      setProviders(restoredProviders); setApi(restoredApi); setRuntimeMode(snapshot.mode);
+      if (snapshot.mode === "midnight") setActiveNetwork(snapshot.network as typeof activeNetwork);
+      setProgramCreated(true); setProgramBytes(hexToBytes(snapshot.programId)); setProgramPolicy(snapshot.policy);
+      setVendorSecret(hexToBytes(snapshot.vendorSecret)); setResearcherSecret(hexToBytes(snapshot.researcherSecret));
+      setReport(snapshot.draft); setSealed(restoredSeal); setVendorReport(undefined);
+      setReportSalt(snapshot.report ? hexToBytes(snapshot.report.salt) : undefined); setReportId(snapshot.report ? hexToBytes(snapshot.report.id) : undefined);
+      setStatus(restoredStatus);
+      setPatchCommitment(current ? nonzero(current.patchCommitment) : decode(snapshot.patch));
+      setRetestCommitment(current ? nonzero(current.retestCommitment) : decode(snapshot.retest));
+      setPayoutReceipt(current ? nonzero(current.payoutReceipt) : decode(snapshot.payout));
+      const restoredSeverity = current && current.severity > 0n ? Number(current.severity) : snapshot.severity;
+      setSeverity(restoredSeverity); setAcceptedSeverity(restoredSeverity);
+      setRationale(snapshot.rationale); setPatchReference(snapshot.patchReference); setRetestNotes(snapshot.retestNotes);
+      setEvidence([]); setNeedsRefresh(false);
+      // Backup history is a local record, never imported finality evidence.
+      setEvents(current ? [{ status: restoredStatus, source: "ledger" }] : snapshot.history.map((entry) => ({ status: entry, source: "recovered" })));
+      changeScreen(snapshot.report ? "receipt" : "dashboard");
+    } finally { busy.current = false; setOperation({ state: "idle" }); }
+  };
+
   const main = (() => {
     switch (screen) {
       case "home":
@@ -510,13 +578,15 @@ function App() {
       case "receipt":
         return <Receipt sealed={sealed} reportId={reportId} evidence={evidence} network={api !== undefined} onTriage={() => void openVendorReview()} onReset={resetDemo} />;
       case "triage":
-        return <Triage status={status} reportId={reportId} report={vendorReport} operation={operation} severity={severity} rationale={rationale} onSeverity={setSeverity} onRationale={setRationale} onBegin={() => void vendorTransition("triage")} onAccept={() => void vendorTransition("accept")} onReject={() => void vendorTransition("reject")} onResolution={() => changeScreen("resolution", "vendor")} onClose={() => void closeReport()} />;
+        return <Triage status={status} reportId={reportId} report={vendorReport} usingLocalCiphertext={usingLocalCiphertext} operation={operation} severity={severity} rationale={rationale} onSeverity={setSeverity} onRationale={setRationale} onBegin={() => void vendorTransition("triage")} onAccept={() => void vendorTransition("accept")} onReject={() => void vendorTransition("reject")} onResolution={() => changeScreen("resolution", "vendor")} onClose={() => void closeReport()} />;
       case "resolution":
         return <Resolution status={status} reportId={reportId} patchCommitment={patchCommitment} retestCommitment={retestCommitment} payoutReceipt={payoutReceipt} operation={operation} severity={acceptedSeverity} patchReference={patchReference} retestNotes={retestNotes} onPatchReference={setPatchReference} onRetestNotes={setRetestNotes} onAnchor={() => void anchorPatch()} onRetest={(passed) => void submitRetest(passed)} onAuthorize={() => void authorizePayout()} onVerify={() => changeScreen("verify", "verifier")} onClose={() => void closeReport()} />;
       case "verify":
         return <Verifier status={status} reportId={reportId} sealed={sealed} patchCommitment={patchCommitment} retestCommitment={retestCommitment} payoutReceipt={payoutReceipt} timeline={timeline} network={api !== undefined} />;
       case "privacy":
         return <PrivacyModel />;
+      case "recovery":
+        return <RecoveryPanel onExport={exportRecovery} onImport={importRecovery} canImport={!reportId && !api} />;
     }
   })();
 
@@ -556,7 +626,7 @@ function App() {
         </div>
       )}
       {runtimeMode === "midnight" && !networkReady && <div className="truth-banner" role="status"><span>Network setup required</span>Connect Lace and create a program before submitting a report. <button className="secondary-button" onClick={() => changeScreen("create", "vendor")}>Set up program</button></div>}
-      {reportId && <div className="session-actions"><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("receipt")}>Submission receipt</button>{needsRefresh && <button className="primary-button" disabled={operation.state === "working"} onClick={() => void retryPublicRead()}>Refresh public commitments</button>}</div>}
+      <div className="session-actions"><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("recovery")}>Private recovery</button>{reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("receipt")}>Submission receipt</button>}{needsRefresh && <button className="primary-button" disabled={operation.state === "working"} onClick={() => void retryPublicRead()}>Refresh public commitments</button>}</div>
       {operation.state === "error" && screen !== "seal" && (
         <div className="global-operation" role="alert">
           <strong>{operation.label}</strong>
@@ -731,23 +801,23 @@ function Receipt({ sealed, reportId, evidence, network, onTriage, onReset }: { r
   return (
     <section className="page narrow-page receipt-page">
       <div className="success-emblem" aria-hidden="true">✓</div>
-      <Pill tone={network ? "success" : "warning"}>{network ? "Midnight transaction finalized" : "Guided local receipt · not on-chain"}</Pill>
+      <Pill tone={network ? "success" : "warning"}>{network ? tx ? "Midnight transaction finalized" : "Recovered report · ledger checked" : "Guided local receipt · not on-chain"}</Pill>
       <h1>Your report is sealed</h1>
       <p>The encrypted artifact has a content address and the report has a Compact-derived commitment. Keep the encryption material secure.</p>
       <section className="receipt-card">
         <div className="receipt-top"><div><span className="eyebrow">Submission receipt</span><strong>VULN-{bytesToHex(reportId).slice(0, 8).toUpperCase()}</strong></div><Pill tone="accent">Sealed</Pill></div>
         <HashValue label="Report commitment" value={reportId} />
         <HashValue label="Ciphertext digest" value={sealed.ciphertextDigest} />
-        <div className="receipt-facts"><div><span>Encryption</span><strong>AES-256-GCM</strong></div><div><span>Network evidence</span><strong>{tx ? `Block ${tx.blockHeight}` : "None in guided local"}</strong></div><div><span>Public exploit data</span><strong>0 fields</strong></div></div>
+        <div className="receipt-facts"><div><span>Encryption</span><strong>AES-256-GCM</strong></div><div><span>Network evidence</span><strong>{tx ? `Block ${tx.blockHeight}` : network ? "Current ledger record" : "None in guided local"}</strong></div><div><span>Public exploit data</span><strong>0 fields</strong></div></div>
         {tx && <div className="tx-evidence"><span>Transaction ID</span><code>{tx.txId}</code></div>}
       </section>
-      <div className="warning-box"><span aria-hidden="true">!</span><div><strong>Back up your private material</strong><p>The report key, salt, and researcher secret are not recoverable from public state. This demo keeps them only for the current tab.</p></div></div>
+      <div className="warning-box"><span aria-hidden="true">!</span><div><strong>Back up your private material</strong><p>Open Private recovery to download a password-encrypted backup before closing this tab. Public state cannot recover your secrets. Keep the backup private; it controls both experimental roles.</p></div></div>
       <div className="button-row centered"><button className="secondary-button" onClick={onReset}>Seal another</button><button className="primary-button" onClick={onTriage}>Continue as vendor <span aria-hidden="true">→</span></button></div>
     </section>
   );
 }
 
-function Triage({ status, reportId, report, operation, severity, rationale, onSeverity, onRationale, onBegin, onAccept, onReject, onResolution, onClose }: { readonly status: ReportStatusName; readonly reportId: Uint8Array | undefined; readonly report: VulnerabilityReport | undefined; readonly operation: Operation; readonly severity: number; readonly rationale: string; readonly onSeverity: (value: number) => void; readonly onRationale: (value: string) => void; readonly onBegin: () => void; readonly onAccept: () => void; readonly onReject: () => void; readonly onResolution: () => void; readonly onClose: () => void }) {
+function Triage({ status, reportId, report, usingLocalCiphertext, operation, severity, rationale, onSeverity, onRationale, onBegin, onAccept, onReject, onResolution, onClose }: { readonly status: ReportStatusName; readonly reportId: Uint8Array | undefined; readonly report: VulnerabilityReport | undefined; readonly usingLocalCiphertext: boolean; readonly operation: Operation; readonly severity: number; readonly rationale: string; readonly onSeverity: (value: number) => void; readonly onRationale: (value: string) => void; readonly onBegin: () => void; readonly onAccept: () => void; readonly onReject: () => void; readonly onResolution: () => void; readonly onClose: () => void }) {
   if (reportId === undefined) return <section className="page"><EmptyState title="Triage queue is empty" detail="A sealed submission is required before vendor review." /></section>;
   if (report === undefined) return <section className="page"><EmptyState title="Encrypted report is not open" detail="Open the report from its receipt or program queue to fetch and decrypt the authenticated ciphertext." /></section>;
   return (
@@ -756,6 +826,7 @@ function Triage({ status, reportId, report, operation, severity, rationale, onSe
       <div className="triage-layout">
         <section className="panel decrypted-report">
           <div className="decrypted-banner"><span aria-hidden="true">◆</span><p><strong>Decrypted locally for vendor persona</strong><small>This content is never written to public state or logs.</small></p><Pill tone="success">Private</Pill></div>
+          {usingLocalCiphertext && <p role="status">Using your local encrypted copy. The ciphertext service is unavailable or returned invalid data.</p>}
           <h2>{report.title}</h2><p className="muted">{report.affectedAsset} · {report.weakness}</p>
           <div className="report-section"><span>Summary</span><p>{report.summary}</p></div>
           <div className="report-section"><span>Impact</span><p>{report.impact}</p></div>
@@ -812,11 +883,11 @@ function Verifier({ status, reportId, sealed, patchCommitment, retestCommitment,
   return (
     <section className="page verifier-page">
       <PageHeading eyebrow="Public verifier" title={network ? "Public transaction trail" : "Guided workflow preview"} detail="This view contains public commitments and workflow metadata, without exploit content or researcher contact." actions={<Pill tone={network ? "success" : "warning"}>{network ? "Session transaction evidence" : "Guided local trail"}</Pill>} />
-      <div className="verdict-card"><span className="verdict-mark" aria-hidden="true">{status === "PAYOUT_AUTHORIZED" ? "✓" : "i"}</span><div><span className="eyebrow">{network ? "Recorded workflow state" : "Simulated workflow state"}</span><h2>{workflowStatement[status]}</h2><p>{network ? "These finalized transactions were recorded by this session. This view is not an independent refresh of current ledger state." : "This screen demonstrates the public data model only. It is not presented as on-chain evidence."}</p></div></div>
+      <div className="verdict-card"><span className="verdict-mark" aria-hidden="true">{status === "PAYOUT_AUTHORIZED" ? "✓" : "i"}</span><div><span className="eyebrow">{network ? "Recorded workflow state" : "Simulated workflow state"}</span><h2>{workflowStatement[status]}</h2><p>{network ? "Transaction entries show finalized evidence from this tab. Recovery entries show ledger state observed when restoring; earlier transaction history is not reconstructed. This is not a live refresh." : "This screen demonstrates the public data model only. It is not presented as on-chain evidence."}</p></div></div>
       <div className="verifier-grid">
         <section className="panel audit-timeline"><div className="panel-head"><div><span className="eyebrow">Audit timeline</span><h2>Public workflow</h2></div><Pill tone="accent">{publicStatusLabel[status]}</Pill></div>
-          {timeline.map(({ entry, complete, evidence: transaction }, index) => (
-            <div className={complete ? "audit-event complete" : "audit-event"} key={index}><span>{complete ? "✓" : index + 1}</span><div><strong>{publicStatusLabel[entry]}</strong><small>{complete ? transaction ? `Finalized at block ${transaction.blockHeight}` : network ? "Finality evidence unavailable" : `Guided sequence ${index + 1}` : "Not reached"}</small>{transaction && <code className="audit-transaction">{transaction.txId}</code>}</div>{complete && <Pill tone={transaction ? "success" : "warning"}>{transaction ? "Finalized" : network ? "Unverified" : "Local step"}</Pill>}</div>
+          {timeline.map(({ entry, complete, evidence: transaction, source }, index) => (
+            <div className={complete ? "audit-event complete" : "audit-event"} key={index}><span>{complete ? "✓" : index + 1}</span><div><strong>{publicStatusLabel[entry]}</strong><small>{complete ? transaction ? `Finalized at block ${transaction.blockHeight}` : source === "ledger" ? "Observed on ledger during recovery; prior transaction history not loaded" : source === "recovered" ? `Recovered local sequence ${index + 1}` : network ? "Finality evidence unavailable" : `Guided sequence ${index + 1}` : "Not reached"}</small>{transaction && <code className="audit-transaction">{transaction.txId}</code>}</div>{complete && <Pill tone={transaction ? "success" : "warning"}>{transaction ? "Finalized" : source === "ledger" ? "Ledger state" : network ? "Unverified" : "Local step"}</Pill>}</div>
           ))}
         </section>
         <aside className="panel public-data-card"><div className="panel-head"><div><span className="eyebrow">Public data</span><h2>Commitment set</h2></div></div><HashValue label="Report" value={reportId} /><HashValue label="Ciphertext" value={sealed.ciphertextDigest} /><HashValue label="Patch" value={patchCommitment} /><HashValue label="Retest" value={retestCommitment} /><HashValue label="Payout auth" value={payoutReceipt} /><div className="privacy-score"><span>Private fields exposed</span><strong>0</strong></div></aside>

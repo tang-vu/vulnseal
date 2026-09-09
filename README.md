@@ -99,7 +99,7 @@ npm run test:e2e
 npm run audit:prod
 ```
 
-The Playwright configuration builds and serves the production UI with installed Chrome, then exercises the complete guided journey, rejection/closure, failed-retest recovery, and custom program policies at desktop and Pixel 7 viewports. CI installs Chrome and runs these same journeys. Optional visual captures:
+The Playwright configuration builds and serves the production UI with installed Chrome, then exercises the complete guided journey, rejection/closure, failed-retest recovery, custom program policies, and encrypted backup/restore after closing a tab at desktop and Pixel 7 viewports. CI installs Chrome and runs these same journeys. Optional visual captures:
 
 ```powershell
 $env:VULNSEAL_CAPTURE_VISUALS='1'; npm run test:e2e
@@ -178,7 +178,7 @@ The production-ready narration is in [demo-script.md](docs/demo-script.md).
 
 Read [SECURITY.md](SECURITY.md), [threat-model.md](docs/threat-model.md), and [claims-evidence.md](docs/claims-evidence.md) before treating VulnSeal as more than experimental software.
 
-The current completion audit and remaining end-to-end work are tracked in [readiness-audit.md](docs/readiness-audit.md). Browser role secrets are randomly generated per tab, but durable recovery and cross-user key exchange are still incomplete; keep the experimental session open while using it.
+The current completion audit and remaining end-to-end work are tracked in [readiness-audit.md](docs/readiness-audit.md). Browser role secrets are randomly generated per tab. Before closing it, open **Private recovery**, choose and confirm a password of at least 12 characters, and download the encrypted backup. Restore the file and password in a fresh tab; network recovery also connects Lace and checks the current ledger. Save a new backup after new reports or private evidence. The file controls **both experimental roles** and must not be shared as a vendor handoff. Cross-user key exchange remains incomplete. See [ADR-0006](docs/adr/0006-encrypted-browser-recovery.md) for the format, checks, and limits.
 
 ## Wave status
 

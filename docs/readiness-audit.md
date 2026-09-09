@@ -14,6 +14,7 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 - The ciphertext service publishes complete, flushed files atomically with no overwrite. Concurrent identical uploads are idempotent. Corrupt stored blobs, invalid encodings, missing authentication tags, and storage failures have explicit responses.
 - Canonicalization handles Unicode-normalized object keys deterministically, rejects collisions, preserves special object keys, and validates attachment digests and sizes. Decrypted report documents undergo schema normalization before rendering.
 - The UI no longer requests external fonts. Production browser journeys are included in CI configuration.
+- Private recovery exports password-encrypted session snapshots and restores incomplete drafts or sealed reports. Current network authority/state is checked before restoring; backup history does not become transaction finality evidence. The recovered ciphertext copy permits decryption when storage is unavailable.
 
 See [validation-report.md](validation-report.md) for executed commands and their results. Mocked wallet tests do not establish that the native Lace integration works end-to-end.
 
@@ -21,7 +22,7 @@ See [validation-report.md](validation-report.md) for executed commands and their
 
 | Requirement | Current evidence / gap | Completion evidence needed |
 | --- | --- | --- |
-| Durable ownership and report recovery | Browser keys, salts, reports, and actor secrets remain tab-only; no usable export/import ceremony | Password-encrypted recovery artifacts, schema/binding validation, restore after browser restart, wrong-password/tamper tests, real network rejoin |
+| Durable ownership and report recovery | Explicit password-encrypted export/import implemented; schema/report binding and ledger authority checks; fresh-tab recovery and store-unavailable decryption tested; network rejoin tested with mocked providers | Real Lace network recovery, pending-transaction reconciliation, automatic encrypted persistence and backup lifecycle management |
 | Independent researcher/vendor operation | Both roles are held by one tab; vendor decrypts using the in-memory researcher key | Separate browser/profile journeys with deliberate encrypted key sharing and no disclosure of actor secrets |
 | Public verification from a shareable receipt | UI only knows the current session; independent CLI verification exists for recorded Preprod evidence | Public receipt export/import or shareable URL, contract/report lookup without wallet or private keys, live-state/error/reset handling |
 | Multiple reports and program discovery | One report slot; starting another clears its local session state | Persisted scoped program/report selection, independent histories, no loss of earlier ownership material |
@@ -32,4 +33,4 @@ See [validation-report.md](validation-report.md) for executed commands and their
 | Resolution and adoption roadmap | Wave 2/3 plans are plans, not shipped features | Implement and verify planned escrow/disputes/rotation/update chain/SDK/integrations in their intended scope; real transfers required for payment claims |
 | External evidence and publication | Historical Preprod transactions; no evidence of an independent audit or consented pilot in this checkout | Actual review/pilot findings, resolved issues, release hosting, demo artifact and public-link verification; never invent audit, user, or adoption claims |
 
-No overall completion or production-readiness claim is made. Next priority is durable encrypted recovery, followed by separate-role operation and independent public verification.
+No overall completion or production-readiness claim is made. Manual encrypted recovery is now implemented, with native-wallet verification and pending-transaction recovery still open. Next priorities are separate-role operation and independent public verification.

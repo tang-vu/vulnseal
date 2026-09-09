@@ -49,6 +49,8 @@ The public contract intentionally reveals only a coarse retest Boolean, public s
 
 Actor secrets, report salts, and encryption keys must be generated with a cryptographically secure random source, encrypted at rest, exported only through an explicit recovery flow, and never logged. The deterministic bytes in simulator/integration tests are clearly local test fixtures, never production keys. Losing the researcher secret prevents later researcher-authorized transitions. Losing the encryption key can make the ciphertext unrecoverable.
 
+The browser's explicit **Private recovery** flow encrypts an active-session snapshot with password-derived AES-GCM. Import checks ciphertext/report bindings and, for Midnight sessions, both authorities and current public state before replacing local state. No recovery password or file is uploaded. Backups contain both experimental roles and are not a mechanism for sharing reports with another actor. See [ADR-0006](adr/0006-encrypted-browser-recovery.md). A local encrypted copy also permits authenticated decryption when the ciphertext store is unavailable; the UI labels that source.
+
 ## Data minimization test
 
 The contract suite enumerates public record keys and asserts the absence of title, summary, reproduction steps, impact, contact, and salt. Both real local and Preprod integrations repeat this check on indexer-returned ledger state. This proves the current schema boundary; it does not prove that every surrounding wallet, browser extension, proxy, or infrastructure log is private.

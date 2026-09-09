@@ -21,6 +21,7 @@ Only the latest commit on the default branch is considered for security fixes du
 - Local private state and wallet databases are Git-ignored and encrypted where the Midnight provider supports it.
 - Evidence logs contain circuit names, transaction IDs, block heights, public record field names, and limitations—never actor secrets, salts, plaintext, or encryption keys.
 - Browser storage, extensions, clipboard managers, and a compromised device remain outside the contract's protection.
+- Browser recovery files are password-encrypted snapshots containing both experimental actor authorities. Keep them private, store the password separately, and refresh the snapshot after new private material. They do not rotate compromised secrets or back up the Lace wallet seed.
 
 ## Cryptographic scope
 

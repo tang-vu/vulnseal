@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect, test, type Page } from "@playwright/test";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 test("guided disclosure reaches an honest public payout-authorization trail", async ({ page }, testInfo) => {
@@ -124,4 +124,53 @@ test("edited program policy is preserved in the program view", async ({ page }) 
   await expect(page.getByText("Within 2 days")).toBeVisible();
   await expect(page.getByText("30 days", { exact: true })).toBeVisible();
   await expect(page.getByText("Four tiers reviewed by our security team")).toBeVisible();
+});
+
+test("encrypted backup restores a closed tab and continues the disclosure workflow", async ({ page, context }, testInfo) => {
+  await sealAndReview(page);
+  await page.getByRole("button", { name: /Continue as vendor/ }).click();
+  await page.getByRole("button", { name: "Begin authorized triage" }).click();
+  await page.getByRole("button", { name: "Accept as P2" }).click();
+  await page.getByRole("button", { name: "Continue to remediation" }).click();
+  await page.getByRole("button", { name: "Anchor patch commitment" }).click();
+  await page.getByRole("button", { name: /Fail retest/ }).click();
+  await page.getByRole("button", { name: "Private recovery" }).click();
+  if (process.env.VULNSEAL_CAPTURE_VISUALS === "1") await page.screenshot({ path: path.resolve("docs/screenshots", `${testInfo.project.name}-recovery.png`), fullPage: true });
+  await page.getByLabel("Backup password", { exact: true }).fill("E2E test recovery password");
+  await page.getByLabel("Confirm backup password").fill("E2E test recovery password");
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download encrypted backup" }).click();
+  const download = await downloadPromise;
+  const backupPath = testInfo.outputPath("recovery.json");
+  await download.saveAs(backupPath);
+  const ciphertext = await readFile(backupPath, "utf8");
+  expect(ciphertext).not.toContain("Cross-tenant authorization bypass");
+  expect(ciphertext).not.toContain("E2E test recovery password");
+  expect(Object.keys(JSON.parse(ciphertext)).sort()).toEqual(["algorithm", "ciphertext", "format", "iterations", "iv", "kdf", "salt", "version"]);
+  await page.close();
+
+  const restored = await context.newPage();
+  await restored.goto("/");
+  await restored.getByRole("button", { name: "Private recovery" }).click();
+  await restored.getByLabel("Recovery file").setInputFiles(backupPath);
+  await restored.getByLabel("Recovery password", { exact: true }).fill("wrong recovery password");
+  await restored.getByRole("button", { name: "Restore encrypted backup" }).click();
+  await expect(restored.getByRole("alert")).toHaveText("Wrong backup password or damaged recovery file");
+  await restored.getByLabel("Recovery password", { exact: true }).fill("E2E test recovery password");
+  await restored.getByRole("button", { name: "Restore encrypted backup" }).click();
+  await expect(restored.getByRole("heading", { name: "Your report is sealed" })).toBeVisible();
+  await restored.route("**/v1/blobs/**", (route) => route.abort());
+  await restored.getByRole("button", { name: /Continue as vendor/ }).click();
+  await expect(restored.getByText(/Using your local encrypted copy/)).toBeVisible();
+  await expect(restored.getByRole("heading", { name: "Cross-tenant authorization bypass" })).toBeVisible();
+  await restored.getByRole("button", { name: "Continue to remediation" }).click();
+  await expect(restored.getByText(/Retest failed. Anchor a revised patch/)).toBeVisible();
+  await restored.getByLabel("Patch or release reference").fill("recovered/revised-patch");
+  await restored.getByRole("button", { name: "Anchor patch commitment" }).click();
+  await restored.getByRole("button", { name: /Pass retest/ }).click();
+  await restored.getByRole("button", { name: "Generate payout authorization" }).click();
+  await restored.getByRole("button", { name: "Open public verifier" }).click();
+  await expect(restored.getByText("Recovered local sequence 1")).toBeVisible();
+  await expect(restored.locator(".audit-event.complete")).toHaveCount(8);
+  await expect(restored.getByText("Guided local trail", { exact: true })).toBeVisible();
 });
