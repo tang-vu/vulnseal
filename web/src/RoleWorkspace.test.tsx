@@ -6,6 +6,7 @@ import { decryptRoleVault, encryptRoleVault } from "./role-recovery.js";
 import { recoveryDraft, recoveryFixture } from "./test/recovery-fixture.js";
 import { RoleAutosave } from "./role-autosave.js";
 import { writeStoredRole } from "./role-storage.js";
+import { SUBMISSION_CONFIRMATION_TIMEOUT_MS } from "./submission-wait.js";
 const mocks = vi.hoisted(() => ({ join: vi.fn() }));
 vi.mock("./role-network.js", () => ({ joinRoleVault: mocks.join }));
 vi.mock("./role-storage.js", () => ({
@@ -45,6 +46,40 @@ const restore = async (role: "researcher" | "vendor", status: number, journalCou
 };
 
 describe("independent role workspace", () => {
+  it.each(["resolve", "reject"])("keeps the journal accessible after confirmation timeout and ignores late %s", async (outcome) => {
+    const { user, session } = await restore("vendor", 0);
+    const checkpoint = mocks.join.mock.calls.at(-1)![1] as (id: string) => Promise<void>;
+    let expire!: () => void;
+    const realTimeout = globalThis.setTimeout;
+    vi.spyOn(globalThis, "setTimeout").mockImplementation(((callback: () => void, delay?: number, ...args: unknown[]) => {
+      if (delay === SUBMISSION_CONFIRMATION_TIMEOUT_MS) expire = callback;
+      return realTimeout(callback, delay, ...args);
+    }) as typeof setTimeout);
+    let finish!: () => void, fail!: (error: Error) => void;
+    session.execute.mockImplementationOnce(async () => {
+      await checkpoint(roleTransactionId);
+      await new Promise<void>((resolve, reject) => { finish = resolve; fail = reject; });
+      return { circuit: "beginTriage", txId: roleTransactionId, blockHeight: "900" };
+    });
+    await user.click(screen.getByRole("button", { name: "Begin triage" }));
+    await waitFor(() => expect(expire).toBeTypeOf("function"));
+    const ciphertext = vi.mocked(writeStoredRole).mock.calls.at(-1)![2];
+    const saved = await decryptRoleVault(ciphertext, "Workspace journal password");
+    expect(saved.submissionAttempts![0]!.transactionId).toBe(roleTransactionId);
+    await act(async () => { expire(); });
+    expect(screen.getByRole("alert")).toHaveTextContent("Stopped waiting for confirmation");
+    expect(screen.getByRole("button", { name: "Save role backup" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Lock and switch workspace" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Begin triage" })).not.toBeInTheDocument();
+    const writes = vi.mocked(writeStoredRole).mock.calls.length;
+    await act(async () => { if (outcome === "resolve") finish(); else fail(new Error("Late SDK failure")); });
+    expect(screen.getByRole("alert")).toHaveTextContent("Stopped waiting for confirmation");
+    expect(screen.queryByText(/Saved SDK finalization: block 900/)).not.toBeInTheDocument();
+    expect(writeStoredRole).toHaveBeenCalledTimes(writes);
+    expect(session.readPublicState).not.toHaveBeenCalled();
+    expect(session.execute).toHaveBeenCalledOnce();
+    await expect(checkpoint("ef".repeat(32))).rejects.toThrow("Submission intent is missing");
+  }, 15_000);
   it("rejects a full journal before starting a contract call while retaining recovery access", async () => {
     const { user, session } = await restore("vendor", 0, 200);
     await user.click(screen.getByRole("button", { name: "Begin triage" }));

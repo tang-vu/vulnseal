@@ -24,6 +24,7 @@ import { ReportEffectCheck } from "./ReportEffectCheck.js";
 import { TransactionCheck } from "./TransactionCheck.js";
 import { RecoveryJournal } from "./RecoveryJournal.js";
 import { LocalRoleStorage } from "./LocalRoleStorage.js";
+import { submissionWait, SubmissionConfirmationTimeout } from "./submission-wait.js";
 
 const env = validateEnvironment(import.meta.env);
 const blank: VulnerabilityReport = { schemaVersion: 1, title: "", affectedAsset: "", weakness: "", summary: "", reproductionSteps: [], impact: "", suggestedRemediation: "", researcherContact: "", attachments: [] };
@@ -59,14 +60,22 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const retestChoice = useRef<boolean | null>(null);
   const submissionNotes = useRef<ReportNotes | null>(null);
   const submissionIntent = useRef<SubmissionIntent | undefined>(undefined);
+  const confirmationWait = useRef<ReturnType<typeof submissionWait> | undefined>(undefined);
+  const [recoveryRequired, setRecoveryRequired] = useState(false);
   const requireJournal = () => {
+    if (recoveryRequired) throw new Error("This session stopped waiting for a transaction. Reconcile its saved identifier before restoring a fresh session; transactions remain disabled here.");
     if (currentVault.current) assertSubmissionCapacity(currentVault.current);
     if (!persistJournal.current) throw new Error("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
   };
   const duringSubmission = async <T,>(intent: SubmissionIntent, action: () => Promise<T>, notes: ReportNotes | null = null, passed: boolean | null = null, patch?: string): Promise<T> => {
     if (submissionIntent.current) throw new Error("Another submission is active");
     submissionIntent.current = intent; submissionNotes.current = notes; retestChoice.current = passed; retestPatch.current = patch;
-    try { return await action(); } finally { submissionIntent.current = undefined; submissionNotes.current = null; retestChoice.current = null; retestPatch.current = undefined; }
+    const wait = submissionWait(); confirmationWait.current = wait;
+    try { return await wait.run(action); }
+    catch (cause) {
+      if (cause instanceof SubmissionConfirmationTimeout) { setRecoveryRequired(true); setSession(undefined); setSnapshot(undefined); }
+      throw cause;
+    } finally { confirmationWait.current = undefined; submissionIntent.current = undefined; submissionNotes.current = null; retestChoice.current = null; retestPatch.current = undefined; }
   };
   const recordSubmission = async (transactionId: string) => {
     const current = currentVault.current, persist = persistJournal.current;
@@ -78,6 +87,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
     if (retestChoice.current !== null) updated = await withRetestChoice(updated, transactionId, retestChoice.current, retestPatch.current);
     await persist(updated);
     currentVault.current = updated; setVault(updated); setSaved(updated);
+    confirmationWait.current?.checkpoint(transactionId);
   };
   const [session, setSession] = useState<RoleSession>();
   const [snapshot, setSnapshot] = useState<PublicContractSnapshot>();
@@ -218,6 +228,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
         setVault(restored); setSaved(restored); setSession(joined?.session); setSnapshot(joined?.snapshot); setSelectedId(restored.reports[0]?.reportId ?? "");
       })} />
       {vault && <section className="form-panel"><h2>Submission journal</h2>
+        {recoveryRequired && <p>This session stopped waiting for confirmation. Transactions remain disabled. Keep your backup and use the journal checks to investigate the saved identifier before restoring a fresh session. A timeout does not prove failure.</p>}
         <p>Real role submissions require encrypted browser autosave. The transaction identifier is saved before calling the wallet. A recorded attempt is not proof of broadcast, success or finality; check the wallet or indexer before retrying after an interruption.</p>
         <p>Submission journal: {vault.submissionAttempts?.length ?? 0} of {MAX_SUBMISSION_ATTEMPTS} attempts retained.</p>
         {(vault.submissionAttempts?.length ?? 0) >= MAX_SUBMISSION_ATTEMPTS && <p>The submission journal is full. Keep an encrypted backup. New transactions cannot start; existing reports and journal checks remain available. No history is removed automatically.</p>}
@@ -241,7 +252,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
           <RecoveryJournal />
         </> : <>
           <p className="public-value">Network: {vault.network} · Program: {vault.programId}</p>{vault.contractAddress && <p className="public-value">Contract: {vault.contractAddress}</p>}
-          {vault.contractAddress && !session && <p className="operation-notice">Offline workspace: contract authority and current ledger state have not been checked. Connect Lace and verify the program before submitting transactions.</p>}
+          {vault.contractAddress && !session && !recoveryRequired && <p className="operation-notice">Offline workspace: contract authority and current ledger state have not been checked. Connect Lace and verify the program before submitting transactions.</p>}
           {!backedUp && <p className="operation-notice" role="status">Save an updated single-role backup before any transaction. Draft edits, report notes, prepared reports and received disclosures are held in memory until backed up.</p>}
           <div className="button-row workspace-tabs"><button className="secondary-button" onClick={() => setTab("reports")}>Reports</button>{vault.role === "researcher" && <button className="secondary-button" onClick={() => setTab("prepare")}>Prepare report</button>}<button className="secondary-button" onClick={() => setTab("exchange")}>Disclosure exchange</button><button className="secondary-button" onClick={() => setTab("backup")}>Save role backup</button></div>
           {tab === "backup" && <form className="form-panel" onSubmit={(event) => form(event, async () => {
@@ -272,8 +283,8 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
               }
               const connected = await RoleSession.attach(deployed.api, { role: "vendor", programId: hexToBytes(vault.programId), actorSecret: hexToBytes(vault.actorSecret) }); setSession(connected); setSnapshot(await connected.readPublicState()); setTab("backup");
             });
-          }}><h2>Deploy vendor program</h2>{([ ["name", "Program name"], ["primaryScope", "Primary scope"], ["additionalScope", "Additional scope"], ["rewardPolicy", "Reward policy"] ] as const).map(([name, label]) => <label key={name}>{label}{name === "rewardPolicy" ? <textarea name={name} defaultValue={defaultProgram[name]} required rows={4} /> : <input name={name} defaultValue={defaultProgram[name]} required={name !== "additionalScope"} />}</label>)}<label>Response days<select name="responseDays" defaultValue="7"><option>2</option><option>7</option><option>14</option></select></label><label>Disclosure days<select name="disclosureDays" defaultValue="90"><option>30</option><option>60</option><option>90</option></select></label><button className="primary-button" disabled={!backedUp}>Connect Lace and deploy program</button></form>}
-          {!session && tab === "reports" && <form className="form-panel" onSubmit={(event) => form(event, async () => {
+          }}><h2>Deploy vendor program</h2>{([ ["name", "Program name"], ["primaryScope", "Primary scope"], ["additionalScope", "Additional scope"], ["rewardPolicy", "Reward policy"] ] as const).map(([name, label]) => <label key={name}>{label}{name === "rewardPolicy" ? <textarea name={name} defaultValue={defaultProgram[name]} required rows={4} /> : <input name={name} defaultValue={defaultProgram[name]} required={name !== "additionalScope"} />}</label>)}<label>Response days<select name="responseDays" defaultValue="7"><option>2</option><option>7</option><option>14</option></select></label><label>Disclosure days<select name="disclosureDays" defaultValue="90"><option>30</option><option>60</option><option>90</option></select></label><button className="primary-button" disabled={!backedUp || recoveryRequired}>Connect Lace and deploy program</button></form>}
+          {!session && !recoveryRequired && tab === "reports" && <form className="form-panel" onSubmit={(event) => form(event, async () => {
             const updated = await validateRoleVault({ ...vault, contractAddress: vault.contractAddress ?? address.trim().toLowerCase() });
             const joined = await joinRoleVault(updated, recordSubmission); setVault(updated); setSession(joined.session); setSnapshot(joined.snapshot);
           })}><h2>Reconnect an existing program</h2><p>For a pre-deployment backup, enter the address from your finalized deployment receipt. The vendor key must match.</p>{!vault.contractAddress && <label>Existing contract address<input value={address} required onChange={(event) => setAddress(event.target.value)} /></label>}<button className="secondary-button">Connect Lace and verify program</button></form>}

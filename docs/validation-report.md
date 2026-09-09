@@ -1,5 +1,13 @@
 # Validation report
 
+## Return recovery access after an SDK confirmation wait expires — 2026-09-09
+
+Role deployment and report actions now have an application wait that starts only after their encrypted transaction-identifier checkpoint completes. After ten minutes without an SDK result, the caller reports an unknown outcome and detaches its role session/public snapshot. The journal, backup and lock controls become available; further transactions are blocked in that workspace session, including redeployment, and reconnect guidance is hidden. The SDK's documented indefinite watch methods are unchanged. Its late result or error cannot trigger the expired caller's receipt/address persistence or follow-up ledger read. Background SDK polling/private-state completion can continue until the tab closes; reconciliation and a fresh session are required before considering further transactions.
+
+The initial two-file run passed all **16 existing workspace tests and three new wait-helper tests**. Two new workspace cases initially failed on an incorrect backup-button label in the test. After correcting that selector and suppressing offline/reconnect guidance for expired sessions, both passed in **14.15 seconds**, with the 16 existing cases excluded by the focused filter. They decrypt the actual saved checkpoint, expire the wait, verify backup/locking access, then release or reject the delayed SDK result and assert no receipt write, ledger read or repeat transaction. Helper tests cover checkpoint-relative timing, late success/failure, timely success and synchronous/asynchronous failures with timer cleanup. No full expanded-suite pass is claimed.
+
+Web typechecking and the final normal release build passed: **8 circuits, 62 files, 62,635,122 bytes**, after fresh compiler comparison at **12:40:23.795 UTC**. Contract source and keys were unchanged. No native wallet, real indexer timeout, deployment-specific timeout ceremony or combined-demo finality limit was verified in this increment. Expiry does not prove failure, cancel a broadcast or establish safe retry.
+
 ## Bound the complete browser proof step — 2026-09-09
 
 Browser provider wiring now wraps the SDK proof provider with a ten-minute deadline covering its entire `proveTx` promise, including key-material fallback and individual HTTP retries. Only a timely result can advance the SDK's proof/balance/submit sequence. Expiry returns an explicit error, does not retry, and handles late resolution or rejection without advancing the caller. Timely provider failures retain their original error. Arguments and per-call configuration are forwarded unchanged.
