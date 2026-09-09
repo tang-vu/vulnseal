@@ -1,5 +1,17 @@
 # Validation report
 
+## Prepared report recovery after upload uncertainty — 2026-09-09
+
+Independent role preparation now installs the locally encrypted disclosure in the vault before any storage request. The user saves it through the existing file/browser backup flow, then uploads the saved ciphertext. The same backed-up envelope is uploaded before an initial report contract call; a storage error prevents that call. No schema change, automatic upload retry or re-encryption on retry is introduced. Older saved disclosures also support the explicit upload action.
+
+The focused role-workspace suite passed **10 tests in 51.42 seconds**. It verifies preparation makes no fetch, backup gates uploads and submission, a failed storage response prevents `session.execute`, and an explicit subsequent upload repeats the same envelope/address. The complete web suite then passed **23 files / 105 tests in 51.80 seconds**. These include existing autosave, journal, authority and finalized-receipt behavior; mocked sessions do not establish native wallet behavior.
+
+The production browser run passed **four desktop/mobile cases in 1.1 minutes**: existing incomplete-draft recovery and the new upload-uncertainty journey. The latter uses the real local ciphertext server: Playwright forwards the first PUT, verifies the server accepted it, and deliberately drops the response. The browser retains the selected report; an isolated browser context restores the downloaded encrypted backup and PUTs exactly the same bytes to the same content address. A subsequent real GET returns the original envelope, and the restored private report remains readable. No Lace or blockchain submission is used. This is portable file recovery within one host, not a physical off-device drill.
+
+The final normal-configuration `release:build` passed the fresh compiler-source comparison, all six workspace builds and packaging gate: eight proving circuits, 62 files and 62,537,941 bytes. Existing proving keys were reused. The earlier retained container images remain historical artifacts; they were not silently replaced by this web build.
+
+See [ADR-0021](adr/0021-prepared-ciphertext-recovery.md) for the changed ordering and limits. Binary attachment delivery, replication, native-wallet uncertainty and the combined demo's separate preparation flow remain outside this change. No new full browser-suite total, public deployment or container rebuild is claimed.
+
 ## Fresh compiler-source comparison — 2026-09-09
 
 `release:build` now begins with `compact:check-source`: a real isolated `compact compile --skip-zk` followed by comparison against retained managed outputs. The run at `2026-09-09T09:13:29.126Z` used compiler `0.31.1` and source SHA-256 `cf4a98e7256d7f10d9ea9a2ce009875ed7fb2de17b0c3c9c13de2db7b95e6d39`. All eleven files matched byte-for-byte: compiler metadata, generated JavaScript/declarations and eight textual ZKIR circuits. The parsed source map also matched after excluding only its directory-dependent `sourceRoot`. The original managed directory and keys were not replaced.

@@ -194,22 +194,12 @@ describe("independent role workspace", () => {
       await user.type(screen.getByLabelText(/^Reproduction steps/), "Synthetic reproduction");
       await user.type(screen.getByLabelText("Impact"), "Synthetic impact");
       await user.click(screen.getByRole("checkbox"));
-      if (title === "First independent report") {
-        vi.mocked(fetch).mockResolvedValueOnce(new Response("{}", { status: 500 }));
-        await user.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
-        await screen.findByRole("alert");
-        expect(screen.getByLabelText("Report title")).toHaveValue(title);
-        await user.click(screen.getByRole("button", { name: "Save role backup" }));
-        const recoveredDraft = await save();
-        expect(recoveredDraft.draft?.title).toBe(title);
-        expect(recoveredDraft.reports).toHaveLength(0);
-        await user.click(screen.getByRole("button", { name: "Prepare report" }));
-        await user.click(screen.getByRole("checkbox"));
-      }
       await user.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
       await screen.findByRole("button", { name: "Download single-role backup" });
+      expect(fetch).not.toHaveBeenCalled();
       await user.click(screen.getByRole("button", { name: "Reports" }));
       expect(screen.getByRole("button", { name: "Submit prepared report" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Upload saved ciphertext" })).toBeDisabled();
       expect(session.execute).not.toHaveBeenCalled();
       await user.click(screen.getByRole("button", { name: "Save role backup" }));
     }
@@ -221,6 +211,16 @@ describe("independent role workspace", () => {
     expect(saved.actorSecret).toBe(mocks.join.mock.calls[0]![0].actorSecret);
     await enableJournal(user);
     await user.click(screen.getByRole("button", { name: "Reports" }));
+    vi.mocked(fetch).mockResolvedValueOnce(new Response("{}", { status: 503 }));
+    await user.click(screen.getByRole("button", { name: "Submit prepared report" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Ciphertext upload was not confirmed");
+    expect(session.execute).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Submit prepared report" })).toBeEnabled();
+    const failedUpload = vi.mocked(fetch).mock.calls[0]!;
+    expect(failedUpload[1]?.body).toBe(saved.reports[1]!.envelope);
+    await user.click(screen.getByRole("button", { name: "Upload saved ciphertext" }));
+    await screen.findByText(/Storage acknowledged the saved ciphertext/);
+    expect(vi.mocked(fetch).mock.calls[1]).toEqual([failedUpload[0], expect.objectContaining({ method: "PUT", body: failedUpload[1]?.body })]);
     await user.click(screen.getByRole("button", { name: "Submit prepared report" }));
     await screen.findByText(new RegExp(`Finalized submitReport: ${roleTransactionId}`));
     await screen.findByText(/public read does not yet match the finalized transaction/);

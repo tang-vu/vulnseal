@@ -30,6 +30,12 @@ const download = (text: string, name: string) => {
 const readFile = async (file: File | undefined, max: number) => {
   if (!file) throw new Error("Choose a file"); if (file.size > max) throw new Error("Selected file is too large"); return file.text();
 };
+const uploadDisclosure = async (disclosure: Disclosure) => {
+  const opened = await validateDisclosure(disclosure);
+  try { await new CipherstoreClient(env.cipherstoreUrl).put(`sha256:${opened.ciphertextDigest}`, disclosure.envelope); }
+  catch (cause) { throw new Error(`Ciphertext upload was not confirmed. Keep this saved report and retry its upload; do not prepare a replacement. No contract submission was started by this upload. ${cause instanceof Error ? cause.message : "Storage unavailable"}`); }
+  return opened;
+};
 
 /** Separate entry point: this component never creates the combined demo actor session. */
 export function RoleWorkspace() {
@@ -233,11 +239,17 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
           {vault.contractAddress && tab === "reports" && <section className="form-panel"><h2>Program reports</h2>{session && <button className="secondary-button" onClick={() => run(load)}>Refresh ledger</button>}{session && vault.role === "vendor" && <button className="secondary-button" onClick={() => download(JSON.stringify({ format: "vulnseal-program-invitation", version: 1, network: vault.network, contractAddress: vault.contractAddress, programId: vault.programId }), "vulnseal-program-invitation.json")}>Download public program invitation</button>}
             <label>Workspace report<select value={selectedId} onChange={(event) => { setSelectedId(event.target.value); setReceipt(undefined); }}><option value="">Choose a saved report</option>{vault.reports.map((entry) => <option value={entry.reportId} key={entry.reportId}>{entry.reportId}</option>)}</select></label>
             {chosen && <><p className="public-value">Report: {chosen.reportId}</p><SelectedRoleReport key={chosen.reportId} disclosure={chosen} /><p>{snapshot ? status ?? "Prepared locally; absent from the current ledger snapshot" : "Refresh ledger state before continuing. A prior transaction may still require reconciliation."}</p>
+              <section aria-label="Saved ciphertext storage"><h3>Store this encrypted report</h3><p>Save an encrypted role backup first, then upload the exact saved ciphertext. You can repeat this upload after a storage failure or restore; its report ID, encryption key and content address stay the same. Only ciphertext is sent. This action does not connect Lace or submit a transaction.</p>
+                <button type="button" className="secondary-button" disabled={!backedUp} onClick={() => run(async () => {
+                  if (!backedUp) throw new Error("Save this report in an encrypted role backup before uploading");
+                  await uploadDisclosure(chosen); setMessage("Storage acknowledged the saved ciphertext. Keep your backup; this is not a ledger receipt or a retention guarantee.");
+                })}>Upload saved ciphertext</button>
+              </section>
               <p>Working notes and the selected tier are saved privately per report in encrypted backups and browser autosave. Each report submission also keeps a snapshot in its journal entry, so later edits preserve that earlier context. These are local notes, not verified transaction arguments. Only an explicit transaction publishes its corresponding digest or tier.</p>
               <label>Private decision, patch reference or retest notes<textarea value={detail} onChange={(event) => updateNotes(event.target.value, tier)} /></label><label>Public severity / reward tier<select value={tier} onChange={(event) => updateNotes(detail, event.target.value)}><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
               <fieldset className="workflow-controls" disabled={!backedUp || !snapshot || !session}>
                 {session && vault.role === "researcher" && !record && <button className="primary-button" onClick={() => write(async () => {
-                  const opened = await validateDisclosure(chosen);
+                  const opened = await uploadDisclosure(chosen);
                   return { kind: "submitReport", report: await sealPreimage(chosen), ciphertextDigest: hexToBytes(opened.ciphertextDigest) };
                 })}>Submit prepared report</button>}
                 {record && session && <>
@@ -253,12 +265,13 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
               </fieldset>
             </>}
           </section>}
-          {tab === "prepare" && vault.role === "researcher" && <><p>Draft edits are included in encrypted role backups and browser autosave when enabled. Wait for the saved confirmation before closing. Preparing uploads encrypted ciphertext; a later Midnight submission requires a verified connection.</p><ReportWizard preserveDraftLines attachmentDraft={vault.attachmentDraft ?? emptyAttachmentDraft} onAttachmentDraftChange={(next) => setVault((current) => current ? withAttachmentDraft(current, next) : current)} report={draft} onChange={(next) => setVault((current) => current ? withRoleDraft(current, next) : current)} onSeal={() => run(async () => {
+          {tab === "prepare" && vault.role === "researcher" && <><p>Preparing encrypts the report locally without contacting storage. Save the prepared report in an encrypted role backup, then upload its saved ciphertext from Reports. Browser autosave also saves prepared reports when enabled; wait for confirmation before closing. Midnight submission requires a verified connection and checks storage by uploading the same saved ciphertext first.</p><ReportWizard preserveDraftLines attachmentDraft={vault.attachmentDraft ?? emptyAttachmentDraft} onAttachmentDraftChange={(next) => setVault((current) => current ? withAttachmentDraft(current, next) : current)} report={draft} onChange={(next) => setVault((current) => current ? withRoleDraft(current, next) : current)} onSeal={() => run(async () => {
             const encrypted = await sealReport({ ...draft, reproductionSteps: draft.reproductionSteps.filter((step) => step.trim().length > 0) }, vault.programId); const salt = randomBytes(32);
             const id = bytesToHex(pureCircuits.deriveReportCommitment(hexToBytes(vault.programId), Uint8Array.from(encrypted.canonicalReportDigest), salt));
             const prepared: Disclosure = { network: vault.network, contractAddress: vault.contractAddress, programId: vault.programId, reportId: id, envelope: encrypted.serializedEnvelope, key: bytesToHex(encrypted.key), salt: bytesToHex(salt) };
             const updated = await validateRoleVault(withRoleDraft({ ...vault, reports: [...vault.reports, prepared] }, null));
-            await new CipherstoreClient(env.cipherstoreUrl).put(encrypted.contentAddress, encrypted.serializedEnvelope); setVault(updated); setSelectedId(id); setTab("backup");
+            currentVault.current = updated; setVault(updated); setSelectedId(id); setTab("backup");
+            setMessage("Report encrypted locally. Save its role backup before uploading the saved ciphertext. No upload or transaction has started.");
           })} /></>}
           {tab === "exchange" && <HandoffPanel disclosure={vault.role === "researcher" ? chosen : undefined} keys={keys} onKeys={setKeys} {...(vault.role === "vendor" ? { onDisclosure: acceptDisclosure } : {})} />}
         </>}
