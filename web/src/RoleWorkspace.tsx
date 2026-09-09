@@ -8,7 +8,7 @@ import { createVulnSealPrivateState, pureCircuits } from "@vulnseal/contract";
 import { bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, randomBytes, sealReport, sha256, utf8, validateEnvironment, type VulnerabilityReport } from "@vulnseal/shared";
 import { initializeBrowserProviders } from "./midnight/browser-providers.js";
 import { defaultProgram, programConstructor, readProgramForm } from "./program.js";
-import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, parseInvitation, validateRoleVault, withRoleDraft, withReportNotes, withSubmissionAttempt, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
+import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, parseInvitation, validateRoleVault, withRoleDraft, withReportNotes, withSubmissionAttempt, withFinalizedSubmission, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
 import { joinRoleVault } from "./role-network.js";
 import { HandoffPanel } from "./HandoffPanel.js";
 import { validateDisclosure, type Disclosure, type RecipientKeys } from "./handoff.js";
@@ -123,6 +123,16 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
     setSnapshot(undefined); setReceipt(undefined);
     const id = command.kind === "submitReport" ? pureCircuits.deriveReportCommitment(Uint8Array.from(command.report.programId), Uint8Array.from(command.report.canonicalDigest), Uint8Array.from(command.report.salt)) : command.reportId;
     const result = await duringSubmission({ circuit: command.kind, reportId: bytesToHex(id) }, () => session.execute(command)); setReceipt(result);
+    let updated = currentVault.current!;
+    try {
+      updated = await withFinalizedSubmission(updated, result);
+      const persist = persistJournal.current;
+      if (!persist) throw new Error("Encrypted browser autosave is unavailable");
+      await persist(updated); setSaved(updated);
+    } catch (cause) {
+      setSaved(undefined); setTab("backup");
+      throw new Error(`Transaction finalized, but its receipt could not be saved to browser storage. Keep this tab open and download an updated role backup before leaving. Do not resubmit. ${cause instanceof Error ? cause.message : "Recovery save failed"}`);
+    } finally { currentVault.current = updated; setVault(updated); }
     const expected = command.kind === "submitRetest" ? command.passed ? "RETEST_PASSED" : "RETEST_FAILED" : { submitReport: "COMMITTED", beginTriage: "TRIAGED", acceptReport: "ACCEPTED", rejectReport: "REJECTED", anchorPatch: "PATCH_READY", authorizePayout: "PAYOUT_AUTHORIZED", closeReport: "CLOSED" }[command.kind];
     await load({ id, status: expected });
     setMessage("Transaction finalized. The current ledger has been refreshed.");
@@ -197,8 +207,9 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
               const constructor = await programConstructor(hexToBytes(vault.programId), policy);
               const deployed = await duringSubmission({ circuit: "constructor", reportId: null }, () => VulnSealApi.deploy(providers, createVulnSealPrivateState(hexToBytes(vault.actorSecret)), constructor));
               setReceipt(deployed.evidence); setTab("backup");
-              const updated = await validateRoleVault({ ...currentVault.current!, contractAddress: deployed.api.contractAddress });
+              let updated = await validateRoleVault({ ...currentVault.current!, contractAddress: deployed.api.contractAddress });
               try {
+                updated = await withFinalizedSubmission(updated, deployed.evidence);
                 const persist = persistJournal.current;
                 if (!persist) throw new Error("Encrypted browser autosave is unavailable");
                 await persist(updated);

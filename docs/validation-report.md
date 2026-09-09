@@ -1,5 +1,15 @@
 # Validation report
 
+## Encrypted SDK finalization checkpoints — 2026-09-09
+
+`npm run validate` passed all six workspace builds and typechecks, then **33 test files / 160 tests**: shared 12, contract 13, API 21, ciphertext service 14, integration 9 and web 91. The complete web suite passed in 52.38 seconds, including the expanded role-action crypto/checkpoint cases. This consolidates the shared replay, worker, recovery and finalization changes together.
+
+Role-vault v6 retains the SDK's returned block height and local capture time on the exact identifier/circuit journal entry. Legacy entries remain unknown, repeated same-height capture preserves the first timestamp, and conflicting/malformed receipts fail validation. Report writes await encrypted receipt persistence before follow-up reads; deployment saves address and receipt together. Save failures retain the updated vault in memory for export and explicitly warn against resubmission. Restored receipt text is labelled as a local claim and makes no automatic public request or retry decision.
+
+The first focused component run passed 20 of 22 tests; two existing role-action tests exceeded their five-second budgets after their mocks were corrected to perform the pre-wallet checkpoint and the new post-finalization encryption. Their budgets now allow 15 seconds for the expanded crypto path; no assertions or production crypto settings were removed. Browser regression passed **22 desktop/mobile cases in 1.7 minutes** with CI's two-worker setting, covering v2/v5/v6 file and IndexedDB journal inspection, actual worker replay, storage, notes and drafts. This is a selected regression run; the preceding full browser run remains 60 cases at `fed02bb`.
+
+The evidence uses mocked role providers for actual SDK-success/checkpoint failure ordering and synthetic encrypted browser backups for fresh inspection. It does not establish native Lace operation or independent finality from saved metadata. Missing SDK receipts are never interpreted as transaction failure. See [ADR-0018](adr/0018-saved-sdk-finalization.md) for migration and crash-window limits.
+
 ## Browser worker report-effect reconciliation — 2026-09-09
 
 The full `CI=true npm run test:e2e` run passed all **60 desktop/mobile cases in 3.3 minutes**, using two workers and no exclusions or retries. This includes the four new worker/journal cases alongside all prior recovery, storage, bootstrap and disclosure journeys.

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { decryptRoleVault, encryptRoleVault, parseInvitation, validateRoleVault, withRoleDraft, withReportNotes, withSubmissionAttempt, type RoleVault } from "./role-recovery.js";
+import { decryptRoleVault, encryptRoleVault, parseInvitation, validateRoleVault, withRoleDraft, withReportNotes, withSubmissionAttempt, withFinalizedSubmission, type RoleVault } from "./role-recovery.js";
 import { recoveryFixture } from "./test/recovery-fixture.js";
 
 export const roleFixture = async (role: "researcher" | "vendor" = "researcher"): Promise<RoleVault> => {
@@ -8,6 +8,30 @@ export const roleFixture = async (role: "researcher" | "vendor" = "researcher"):
   return { version: 1, role, network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, actorSecret: role === "researcher" ? snapshot.researcherSecret : snapshot.vendorSecret, reports: [{ network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: snapshot.report!.id, envelope: snapshot.report!.envelope, key: snapshot.report!.key, salt: snapshot.report!.salt }] };
 };
 describe("single-role encrypted recovery", () => {
+  it("retains SDK finalization through migration, edits and encrypted recovery without inventing legacy receipts", async () => {
+    const original = await roleFixture("vendor"), txId = "cd".repeat(33);
+    const legacy = { transactionId: "ab".repeat(32), recordedAt: "2026-09-09T04:00:00.000Z" };
+    const intent = { circuit: "beginTriage" as const, reportId: original.reports[0]!.reportId };
+    const pending = await withSubmissionAttempt({ ...original, version: 2, submissionAttempts: [legacy] }, txId, intent);
+    const evidence = { txId, circuit: intent.circuit, blockHeight: "900" };
+    const vault = await withFinalizedSubmission(pending, evidence, "2026-09-09T04:01:00.000Z");
+    expect(vault.version).toBe(6);
+    expect(vault.submissionAttempts![0]).toEqual({ ...legacy, intent: null, finalization: null });
+    expect(vault.submissionAttempts![1]!.finalization).toEqual({ blockHeight: "900", recordedAt: "2026-09-09T04:01:00.000Z" });
+    const edited = await withSubmissionAttempt(withRoleDraft(withReportNotes(vault, { reportId: intent.reportId, tier: "2", text: "Retained notes" }), null), "ef".repeat(32), intent);
+    expect(edited.version).toBe(6);
+    expect(edited.submissionAttempts![2]!.finalization).toBeNull();
+    const encrypted = await encryptRoleVault(edited, "Finalized journal backup password");
+    expect(encrypted).not.toContain(txId);
+    expect(await decryptRoleVault(encrypted, "Finalized journal backup password")).toEqual(edited);
+    expect(await withFinalizedSubmission(vault, evidence)).toEqual(vault);
+    await expect(withFinalizedSubmission(vault, { ...evidence, blockHeight: "901" })).rejects.toThrow("conflicts");
+    for (const bad of [{ ...evidence, txId: legacy.transactionId }, { ...evidence, circuit: "rejectReport" as const }]) await expect(withFinalizedSubmission(vault, bad)).rejects.toThrow("recorded submission intent");
+    for (const blockHeight of ["-1", "1.5", "1e3", "0900", "9007199254740992"]) await expect(withFinalizedSubmission(pending, { ...evidence, blockHeight })).rejects.toThrow("block height");
+    await expect(withFinalizedSubmission(pending, evidence, "2026-02-30T00:00:00.000Z")).rejects.toThrow("timestamp");
+    await expect(validateRoleVault({ ...vault, version: 5 })).rejects.toThrow("Unsupported role document");
+    await expect(validateRoleVault({ ...vault, submissionAttempts: [{ ...vault.submissionAttempts![1], intent: null }] })).rejects.toThrow("recorded intent");
+  });
   it("migrates legacy attempts without inventing intent and preserves new report context through encrypted edits", async () => {
     const original = await roleFixture("vendor");
     const old = { transactionId: "ab".repeat(32), recordedAt: "2026-09-09T04:00:00.000Z" };

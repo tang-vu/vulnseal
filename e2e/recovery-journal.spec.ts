@@ -2,11 +2,11 @@
 import { expect, test } from "@playwright/test";
 import { encryptRoleVault } from "../web/src/role-recovery.js";
 
-for (const version of [2, 5] as const) {
+for (const version of [2, 5, 6] as const) {
 test(`v${version} deployed-role journal can be inspected from file and browser storage without Lace or network requests`, async ({ page }, testInfo) => {
   const transactionId = "00315eaad1b87f436849790da0f0072be407dfdf9079b78f15e73c838b9ede2c19";
   const actorSecret = "34".repeat(32), password = "Offline recovery journal password";
-  const encrypted = await encryptRoleVault({ version, ...(version === 5 ? { draft: null, reportNotes: [] } : {}), role: "vendor", network: "preprod", contractAddress: "ab".repeat(32), programId: "12".repeat(32), actorSecret, reports: [], submissionAttempts: [{ transactionId, recordedAt: "2026-09-09T04:00:00.000Z", ...(version === 5 ? { intent: { circuit: "constructor" as const, reportId: null } } : {}) }] }, password);
+  const encrypted = await encryptRoleVault({ version, ...(version >= 5 ? { draft: null, reportNotes: [] } : {}), role: "vendor", network: "preprod", contractAddress: "ab".repeat(32), programId: "12".repeat(32), actorSecret, reports: [], submissionAttempts: [{ transactionId, recordedAt: "2026-09-09T04:00:00.000Z", ...(version === 6 ? { finalization: { blockHeight: "900", recordedAt: "2026-09-09T04:01:00.000Z" } } : {}), ...(version >= 5 ? { intent: { circuit: "constructor" as const, reportId: null } } : {}) }] }, password);
   const posts: string[] = [];
   const requests: string[] = [];
   page.on("request", (request) => { requests.push(request.url()); if (request.method() === "POST") posts.push(request.url()); });
@@ -23,9 +23,10 @@ test(`v${version} deployed-role journal can be inspected from file and browser s
   await page.getByRole("button", { name: "Read recovery journal" }).click();
   await expect(page.getByText(new RegExp(transactionId))).toBeVisible();
   await expect(page.getByLabel("Journal backup password")).toHaveValue("");
-  await expect(page.getByText(version === 5 ? /Recorded intent: constructor/ : /Operation and report were not recorded/)).toBeVisible();
+  await expect(page.getByText(version >= 5 ? /Recorded intent: constructor/ : /Operation and report were not recorded/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Vendor workspace" })).toHaveCount(0);
   expect(await page.locator("body").innerText()).not.toContain(actorSecret);
+  if (version === 6) await expect(page.getByText(/Saved SDK finalization: block 900/)).toBeVisible();
   expect(posts).toEqual([]);
   expect(requests).toEqual([]);
   if (process.env.VULNSEAL_CAPTURE_VISUALS === "1") {
@@ -48,13 +49,14 @@ test(`v${version} deployed-role journal can be inspected from file and browser s
   await page.getByLabel("Journal backup password").fill(password);
   await page.getByRole("button", { name: "Read recovery journal" }).click();
   await expect(page.getByText(new RegExp(transactionId))).toBeVisible();
+  if (version === 6) await expect(page.getByText(/Saved SDK finalization: block 900/)).toBeVisible();
   expect(posts).toEqual([]);
   expect(requests).toEqual([]);
   await page.route("https://indexer.preprod.midnight.network/api/v4/graphql", (route) => route.fulfill({ json: { data: { transactions: [] } } }));
   await page.getByRole("button", { name: "Check transaction status" }).click();
   await expect(page.getByText(/Not found by this indexer/)).toBeVisible();
   expect(posts).toHaveLength(1);
-  if (version === 5) {
+  if (version >= 5) {
     const blockHash = "cd".repeat(32), contractAddress = "ab".repeat(32);
     let observedAddress = contractAddress;
     await page.route("https://indexer.preprod.midnight.network/api/v4/graphql", (route) => route.fulfill({ json: { data: { transactions: [{ identifiers: [transactionId], hash: "ef".repeat(32), block: { height: 100, hash: blockHash }, transactionResult: { status: "SUCCESS" }, contractActions: [{ __typename: "ContractDeploy", address: observedAddress }] }] } } }));

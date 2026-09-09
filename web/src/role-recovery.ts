@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { ActorRole, RoleCommand } from "@vulnseal/api/role-session";
+import type { TransactionEvidence } from "@vulnseal/api/types";
 import { base64UrlToBytes, bytesToBase64Url, randomBytes, utf8, type VulnerabilityReport } from "@vulnseal/shared";
 import { validateDisclosure, type Disclosure } from "./handoff.js";
 
 export type SubmissionIntent = { readonly circuit: "constructor"; readonly reportId: null } | { readonly circuit: RoleCommand["kind"]; readonly reportId: string };
-export type SubmissionAttempt = { readonly transactionId: string; readonly recordedAt: string; readonly intent?: SubmissionIntent | null };
+export type SavedFinalization = { readonly blockHeight: string; readonly recordedAt: string };
+export type SubmissionAttempt = { readonly transactionId: string; readonly recordedAt: string; readonly intent?: SubmissionIntent | null; readonly finalization?: SavedFinalization | null };
 export type ReportNotes = { readonly reportId: string; readonly text: string; readonly tier: string };
-export type RoleVault = { readonly version: 1 | 2 | 3 | 4 | 5; readonly role: ActorRole; readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly actorSecret: string; readonly reports: readonly Disclosure[]; readonly submissionAttempts?: readonly SubmissionAttempt[]; readonly draft?: VulnerabilityReport | null; readonly reportNotes?: readonly ReportNotes[] };
+export type RoleVault = { readonly version: 1 | 2 | 3 | 4 | 5 | 6; readonly role: ActorRole; readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly actorSecret: string; readonly reports: readonly Disclosure[]; readonly submissionAttempts?: readonly SubmissionAttempt[]; readonly draft?: VulnerabilityReport | null; readonly reportNotes?: readonly ReportNotes[] };
 export type ProgramInvitation = { readonly format: "vulnseal-program-invitation"; readonly version: 1; readonly network: string; readonly contractAddress: string; readonly programId: string };
 export const MAX_ROLE_BACKUP_BYTES = 32 * 1024 * 1024;
 const buffer = (value: Uint8Array) => Uint8Array.from(value).buffer;
@@ -35,9 +37,26 @@ const validateIntent = (input: unknown, role: unknown): SubmissionIntent => {
 };
 /** Legacy entries retain unknown intent; never infer an operation from current ledger state. */
 export const withSubmissionAttempt = (vault: RoleVault, transactionId: string, intent: SubmissionIntent, recordedAt = new Date().toISOString()): Promise<RoleVault> => validateRoleVault({
-  ...vault, version: 5, draft: vault.draft ?? null, reportNotes: vault.reportNotes ?? [],
-  submissionAttempts: [...(vault.submissionAttempts ?? []).map((entry) => ({ ...entry, intent: entry.intent ?? null })), { transactionId, recordedAt, intent }],
+  ...vault, version: vault.version === 6 ? 6 : 5, draft: vault.draft ?? null, reportNotes: vault.reportNotes ?? [],
+  submissionAttempts: [...(vault.submissionAttempts ?? []).map((entry) => ({ ...entry, intent: entry.intent ?? null })), { transactionId, recordedAt, intent, ...(vault.version === 6 ? { finalization: null } : {}) }],
 });
+const timestamp = (value: unknown): string => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString() !== value) throw new Error("Invalid finalization timestamp");
+  return value;
+};
+const validateFinalization = (input: unknown): SavedFinalization => {
+  const value = object(input, ["blockHeight", "recordedAt"]);
+  if (typeof value.blockHeight !== "string" || !/^(0|[1-9][0-9]{0,15})$/.test(value.blockHeight) || !Number.isSafeInteger(Number(value.blockHeight))) throw new Error("Invalid finalization block height");
+  return { blockHeight: value.blockHeight, recordedAt: timestamp(value.recordedAt) };
+};
+/** Preserve the SDK receipt as a local claim, never infer it from current report state. */
+export const withFinalizedSubmission = async (vault: RoleVault, evidence: TransactionEvidence, recordedAt = new Date().toISOString()): Promise<RoleVault> => {
+  const entry = vault.submissionAttempts?.find((item) => item.transactionId === evidence.txId);
+  if (!entry?.intent || entry.intent.circuit !== evidence.circuit) throw new Error("Finalized receipt does not match a recorded submission intent");
+  const finalization = validateFinalization({ blockHeight: evidence.blockHeight, recordedAt });
+  if (entry.finalization && entry.finalization.blockHeight !== finalization.blockHeight) throw new Error("Finalized receipt conflicts with the saved receipt");
+  return validateRoleVault({ ...vault, version: 6, draft: vault.draft ?? null, reportNotes: vault.reportNotes ?? [], submissionAttempts: vault.submissionAttempts!.map((item) => ({ ...item, intent: item.intent ?? null, finalization: item.transactionId === evidence.txId ? item.finalization ?? finalization : item.finalization ?? null })) });
+};
 /** Incomplete authoring text is preserved exactly, without sealed-report normalization. */
 const validateDraft = (input: unknown): VulnerabilityReport => {
   const value = object(input, ["schemaVersion", "title", "summary", "affectedAsset", "weakness", "reproductionSteps", "impact", "suggestedRemediation", "attachments", "researcherContact"]);
@@ -68,7 +87,7 @@ const validateReportNotes = (input: unknown): ReportNotes => {
 export const withReportNotes = (vault: RoleVault, input: ReportNotes): RoleVault => {
   const note = validateReportNotes(input);
   if (!vault.reports.some((report) => report.reportId === note.reportId)) throw new Error("Report notes must name a saved report");
-  return { ...vault, version: vault.version === 5 ? 5 : 4, draft: vault.draft ?? null, submissionAttempts: vault.submissionAttempts ?? [], reportNotes: [...(vault.reportNotes ?? []).filter((entry) => entry.reportId !== note.reportId), note] };
+  return { ...vault, version: vault.version >= 5 ? vault.version : 4, draft: vault.draft ?? null, submissionAttempts: vault.submissionAttempts ?? [], reportNotes: [...(vault.reportNotes ?? []).filter((entry) => entry.reportId !== note.reportId), note] };
 };
 export const parseInvitation = (serialized: string): ProgramInvitation => {
   if (utf8(serialized).length > 4096) throw new Error("Program invitation is too large");
@@ -78,22 +97,25 @@ export const parseInvitation = (serialized: string): ProgramInvitation => {
 };
 export const validateRoleVault = async (input: unknown): Promise<RoleVault> => {
   const version = (input as { version?: unknown } | null)?.version;
-  const contextual = version === 5;
+  const receipted = version === 6;
+  const contextual = version === 5 || receipted;
   const noted = version === 4 || contextual;
   const drafted = version === 3 || noted;
   const journaled = version === 2 || drafted;
   const value = object(input, ["version", "role", "network", "contractAddress", "programId", "actorSecret", "reports", ...(journaled ? ["submissionAttempts"] : []), ...(drafted ? ["draft"] : []), ...(noted ? ["reportNotes"] : [])]);
-  if ((value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4 && value.version !== 5) || !["vendor", "researcher"].includes(String(value.role)) || !Array.isArray(value.reports) || value.reports.length > 100) throw new Error("Invalid role backup");
+  if ((value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4 && value.version !== 5 && value.version !== 6) || !["vendor", "researcher"].includes(String(value.role)) || !Array.isArray(value.reports) || value.reports.length > 100) throw new Error("Invalid role backup");
   const attempts: SubmissionAttempt[] = [];
   if (journaled) {
     if (!Array.isArray(value.submissionAttempts) || value.submissionAttempts.length > 200) throw new Error("Invalid submission journal");
     const ids = new Set<string>();
     for (const item of value.submissionAttempts) {
-      const entry = object(item, ["transactionId", "recordedAt", ...(contextual ? ["intent"] : [])]);
+      const entry = object(item, ["transactionId", "recordedAt", ...(contextual ? ["intent"] : []), ...(receipted ? ["finalization"] : [])]);
       if (typeof entry.transactionId !== "string" || !/^(?:[a-f0-9]{64}|[a-f0-9]{66})$/.test(entry.transactionId)) throw new Error("Invalid role identifier");
       const transactionId = entry.transactionId;
       if (ids.has(transactionId) || typeof entry.recordedAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(entry.recordedAt) || !Number.isFinite(Date.parse(entry.recordedAt))) throw new Error("Invalid submission journal entry");
-      ids.add(transactionId); attempts.push({ transactionId, recordedAt: entry.recordedAt, ...(contextual ? { intent: entry.intent === null ? null : validateIntent(entry.intent, value.role) } : {}) });
+      const finalization = receipted && entry.finalization !== null ? validateFinalization(entry.finalization) : null;
+      if (finalization && (!entry.intent || value.contractAddress === null)) throw new Error("Saved finalization requires a deployed contract and recorded intent");
+      ids.add(transactionId); attempts.push({ transactionId, recordedAt: entry.recordedAt, ...(contextual ? { intent: entry.intent === null ? null : validateIntent(entry.intent, value.role) } : {}), ...(receipted ? { finalization } : {}) });
     }
   }
   if (drafted && value.draft !== null && value.role !== "researcher") throw new Error("Only researcher workspaces can hold an authoring draft");

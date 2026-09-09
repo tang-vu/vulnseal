@@ -37,6 +37,7 @@ for (const failSave of [false, true]) {
     mocks.attach.mockImplementation(async () => {
       // The encrypted address must already be durable before any follow-up read.
       expect((await decryptRoleVault(row!.encrypted, password)).contractAddress).toBe(address);
+      expect((await decryptRoleVault(row!.encrypted, password)).submissionAttempts![0]!.finalization?.blockHeight).toBe("900");
       throw new Error("Indexer unavailable after deployment");
     });
     const user = userEvent.setup(); render(<RoleWorkspace />);
@@ -57,6 +58,8 @@ for (const failSave of [false, true]) {
     const durable = await decryptRoleVault(row!.encrypted, password);
     expect(durable.contractAddress).toBe(failSave ? null : address);
     expect(durable.submissionAttempts![0]!.transactionId).toBe(transactionId);
+    expect(durable.submissionAttempts![0]!.finalization?.blockHeight).toBe(failSave ? undefined : "900");
+    expect(screen.getByText(/Saved SDK finalization: block 900/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Lock and switch workspace" })).toHaveProperty("disabled", failSave);
     if (failSave) {
       let backup!: Blob;
@@ -75,6 +78,7 @@ for (const failSave of [false, true]) {
       const exported = await decryptRoleVault(serialized, password);
       expect(exported.contractAddress).toBe(address);
       expect(exported.submissionAttempts![0]!.transactionId).toBe(transactionId);
+      expect(exported.submissionAttempts![0]!.finalization?.blockHeight).toBe("900");
     }
   }, 20_000);
 }

@@ -23,12 +23,13 @@ const enableJournal = async (user: ReturnType<typeof userEvent.setup>) => {
   await screen.findByRole("button", { name: "Stop browser autosave" });
 };
 
+const roleTransactionId = "cd".repeat(32);
 const restore = async (role: "researcher" | "vendor", status: number) => {
   const { snapshot } = await recoveryFixture();
   const vault = { version: 1 as const, role, network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, actorSecret: role === "vendor" ? snapshot.vendorSecret : snapshot.researcherSecret, reports: [{ network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: snapshot.report!.id, envelope: snapshot.report!.envelope, key: snapshot.report!.key, salt: snapshot.report!.salt }] };
   const record = { status, patchCommitment: new Uint8Array(32).fill(7) };
   const publicState = { ledger: { reports: { member: () => true, lookup: () => record } } };
-  const session = { execute: vi.fn(async (_command: unknown) => { record.status = role === "researcher" ? 5 : 1; return { circuit: role === "researcher" ? "submitRetest" : "beginTriage", txId: "role-transaction", blockHeight: "900" }; }), readPublicState: vi.fn().mockResolvedValue(publicState) };
+  const session = { execute: vi.fn(async (_command: unknown) => { await mocks.join.mock.calls.at(-1)![1](roleTransactionId); record.status = role === "researcher" ? 5 : 1; return { circuit: role === "researcher" ? "submitRetest" : "beginTriage", txId: roleTransactionId, blockHeight: "900" }; }), readPublicState: vi.fn().mockResolvedValue(publicState) };
   mocks.join.mockResolvedValue({ session, snapshot: publicState });
   const serialized = await encryptRoleVault(vault, "Role workspace test password");
   render(<RoleWorkspace />);
@@ -44,6 +45,21 @@ const restore = async (role: "researcher" | "vendor", status: number) => {
 };
 
 describe("independent role workspace", () => {
+  it("keeps a finalized report receipt exportable when its encrypted checkpoint fails and skips follow-up reads", async () => {
+    const { user, session } = await restore("vendor", 0);
+    vi.mocked(writeStoredRole).mockImplementationOnce(async (id, label, encrypted, revision) => ({ id, label, encrypted, revision: (revision ?? 0) + 1, updatedAt: new Date().toISOString() }));
+    vi.mocked(writeStoredRole).mockRejectedValueOnce(new Error("Receipt storage unavailable"));
+    await user.click(screen.getByRole("button", { name: "Begin triage" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Transaction finalized, but its receipt could not be saved");
+    expect(screen.getByText(/Saved SDK finalization: block 900/)).toBeInTheDocument();
+    expect(session.readPublicState).not.toHaveBeenCalled();
+    expect(session.execute).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Lock and switch workspace" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Download single-role backup" })).toBeEnabled();
+    const attempted = await decryptRoleVault(vi.mocked(writeStoredRole).mock.calls.at(-1)![2], "Workspace journal password");
+    expect(attempted.version).toBe(6);
+    expect(attempted.submissionAttempts![0]!.finalization?.blockHeight).toBe("900");
+  }, 15_000);
   it("persists operation/report intent before wallet failure and clears the active callback context afterwards", async () => {
     const { user, session, vault } = await restore("vendor", 0);
     const checkpoint = mocks.join.mock.calls.at(-1)![1] as (id: string) => Promise<void>;
@@ -145,7 +161,7 @@ describe("independent role workspace", () => {
   }, 15_000);
   it("joins with one researcher identity and backs up multiple prepared reports before submission", async () => {
     const snapshot = { ledger: { reports: { member: () => false } } };
-    const session = { execute: vi.fn(async (_command: unknown) => ({ circuit: "submitReport", txId: "prepared-submit", blockHeight: "901" })), readPublicState: vi.fn().mockResolvedValue(snapshot) };
+    const session = { execute: vi.fn(async (_command: unknown) => { await mocks.join.mock.calls.at(-1)![1](roleTransactionId); return { circuit: "submitReport", txId: roleTransactionId, blockHeight: "901" }; }), readPublicState: vi.fn().mockResolvedValue(snapshot) };
     mocks.join.mockResolvedValue({ session, snapshot });
     vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 201 })));
     let blob: Blob | undefined;
@@ -206,7 +222,7 @@ describe("independent role workspace", () => {
     await enableJournal(user);
     await user.click(screen.getByRole("button", { name: "Reports" }));
     await user.click(screen.getByRole("button", { name: "Submit prepared report" }));
-    await screen.findByText(/Finalized submitReport: prepared-submit/);
+    await screen.findByText(new RegExp(`Finalized submitReport: ${roleTransactionId}`));
     await screen.findByText(/public read does not yet match the finalized transaction/);
     expect(screen.getByRole("button", { name: "Submit prepared report" })).toBeDisabled();
     expect(session.execute).toHaveBeenCalledOnce();
@@ -223,14 +239,16 @@ describe("independent role workspace", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Pass retest" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Pass retest" }));
     await screen.findByRole("alert");
-    expect(screen.getByText(/Finalized submitRetest: role-transaction at block 900/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`Finalized submitRetest: ${roleTransactionId} at block 900`))).toBeInTheDocument();
+    const durable = await decryptRoleVault(vi.mocked(writeStoredRole).mock.calls.at(-1)![2], "Workspace journal password");
+    expect(durable.submissionAttempts![0]!.finalization?.blockHeight).toBe("900");
     expect(session.execute.mock.calls[0]![0]).toMatchObject({ kind: "submitRetest", passed: true });
     expect(screen.getByRole("button", { name: "Submit prepared report" })).toBeDisabled();
     session.readPublicState.mockResolvedValue(publicState);
     await user.click(screen.getByRole("button", { name: "Refresh ledger" }));
     expect(await screen.findByText("RETEST_PASSED")).toBeInTheDocument();
     expect(session.execute).toHaveBeenCalledOnce();
-  });
+  }, 15_000);
   it("exposes vendor actions without researcher preparation or retest controls", async () => {
     const { user, session } = await restore("vendor", 0);
     expect(screen.queryByRole("button", { name: "Prepare report" })).not.toBeInTheDocument();
@@ -243,5 +261,5 @@ describe("independent role workspace", () => {
     expect(screen.getByRole("button", { name: "Accept report" })).toBeDisabled();
     await user.type(screen.getByLabelText("Private decision, patch reference or retest notes"), "Verified independently");
     await waitFor(() => expect(screen.getByRole("button", { name: "Accept report" })).toBeEnabled());
-  });
+  }, 15_000);
 });
