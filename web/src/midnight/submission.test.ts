@@ -38,3 +38,16 @@ it("returns the original identifier after one successful connector submission", 
   expect(await submitIdentifiedTransaction(tx as unknown as FinalizedTransaction, submit)).toBe(id);
   expect(submit).toHaveBeenCalledExactlyOnceWith("010203");
 });
+
+it("awaits a durable checkpoint and never broadcasts if checkpoint persistence fails", async () => {
+  const tx = transaction(), submit = vi.fn();
+  const checkpoint = vi.fn(async () => { throw new Error("Storage quota exceeded"); });
+  await expect(submitIdentifiedTransaction(tx as unknown as FinalizedTransaction, submit, checkpoint)).rejects.toThrow("Storage quota exceeded");
+  expect(checkpoint).toHaveBeenCalledExactlyOnceWith(id); expect(submit).not.toHaveBeenCalled();
+  let release!: () => void;
+  const wait = new Promise<void>((resolve) => { release = resolve; });
+  const saving = vi.fn(() => wait);
+  const pending = submitIdentifiedTransaction(tx as unknown as FinalizedTransaction, submit, saving);
+  expect(saving).toHaveBeenCalledOnce(); expect(submit).not.toHaveBeenCalled();
+  release(); await pending; expect(submit).toHaveBeenCalledOnce();
+});

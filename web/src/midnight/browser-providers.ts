@@ -62,6 +62,7 @@ const connect = async (networkId: string): Promise<ConnectedAPI> => {
 
 export const initializeBrowserProviders = async (
   networkId: string,
+  beforeSubmit?: (transactionId: TransactionId) => Promise<void>,
 ): Promise<VulnSealProviders> => {
   const connected = await connect(networkId);
   const config = await connected.getConfiguration();
@@ -108,7 +109,10 @@ export const initializeBrowserProviders = async (
     midnightProvider: {
       submitTx: async (transaction: FinalizedTransaction): Promise<TransactionId> => {
         await assertConnection(connected, networkId);
-        return submitIdentifiedTransaction(transaction, (serialized) => connected.submitTransaction(serialized));
+        return submitIdentifiedTransaction(transaction, async (serialized) => {
+          await assertConnection(connected, networkId);
+          return connected.submitTransaction(serialized);
+        }, beforeSubmit);
       },
     },
   };

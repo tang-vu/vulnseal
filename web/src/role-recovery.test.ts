@@ -8,6 +8,18 @@ export const roleFixture = async (role: "researcher" | "vendor" = "researcher"):
   return { version: 1, role, network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, actorSecret: role === "researcher" ? snapshot.researcherSecret : snapshot.vendorSecret, reports: [{ network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: snapshot.report!.id, envelope: snapshot.report!.envelope, key: snapshot.report!.key, salt: snapshot.report!.salt }] };
 };
 describe("single-role encrypted recovery", () => {
+  it("preserves a version 2 submission journal and rejects ambiguous or extra journal fields", async () => {
+    const original = await roleFixture("vendor");
+    const entry = { transactionId: "ab".repeat(32), recordedAt: "2026-09-09T04:00:00.000Z" };
+    const vault = { ...original, version: 2 as const, submissionAttempts: [entry] };
+    const encrypted = await encryptRoleVault(vault, "Journal backup password");
+    expect(encrypted).not.toContain(entry.transactionId);
+    expect(await decryptRoleVault(encrypted, "Journal backup password")).toEqual(vault);
+    await expect(validateRoleVault({ ...vault, version: 1 })).rejects.toThrow("Unsupported role document");
+    await expect(validateRoleVault({ ...vault, submissionAttempts: [entry, entry] })).rejects.toThrow("Invalid submission journal entry");
+    await expect(validateRoleVault({ ...vault, submissionAttempts: [{ ...entry, status: "SUCCESS" }] })).rejects.toThrow("Unsupported role document");
+    await expect(validateRoleVault({ ...vault, submissionAttempts: [{ ...entry, transactionId: "bad" }] })).rejects.toThrow("Invalid role identifier");
+  });
   it("round trips one role and its report material with fresh encryption", async () => {
     const vault = await roleFixture();
     const encrypted = await encryptRoleVault(vault, "Single role backup password");

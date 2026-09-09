@@ -5,6 +5,28 @@ import ts from "typescript";
 import { decryptRoleVault, encryptRoleVault } from "../web/src/role-recovery.js";
 import type * as Storage from "../web/src/role-storage.js";
 
+test("encrypted submission journal survives file restore and a fresh browser tab", async ({ page, context }) => {
+  const transactionId = "78".repeat(32);
+  const encrypted = await encryptRoleVault({ version: 2, role: "vendor", network: "preprod", contractAddress: null, programId: "12".repeat(32), actorSecret: "34".repeat(32), reports: [], submissionAttempts: [{ transactionId, recordedAt: "2026-09-09T04:00:00.000Z" }] }, "Journal browser recovery password");
+  await page.goto("/#roles");
+  await page.getByLabel("Single-role backup file").setInputFiles({ name: "journal.json", mimeType: "application/json", buffer: Buffer.from(encrypted) });
+  await page.getByLabel("Role restore password").fill("Journal browser recovery password");
+  await page.getByRole("button", { name: "Restore role workspace" }).click();
+  await expect(page.getByText(new RegExp(transactionId))).toBeVisible();
+  await page.getByLabel("Browser copy password", { exact: true }).fill("Journal browser recovery password");
+  await page.getByLabel("Confirm browser copy password").fill("Journal browser recovery password");
+  await page.getByRole("button", { name: "Enable encrypted browser autosave" }).click();
+  await expect(page.getByText(/Saved encrypted browser copy/)).toBeVisible();
+  await page.close();
+  const fresh = await context.newPage(); await fresh.goto("/#roles");
+  await fresh.getByLabel("Saved browser workspace").selectOption({ index: 1 });
+  await fresh.getByLabel("Browser unlock password").fill("Journal browser recovery password");
+  await fresh.getByRole("button", { name: "Unlock browser workspace" }).click();
+  await expect(fresh.getByText(new RegExp(transactionId))).toBeVisible();
+  await expect(fresh.getByText(/outcome requires reconciliation/)).toBeVisible();
+  await expect(fresh.getByText(/Finalized constructor/)).toHaveCount(0);
+});
+
 test("encrypted device copy unlocks in a fresh tab without a downloaded role file", async ({ page, context }, testInfo) => {
   await page.goto("/#roles");
   await page.getByRole("button", { name: "Prepare vendor identity" }).click();

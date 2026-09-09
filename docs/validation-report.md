@@ -1,5 +1,18 @@
 # Validation report
 
+## Encrypted submission checkpoint — 2026-09-09
+
+| Check | Command / environment | Observed result |
+| --- | --- | --- |
+| Consolidated validation | `npm run validate` | Exit 0; six workspace typechecks/builds; 22 files / 104 tests passed (web: 16 files / 60 tests) |
+| Wallet boundary | Submission helper tests | Wallet call waits for checkpoint completion; failed persistence invokes no wallet submission; identifier/serialization failures remain before submission |
+| Journal schema | Authenticated recovery tests | Version 2 round trip preserves encrypted identifiers; version 1 remains accepted; duplicate/malformed identifiers and extra outcome claims rejected |
+| Workspace orchestration | Component test, mocked role session/storage, real backup crypto | Missing autosave and a storage failure prevent simulated broadcast; persisted ciphertext contains the identifier before the simulated finality error; fresh component restore recovers the journal |
+| Production browser suite | `VULNSEAL_CAPTURE_VISUALS=1 npm run test:e2e` | Exit 0; 30 passed in 1.6 minutes on desktop Chrome and Pixel 7 |
+| Production journal recovery | Two of the browser cases | Synthetic version 2 file restored, encrypted into actual IndexedDB, original tab closed and fresh-tab unlock displays the same identifier with reconciliation labeling; no finality receipt fabricated |
+
+The journal is a durable pre-submission intent record for the independent role workspace, not complete pending-transaction recovery. The combined demo does not register the checkpoint. No real wallet transaction was submitted by these checks. Automatic finality lookup, semantic retry protection and native Lace interruption drills remain open. The current mobile role-storage screenshot was visually inspected; see [ADR-0012](adr/0012-submission-journal.md).
+
 ## Submission uncertainty handling — 2026-09-09
 
 The browser resolves a transaction identifier and serializes the transaction before invoking the wallet's submission method. Local failures therefore cannot occur after an otherwise successful broadcast in those two steps. A connector-call error becomes `SubmissionOutcomeUnknown`, retaining the identifier and cause without claiming network rejection or retrying. Both browser entries share this provider.

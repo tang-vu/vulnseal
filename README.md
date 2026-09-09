@@ -93,7 +93,7 @@ On older x86 CPUs, the compiler-bundled ZKIR key generator may exit with illegal
 
 For independent client implementations, the [single-role transaction API](docs/role-session-api.md) provides fixed researcher/vendor sessions with current-ledger checks and serialized private witnesses. The dedicated [role workspace](docs/role-workspace.md) uses this API; the combined demo remains separate.
 
-The role workspace supports optional password-encrypted browser autosave for identity and prepared/received reports, with fresh-tab unlock and revision checks against conflicting tab writes. Keep a downloaded backup too: clearing browser data removes local copies. Draft edits, transition notes and receiving keys are outside this autosave. See [the storage design](docs/adr/0011-encrypted-browser-autosave.md).
+The role workspace supports password-encrypted browser autosave for identity and prepared/received reports, with fresh-tab unlock and revision checks against conflicting tab writes. Real role submissions require autosave so the transaction identifier can be persisted before calling the wallet; the [submission journal](docs/adr/0012-submission-journal.md) records attempts without claiming success or finality. Keep a downloaded backup too: clearing browser data removes local copies. Draft edits, transition notes and receiving keys are outside this autosave. See [the storage design](docs/adr/0011-encrypted-browser-autosave.md).
 
 ```bash
 npm run typecheck

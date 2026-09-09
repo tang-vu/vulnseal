@@ -30,6 +30,16 @@ const readFile = async (file: File | undefined, max: number) => {
 export function RoleWorkspace() {
   const [vault, setVault] = useState<RoleVault>();
   const [saved, setSaved] = useState<RoleVault>();
+  const currentVault = useRef(vault); currentVault.current = vault;
+  const persistJournal = useRef<((value: RoleVault) => Promise<void>) | undefined>(undefined);
+  const recordSubmission = async (transactionId: string) => {
+    const current = currentVault.current, persist = persistJournal.current;
+    if (!current || !persist) throw new Error("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
+    if (current.submissionAttempts?.some((entry) => entry.transactionId === transactionId)) throw new Error("This transaction is already recorded. Reconcile its identifier before trying again.");
+    const updated = await validateRoleVault({ ...current, version: 2, submissionAttempts: [...(current.submissionAttempts ?? []), { transactionId, recordedAt: new Date().toISOString() }] });
+    await persist(updated);
+    currentVault.current = updated; setVault(updated); setSaved(updated);
+  };
   const [session, setSession] = useState<RoleSession>();
   const [snapshot, setSnapshot] = useState<PublicContractSnapshot>();
   const [network, setNetwork] = useState("preprod");
@@ -94,11 +104,15 @@ export function RoleWorkspace() {
       {error && <p role="alert" className="operation-notice error">{error}</p>}
       {message && <p role="status" className="operation-notice">{message}</p>}
       {receipt && <p className="operation-notice public-value">Finalized {receipt.circuit}: {receipt.txId} at block {receipt.blockHeight}. A failed follow-up read does not erase this transaction.</p>}
-      <LocalRoleStorage vault={vault} disabled={working} onSaved={setSaved} onRestore={(restored) => lock(async () => {
+      <LocalRoleStorage vault={vault} disabled={working} onSaved={setSaved} onPersistence={(persist) => { persistJournal.current = persist; }} onRestore={(restored) => lock(async () => {
         if (vault) throw new Error("Restore in a fresh tab to preserve the open workspace");
-        const joined = restored.contractAddress ? await joinRoleVault(restored) : undefined;
+        const joined = restored.contractAddress ? await joinRoleVault(restored, recordSubmission) : undefined;
         setVault(restored); setSaved(restored); setSession(joined?.session); setSnapshot(joined?.snapshot); setSelectedId(restored.reports[0]?.reportId ?? "");
       })} />
+      {vault && <section className="form-panel"><h2>Submission journal</h2>
+        <p>Real role submissions require encrypted browser autosave. The transaction identifier is saved before calling the wallet. A recorded attempt is not proof of broadcast, success or finality; check the wallet or indexer before retrying after an interruption.</p>
+        {vault.submissionAttempts?.length ? <ul>{vault.submissionAttempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt} · outcome requires reconciliation</li>)}</ul> : <p>No recorded submission attempts.</p>}
+      </section>}
       <fieldset className="workflow-controls" disabled={working}>
         {!vault ? <>
           <section className="form-panel"><h2>Create a vendor identity</h2><label>Workspace network<select value={network} onChange={(event) => setNetwork(event.target.value)}><option value="preprod">Preprod</option><option value="local">Local Midnight</option></select></label>
@@ -107,11 +121,11 @@ export function RoleWorkspace() {
           <form className="form-panel" onSubmit={(event) => form(event, async () => {
             const invitation = parseInvitation(await readFile(invitationFile, 4096));
             const created: RoleVault = { version: 1, role: "researcher", network: invitation.network, contractAddress: invitation.contractAddress, programId: invitation.programId, actorSecret: bytesToHex(randomBytes(32)), reports: [] };
-            const joined = await joinRoleVault(created); setVault(created); setSession(joined.session); setSnapshot(joined.snapshot); setTab("backup");
+            const joined = await joinRoleVault(created, recordSubmission); setVault(created); setSession(joined.session); setSnapshot(joined.snapshot); setTab("backup");
           })}><h2>Join as researcher</h2><p>Get a public program invitation from the vendor and confirm its contract address through your agreed channel.</p><label>Public program invitation<input type="file" accept=".json,application/json" required onChange={(event) => setInvitationFile(event.target.files?.[0])} /></label><button className="primary-button">Connect Lace and join as researcher</button></form>
           <form className="form-panel" onSubmit={(event) => form(event, async () => {
             const restored = await decryptRoleVault(await readFile(file, MAX_ROLE_BACKUP_BYTES), password);
-            const joined = restored.contractAddress ? await joinRoleVault(restored) : undefined;
+            const joined = restored.contractAddress ? await joinRoleVault(restored, recordSubmission) : undefined;
             setVault(restored); setSaved(restored); setSession(joined?.session); setSnapshot(joined?.snapshot); setSelectedId(restored.reports[0]?.reportId ?? ""); setPassword("");
           })}><h2>Restore one role</h2><label>Single-role backup file<input type="file" accept=".json,application/json" required onChange={(event) => setFile(event.target.files?.[0])} /></label><label>Role restore password<input type="password" minLength={12} required value={password} onChange={(event) => setPassword(event.target.value)} /></label><button className="primary-button">Restore role workspace</button><p>Network restores check current authority and saved report bindings before installing the workspace.</p></form>
         </> : <>
@@ -126,15 +140,15 @@ export function RoleWorkspace() {
             const data = new FormData(event.currentTarget); form(event, async () => {
               const policy = readProgramForm(data);
               if (!backedUp) throw new Error("Save the vendor identity backup before deployment");
-              const providers = await initializeBrowserProviders(vault.network);
+              const providers = await initializeBrowserProviders(vault.network, recordSubmission);
               const deployed = await VulnSealApi.deploy(providers, createVulnSealPrivateState(hexToBytes(vault.actorSecret)), await programConstructor(hexToBytes(vault.programId), policy));
-              const updated = { ...vault, contractAddress: deployed.api.contractAddress }; setVault(updated); setReceipt(deployed.evidence);
+              const updated = { ...currentVault.current!, contractAddress: deployed.api.contractAddress }; setVault(updated); setReceipt(deployed.evidence);
               const connected = await RoleSession.attach(deployed.api, { role: "vendor", programId: hexToBytes(vault.programId), actorSecret: hexToBytes(vault.actorSecret) }); setSession(connected); setSnapshot(await connected.readPublicState()); setTab("backup");
             });
           }}><h2>Deploy vendor program</h2>{([ ["name", "Program name"], ["primaryScope", "Primary scope"], ["additionalScope", "Additional scope"], ["rewardPolicy", "Reward policy"] ] as const).map(([name, label]) => <label key={name}>{label}{name === "rewardPolicy" ? <textarea name={name} defaultValue={defaultProgram[name]} required rows={4} /> : <input name={name} defaultValue={defaultProgram[name]} required={name !== "additionalScope"} />}</label>)}<label>Response days<select name="responseDays" defaultValue="7"><option>2</option><option>7</option><option>14</option></select></label><label>Disclosure days<select name="disclosureDays" defaultValue="90"><option>30</option><option>60</option><option>90</option></select></label><button className="primary-button" disabled={!backedUp}>Connect Lace and deploy program</button></form>}
           {!session && tab === "reports" && <form className="form-panel" onSubmit={(event) => form(event, async () => {
             const updated = await validateRoleVault({ ...vault, contractAddress: vault.contractAddress ?? address.trim().toLowerCase() });
-            const joined = await joinRoleVault(updated); setVault(updated); setSession(joined.session); setSnapshot(joined.snapshot);
+            const joined = await joinRoleVault(updated, recordSubmission); setVault(updated); setSession(joined.session); setSnapshot(joined.snapshot);
           })}><h2>Reconnect an existing program</h2><p>For a pre-deployment backup, enter the address from your finalized deployment receipt. The vendor key must match.</p>{!vault.contractAddress && <label>Existing contract address<input value={address} required onChange={(event) => setAddress(event.target.value)} /></label>}<button className="secondary-button">Connect Lace and verify program</button></form>}
           {session && tab === "reports" && <section className="form-panel"><h2>Program reports</h2><button className="secondary-button" onClick={() => run(load)}>Refresh ledger</button>{vault.role === "vendor" && <button className="secondary-button" onClick={() => download(JSON.stringify({ format: "vulnseal-program-invitation", version: 1, network: vault.network, contractAddress: vault.contractAddress, programId: vault.programId }), "vulnseal-program-invitation.json")}>Download public program invitation</button>}
             <label>Workspace report<select value={selectedId} onChange={(event) => { setSelectedId(event.target.value); setDetail(""); setReceipt(undefined); }}><option value="">Choose a saved report</option>{vault.reports.map((entry) => <option value={entry.reportId} key={entry.reportId}>{entry.reportId}</option>)}</select></label>

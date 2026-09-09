@@ -6,9 +6,9 @@ import { initializeBrowserProviders } from "./midnight/browser-providers.js";
 import { validateDisclosure } from "./handoff.js";
 import type { RoleVault } from "./role-recovery.js";
 
-export const joinRoleVault = async (vault: RoleVault) => {
+export const joinRoleVault = async (vault: RoleVault, beforeSubmit?: Parameters<typeof initializeBrowserProviders>[1]) => {
   if (!vault.contractAddress) throw new Error("The role backup has no deployed contract address");
-  const providers = await initializeBrowserProviders(vault.network);
+  const providers = beforeSubmit ? await initializeBrowserProviders(vault.network, beforeSubmit) : await initializeBrowserProviders(vault.network);
   const session = await RoleSession.join(providers, vault.contractAddress, { role: vault.role, programId: hexToBytes(vault.programId), actorSecret: hexToBytes(vault.actorSecret) });
   const snapshot = await session.readPublicState();
   for (const item of vault.reports) {

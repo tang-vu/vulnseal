@@ -16,10 +16,12 @@ export class SubmissionOutcomeUnknown extends Error {
 export const submitIdentifiedTransaction = async (
   transaction: FinalizedTransaction,
   submit: (serialized: string) => Promise<unknown>,
+  beforeSubmit?: (transactionId: TransactionId) => Promise<void>,
 ): Promise<TransactionId> => {
   const identifier = transaction.identifiers()[0];
   if (typeof identifier !== "string" || !identifier.length) throw new Error("Transaction has no identifier; it was not submitted");
   const serialized = toHex(transaction.serialize());
+  await beforeSubmit?.(identifier);
   try { await submit(serialized); }
   catch (cause) { throw new SubmissionOutcomeUnknown(identifier, cause); }
   return identifier;

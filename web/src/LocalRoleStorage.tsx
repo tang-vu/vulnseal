@@ -5,10 +5,11 @@ import { listStoredRoles, readStoredRole, writeStoredRole, type StoredRoleLabel 
 import { RoleAutosave } from "./role-autosave.js";
 import { RoleCopyCatalog } from "./RoleCopyCatalog.js";
 
-export function LocalRoleStorage({ vault, disabled, onRestore, onSaved }: {
+export function LocalRoleStorage({ vault, disabled, onRestore, onSaved, onPersistence }: {
   readonly vault: RoleVault | undefined; readonly disabled: boolean;
   readonly onRestore: (vault: RoleVault) => Promise<void>;
   readonly onSaved: (vault: RoleVault | undefined) => void;
+  readonly onPersistence?: (persist: ((vault: RoleVault) => Promise<void>) | undefined) => void;
 }) {
   const [rows, setRows] = useState<StoredRoleLabel[]>([]);
   const [selected, setSelected] = useState("");
@@ -25,6 +26,23 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved }: {
   const savedCopyId = useRef<string | undefined>(undefined);
   const latest = useRef({ vault, onRestore, onSaved }); latest.current = { vault, onRestore, onSaved };
   const mounted = useRef(true), busy = useRef(false);
+  const persistenceListener = useRef(onPersistence); persistenceListener.current = onPersistence;
+  useEffect(() => {
+    persistenceListener.current?.(writer ? async (snapshot) => {
+      if (!mounted.current || activeWriter.current !== writer) throw new Error("Encrypted browser autosave is unavailable; transaction was not submitted");
+      setPending((value) => value + 1);
+      try {
+        const row = await writer.save(snapshot);
+        if (!mounted.current || activeWriter.current !== writer) throw new Error("Workspace closed during journal save; transaction was not submitted");
+        saved.current = snapshot;
+        setMessage(`Saved encrypted submission journal · revision ${row.revision}`);
+      } catch (cause) {
+        writer.stop(); activeWriter.current = undefined; setWriter(undefined);
+        setError(cause instanceof Error ? cause.message : "Submission journal save failed"); throw cause;
+      } finally { if (mounted.current) setPending((value) => value - 1); }
+    } : undefined);
+    return () => persistenceListener.current?.(undefined);
+  }, [writer]);
   useEffect(() => {
     mounted.current = true;
     void listStoredRoles().then((value) => { if (mounted.current) setRows(value); }).catch(() => { if (mounted.current) setMessage("Browser storage is unavailable here. Downloaded file backups remain available."); });

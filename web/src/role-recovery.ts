@@ -3,7 +3,8 @@ import type { ActorRole } from "@vulnseal/api/role-session";
 import { base64UrlToBytes, bytesToBase64Url, randomBytes, utf8 } from "@vulnseal/shared";
 import { validateDisclosure, type Disclosure } from "./handoff.js";
 
-export type RoleVault = { readonly version: 1; readonly role: ActorRole; readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly actorSecret: string; readonly reports: readonly Disclosure[] };
+export type SubmissionAttempt = { readonly transactionId: string; readonly recordedAt: string };
+export type RoleVault = { readonly version: 1 | 2; readonly role: ActorRole; readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly actorSecret: string; readonly reports: readonly Disclosure[]; readonly submissionAttempts?: readonly SubmissionAttempt[] };
 export type ProgramInvitation = { readonly format: "vulnseal-program-invitation"; readonly version: 1; readonly network: string; readonly contractAddress: string; readonly programId: string };
 export const MAX_ROLE_BACKUP_BYTES = 32 * 1024 * 1024;
 const buffer = (value: Uint8Array) => Uint8Array.from(value).buffer;
@@ -27,9 +28,20 @@ export const parseInvitation = (serialized: string): ProgramInvitation => {
   return { format: "vulnseal-program-invitation", version: 1, network: network(value.network), contractAddress: hex(value.contractAddress), programId: hex(value.programId) };
 };
 export const validateRoleVault = async (input: unknown): Promise<RoleVault> => {
-  const value = object(input, ["version", "role", "network", "contractAddress", "programId", "actorSecret", "reports"]);
-  if (value.version !== 1 || !["vendor", "researcher"].includes(String(value.role)) || !Array.isArray(value.reports) || value.reports.length > 100) throw new Error("Invalid role backup");
-  const result: RoleVault = { version: 1, role: value.role as ActorRole, network: network(value.network), contractAddress: value.contractAddress === null ? null : hex(value.contractAddress), programId: hex(value.programId), actorSecret: hex(value.actorSecret), reports: [] };
+  const version = (input as { version?: unknown } | null)?.version;
+  const value = object(input, ["version", "role", "network", "contractAddress", "programId", "actorSecret", "reports", ...(version === 2 ? ["submissionAttempts"] : [])]);
+  if ((value.version !== 1 && value.version !== 2) || !["vendor", "researcher"].includes(String(value.role)) || !Array.isArray(value.reports) || value.reports.length > 100) throw new Error("Invalid role backup");
+  const attempts: SubmissionAttempt[] = [];
+  if (version === 2) {
+    if (!Array.isArray(value.submissionAttempts) || value.submissionAttempts.length > 200) throw new Error("Invalid submission journal");
+    const ids = new Set<string>();
+    for (const item of value.submissionAttempts) {
+      const entry = object(item, ["transactionId", "recordedAt"]), transactionId = hex(entry.transactionId);
+      if (ids.has(transactionId) || typeof entry.recordedAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(entry.recordedAt) || !Number.isFinite(Date.parse(entry.recordedAt))) throw new Error("Invalid submission journal entry");
+      ids.add(transactionId); attempts.push({ transactionId, recordedAt: entry.recordedAt });
+    }
+  }
+  const result: RoleVault = { version: value.version, role: value.role as ActorRole, network: network(value.network), contractAddress: value.contractAddress === null ? null : hex(value.contractAddress), programId: hex(value.programId), actorSecret: hex(value.actorSecret), reports: [], ...(version === 2 ? { submissionAttempts: attempts } : {}) };
   const reports: Disclosure[] = [];
   if (result.contractAddress === null && result.role !== "vendor") throw new Error("A researcher role backup must name a deployed program");
   const ids = new Set<string>();
