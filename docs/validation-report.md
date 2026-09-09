@@ -1,5 +1,15 @@
 # Validation report
 
+## Page and search long recovery journals — 2026-09-09
+
+The unlocked workspace and wallet-free inspector now share a ten-entry journal view, newest saved entries first, with local transaction/report/circuit search. Private notes are not search inputs. All attempts remain in encrypted storage; this is not pruning or archival. Page/filter changes unmount hidden entries and therefore invoke existing transaction/replay cancellation cleanup. Replaced journal data resets paging, and closing the journal discards query state.
+
+The focused component run passed **3 cases in 10.03 seconds**, with 15 unrelated workspace cases excluded by the filter. It verifies 23 entries across three pages, final-page boundaries, case-insensitive identifier/circuit searches, no private-note search, query reset on close, and the full 200-entry workspace retaining export access while rendering only its first page. Web typechecking passed.
+
+All six existing desktop/mobile journal-recovery cases passed in the initial browser run. Two new cases initially used a partial label selector matching both the input and navigation; after making it exact, both passed in **39.2 seconds**. They restore 23 attempts offline, navigate to the oldest page, find a specific old identifier, handle no matches, and assert no POST or external HTTPS requests. The ordinary suite now has 74 cases; no full expanded-suite run is claimed here.
+
+The final normal release build exited successfully: **8 circuits, 62 files, 62,628,271 bytes**, after the fresh compiler comparison at 12:20:35.345 UTC. No backup schema, contract source or proving keys changed.
+
 ## Reject journal capacity before transaction preparation — 2026-09-09
 
 The existing 200-attempt schema limit is now checked by workspace transaction preflight, before constructing the command or entering the SDK, and again when appending an attempt. Previously a full journal could reach proof/wallet preparation before its checkpoint failed. The journal displays usage and retains all history at capacity; read-only inspection and backup export remain available. No archival/pruning or automatic deletion was added, and no backup format changed.

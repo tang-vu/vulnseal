@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { JournalEntries } from "./JournalEntries.js";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { decryptRoleVault, MAX_ROLE_BACKUP_BYTES, type SubmissionAttempt } from "./role-recovery.js";
 import { listStoredRoles, readStoredRole, type StoredRoleLabel } from "./role-storage.js";
@@ -62,7 +63,7 @@ export function RecoveryJournal() {
     {view && <div>
       <p>Backup network: {view.network}. These are local backup claims, not verified authority or transaction outcomes.</p>
       {view.contractAddress && <p className="public-value">Backup contract: {view.contractAddress}</p>}
-      {view.attempts.length ? <ul>{view.attempts.map((entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt}<SubmissionIntentView entry={entry} /><TransactionCheck network={view.network} transactionId={entry.transactionId} contractAddress={view.contractAddress} circuit={entry.intent?.circuit} />{view.contractAddress && entry.intent?.reportId && <ReportEffectCheck network={view.network} transactionId={entry.transactionId} contractAddress={view.contractAddress} programId={view.programId} reportId={entry.intent.reportId} circuit={entry.intent.circuit} />}</li>)}</ul> : <p>This backup contains no recorded submission attempts. It may predate a transaction; this does not prove that nothing was sent.</p>}
+      {view.attempts.length ? <JournalEntries entries={view.attempts} label="Search inspected journal">{(entry) => <li className="public-value" key={entry.transactionId}>{entry.transactionId} · recorded {entry.recordedAt}<SubmissionIntentView entry={entry} /><TransactionCheck network={view.network} transactionId={entry.transactionId} contractAddress={view.contractAddress} circuit={entry.intent?.circuit} />{view.contractAddress && entry.intent?.reportId && <ReportEffectCheck network={view.network} transactionId={entry.transactionId} contractAddress={view.contractAddress} programId={view.programId} reportId={entry.intent.reportId} circuit={entry.intent.circuit} />}</li>}</JournalEntries> : <p>This backup contains no recorded submission attempts. It may predate a transaction; this does not prove that nothing was sent.</p>}
     </div>}
   </section>;
 }

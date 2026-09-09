@@ -54,7 +54,8 @@ describe("independent role workspace", () => {
     await user.click(screen.getByRole("button", { name: "Save role backup" }));
     expect(screen.getByText("Submission journal: 200 of 200 attempts retained.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Download single-role backup" })).toBeEnabled();
-    expect(screen.getAllByText(/Operation and report were not recorded/)).toHaveLength(200);
+    expect(screen.getAllByText(/Operation and report were not recorded/)).toHaveLength(10);
+    expect(screen.getByText(/Page 1 of 20/)).toBeInTheDocument();
   }, 15_000);
   it.each([{ passed: true, saveFails: false }, { passed: false, saveFails: false }, { passed: false, saveFails: true }])("waits for encrypted retest context before continuing: $passed / storage failure $saveFails", async ({ passed, saveFails }) => {
     const { user, session, vault } = await restore("researcher", 4);

@@ -2,6 +2,29 @@
 import { expect, test } from "@playwright/test";
 import { encryptRoleVault } from "../web/src/role-recovery.js";
 
+test("long offline journals page and find old attempts without network checks", async ({ page }) => {
+  const attempts = Array.from({ length: 23 }, (_, i) => ({ transactionId: (i + 1).toString(16).padStart(64, "0"), recordedAt: "2026-09-09T00:00:00.000Z" }));
+  const password = "Long journal recovery password";
+  const encrypted = await encryptRoleVault({ version: 2, role: "vendor", network: "preprod", contractAddress: "ab".repeat(32), programId: "12".repeat(32), actorSecret: "34".repeat(32), reports: [], submissionAttempts: attempts }, password);
+  await page.goto("/#roles");
+  const requests: string[] = [];
+  page.on("request", (request) => { if (request.method() === "POST" || request.url().startsWith("https://")) requests.push(request.url()); });
+  await page.getByLabel("Journal backup file").setInputFiles({ name: "long-journal.json", mimeType: "application/json", buffer: Buffer.from(encrypted) });
+  await page.getByLabel("Journal backup password").fill(password);
+  await page.getByRole("button", { name: "Read recovery journal" }).click();
+  await expect(page.getByText(/Page 1 of 3/)).toBeVisible();
+  await expect(page.getByText(attempts[0]!.transactionId, { exact: false })).toHaveCount(0);
+  await page.getByRole("button", { name: "Older attempts" }).click();
+  await page.getByRole("button", { name: "Older attempts" }).click();
+  await expect(page.getByText(/Page 3 of 3/)).toBeVisible();
+  await page.getByLabel("Search inspected journal", { exact: true }).fill(attempts[0]!.transactionId);
+  await expect(page.getByText(/1 of 23 attempts match/)).toBeVisible();
+  await expect(page.getByText(attempts[0]!.transactionId, { exact: false })).toBeVisible();
+  await page.getByLabel("Search inspected journal", { exact: true }).fill("not-a-transaction");
+  await expect(page.getByText(/No matching attempts/)).toBeVisible();
+  expect(requests).toEqual([]);
+});
+
 for (const version of [2, 5, 6] as const) {
 test(`v${version} deployed-role journal can be inspected from file and browser storage without Lace or network requests`, async ({ page }, testInfo) => {
   const transactionId = "00315eaad1b87f436849790da0f0072be407dfdf9079b78f15e73c838b9ede2c19";
