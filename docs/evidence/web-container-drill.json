@@ -1,10 +1,10 @@
 {
-  "capturedAt": "2026-09-10T14:33:08.381Z",
-  "imageId": "sha256:3f4ee9d7422529ae05c167b559d8114da9aef49f5bc59dce597dc0c6ce1d8959",
-  "origin": "http://127.0.0.1:32790",
+  "capturedAt": "2026-09-10T15:28:55.467Z",
+  "imageId": "sha256:b101ee3bc5a551d574d18a78e3c194f0ed41485022a9499788800e0bf382b1dc",
+  "origin": "http://127.0.0.1:32792",
   "files": 80,
   "requests": 81,
-  "bytes": 65409736,
+  "bytes": 65416099,
   "nonRoot": true,
   "readOnlyRoot": true,
   "headersChecked": true,
@@ -13,6 +13,7 @@
   "desktopAndMobilePublicWorkerDeadline": "injected busy worker reached its handler; packaged UI timed out, restarted and canceled without accepting a result",
   "desktopAndMobileDeploymentWorker": "packaged worker decoded captured raw deployment and reported matching and mismatched policy; mocked indexer/RPC",
   "desktopAndMobileSubmissionWidget": "real second HTTP origin loaded only two public modules from the image and opened isolated invitation review",
+  "desktopAndMobileExchangeNavigation": "unfinished input survived switching screens and cleared explicitly in the packaged app",
   "widgetCorsChecked": true,
   "gracefulRestart": true,
   "cleanupCompleted": true

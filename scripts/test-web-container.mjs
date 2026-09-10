@@ -141,6 +141,16 @@ try {
         await page.getByRole("button", { name: "Cancel public lookup" }).click();
         await page.clock.fastForward(30_000);
         await expect(lookup).toBeEnabled(); await expect(page.getByRole("alert")).toHaveCount(0);
+        await page.getByRole("button", { name: "Private exchange", exact: true }).click();
+        const recipientPassword = page.getByLabel("Recipient backup password", { exact: true });
+        await recipientPassword.fill("Synthetic container recovery input");
+        await page.getByRole("button", { name: "Private recovery", exact: true }).click();
+        await expect(recipientPassword).toBeHidden();
+        await page.getByRole("button", { name: "Private exchange", exact: true }).click();
+        await expect(recipientPassword).toHaveValue("Synthetic container recovery input");
+        await page.getByRole("button", { name: "Clear exchange inputs and preview" }).click();
+        await expect(recipientPassword).toHaveValue("");
+        assert.deepEqual(errors, []);
       } finally { await context.close(); }
     }
   } finally {
@@ -154,7 +164,7 @@ try {
   await ready();
   const restarted = await request(origin, "/");
   assert.equal(createHash("sha256").update(new Uint8Array(await restarted.arrayBuffer())).digest("hex"), manifest.files.find((file) => file.path === "index.html").sha256);
-  result = { capturedAt: new Date().toISOString(), imageId: inspection.Image, ...hosted, nonRoot: true, readOnlyRoot: true, headersChecked: true, missingFilesReturn404: true, desktopAndMobilePublicLookup: "passed against captured fixture; no wallet or live network", desktopAndMobilePublicWorkerDeadline: "injected busy worker reached its handler; packaged UI timed out, restarted and canceled without accepting a result", desktopAndMobileDeploymentWorker: "packaged worker decoded captured raw deployment and reported matching and mismatched policy; mocked indexer/RPC", desktopAndMobileSubmissionWidget: "real second HTTP origin loaded only two public modules from the image and opened isolated invitation review", widgetCorsChecked: true, gracefulRestart: true };
+  result = { capturedAt: new Date().toISOString(), imageId: inspection.Image, ...hosted, nonRoot: true, readOnlyRoot: true, headersChecked: true, missingFilesReturn404: true, desktopAndMobilePublicLookup: "passed against captured fixture; no wallet or live network", desktopAndMobilePublicWorkerDeadline: "injected busy worker reached its handler; packaged UI timed out, restarted and canceled without accepting a result", desktopAndMobileDeploymentWorker: "packaged worker decoded captured raw deployment and reported matching and mismatched policy; mocked indexer/RPC", desktopAndMobileSubmissionWidget: "real second HTTP origin loaded only two public modules from the image and opened isolated invitation review", desktopAndMobileExchangeNavigation: "unfinished input survived switching screens and cleared explicitly in the packaged app", widgetCorsChecked: true, gracefulRestart: true };
 } catch (error) {
   if (created) process.stderr.write(docker("logs", "--tail", "30", name) + "\n");
   throw error;

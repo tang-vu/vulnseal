@@ -1,5 +1,13 @@
 # Validation report
 
+## Refresh the web image after recovery improvements -- 2026-09-10
+
+Application revision `83a6604` is packaged in local image `sha256:b101ee3bc5a551d574d18a78e3c194f0ed41485022a9499788800e0bf382b1dc`. The Docker build exited **0**, with an in-image package check and Caddy configuration validation. Caddy compile/matcher layers were cached. Artifact size is **8 circuits, 80 files, 65,414,820 bytes**.
+
+The permanent container drill now also enters a synthetic recipient password, switches to recovery and back, verifies retained input and explicitly clears it in the actual image on desktop and Pixel 7. These checks and all existing full HTTP comparison, non-root/read-only, headers/404, public lookup, worker deadline/retry/cancel, deployment-policy worker, cross-origin widget and graceful restart checks passed, exit **0**. HTTP comparison used **81 requests / 65,416,099 transferred bytes**, including the extra homepage request. Syntax checking passed. Owned cleanup completed, and final Docker label queries found no drill/scanner containers.
+
+Exact-image Trivy scanning exited **1**: **0 Alpine OS findings**, and **1 UNKNOWN GO-2026-5932** for `golang.org/x/crypto v0.56.0`, no fixed version reported. No finding was suppressed; the strict security gate remains failed. [Image/build/drill/scan evidence with log hashes](evidence/web-recovery-runtime.json), [current container drill](evidence/web-container-drill.json). These are local runtime checks, not public hosting, native Lace, authenticated chain evidence or a production release. No image was published or deployed externally.
+
 ## Consolidated web regression after exchange and recovery lifecycle fixes -- 2026-09-10
 
 At clean revision `55d8a69734fd8d605d010961d6b01b82782a17bb`, the complete web unit/component suite passed **357 tests across 57 files in 98.40 seconds**, exit **0**. One full ordinary browser invocation passed **126 desktop/mobile cases in 5.8 minutes**, two workers, no exclusions and no automatic retries, exit **0**. This consolidates receiving-key backup retries, leave guards, persistent exchange navigation, report-bound recipient confirmation, explicit panel clearing and combined-recovery callback guards with all existing web journeys.
