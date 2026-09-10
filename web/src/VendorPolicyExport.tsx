@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { compareProgramPolicy, type ProgramPolicy } from "@vulnseal/api/program-policy";
 import { readProgramForm, type ProgramDraft } from "./program.js";
-import { verifyPublicContract } from "./public-verification.js";
+import { verifyPublicContractInWorker as verifyPublicContract } from "./public-verification-worker.js";
 import { publicEndpoints } from "./public-endpoints.js";
 const labels = { scopeDigest: "Scope", responsePolicyDigest: "Response policy", rewardPolicyDigest: "Reward policy", disclosurePolicyDigest: "Disclosure policy", responseDays: "Response days", disclosureDays: "Disclosure days" };
 

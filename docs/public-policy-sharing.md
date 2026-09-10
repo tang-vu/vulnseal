@@ -10,4 +10,6 @@ A vendor workspace with a saved contract address offers **Share program policy**
 
 The preview identifies the observed block and check time. Draft/program/network/address changes discard it and cancel an outstanding read; cancellation or a late result cannot enable downloading an old selection. A download callback failure retains the reviewed file for an explicit retry without another lookup.
 
+Public reads and state decoding run in a dedicated worker with a 30-second outer deadline. Canceling or changing the selected inputs terminates that worker; a stalled decoder cannot continue to enable the export after timeout. Exact policy hashing and review rendering remain local UI work.
+
 Name is uncommitted display metadata. These comparisons trust the selected public sources and do not authenticate ownership, testing permission or deployment code. The file describes policy content and contains no network/contract binding or signature; recipients must establish the intended program separately. Nothing automatically publishes or messages the file. [Exact policy format and hashing](program-policy-sdk.md).

@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { programConstructor } from "@vulnseal/api/program-policy";
 import { bytesToHex } from "@vulnseal/shared";
 const mocks = vi.hoisted(() => ({ verify: vi.fn() }));
-vi.mock("./public-verification.js", () => ({ verifyPublicContract: mocks.verify }));
+vi.mock("./public-verification-worker.js", () => ({ verifyPublicContractInWorker: mocks.verify }));
 import { VendorPolicyExport } from "./VendorPolicyExport.js";
 const policy = { name: "Example", primaryScope: "api.example.test", additionalScope: "", responseDays: 7, disclosureDays: 90, rewardPolicy: "Tier 4" };
 const draft = { ...policy, responseDays: "7", disclosureDays: "90" };

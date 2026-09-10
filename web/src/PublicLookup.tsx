@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { publicStatusLabel } from "@vulnseal/shared";
-import { parsePublicReceipt, publicHex, publicReceiptLink, verifyPublicContract, type PublicVerification } from "./public-verification.js";
+import { parsePublicReceipt, publicHex, publicReceiptLink, type PublicVerification } from "./public-verification.js";
+import { verifyPublicContractInWorker as verifyPublicContract } from "./public-verification-worker.js";
 import { workflowStatement } from "./workflow.js";
 import { PublicPolicyCheck } from "./PublicPolicyCheck.js";
 
@@ -27,8 +28,9 @@ export function PublicLookup() {
     try {
       const id = reportId.trim() ? publicHex(reportId) : undefined;
       const expected = expectedDigest.trim() ? publicHex(expectedDigest) : undefined;
+      const contract = publicHex(address);
       const endpoints = publicEndpoints(network);
-      const verified = await verifyPublicContract(address, endpoints, pending.signal);
+      const verified = await verifyPublicContract(contract, endpoints, pending.signal);
       if (pending.signal.aborted) return;
       const selected = id ? verified.reports.find((entry) => entry.reportId === id) : undefined;
       if (id && !selected) throw new Error("Report not found in this contract");

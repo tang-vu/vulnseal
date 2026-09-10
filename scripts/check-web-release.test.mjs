@@ -17,6 +17,8 @@ test("release gate binds required prover assets to generated inventory and rejec
   await writeFile(path.join(dist, "assets/main.js"), "export {};");
   await assert.rejects(checkWebRelease({ workspace }), /Missing submission widget entrypoint/);
   await writeFile(path.join(dist, "assets/submission-widget.js"), "export {};");
+  await assert.rejects(checkWebRelease({ workspace }), /public lookup worker entrypoint/);
+  await writeFile(path.join(dist, "assets/public-lookup.worker-fixture.js"), "export {};");
   await writeFile(path.join(dist, "assets/main.js"), 'import("./missing-worker.js");');
   await assert.rejects(checkWebRelease({ workspace }), /Missing static asset reference/);
   await writeFile(path.join(dist, "assets/main.js"), "export {};");
@@ -25,7 +27,7 @@ test("release gate binds required prover assets to generated inventory and rejec
     await writeFile(path.join(dist, file), `synthetic ${file}`);
   }
   const valid = await checkWebRelease({ workspace });
-  assert.deepEqual(valid.circuits, ["submitReport"]); assert.equal(valid.files.length, 6);
+  assert.deepEqual(valid.circuits, ["submitReport"]); assert.equal(valid.files.length, 7);
   await writeFile(path.join(dist, "release-manifest.json"), JSON.stringify(valid));
   assert.deepEqual(await checkWebRelease({ workspace }), valid);
   await writeFile(path.join(dist, "assets/main.js"), "export const changed = true;");

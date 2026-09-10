@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ verify: vi.fn() }));
-vi.mock("./public-verification.js", async (original) => ({ ...await original<typeof import("./public-verification.js")>(), verifyPublicContract: mocks.verify }));
+vi.mock("./public-verification-worker.js", () => ({ verifyPublicContractInWorker: mocks.verify }));
 import { PublicLookup } from "./PublicLookup.js";
 import type { PublicVerification } from "./public-verification.js";
 

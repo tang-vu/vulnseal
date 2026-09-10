@@ -12,6 +12,8 @@ Available functions:
 | `verifyPublicReceipt(text, endpoints, signal?)` | Also require the receipt's report and ciphertext digest to match the observed contract; return `{ receipt, report, verification }`. |
 | `projectPublicLedger(ledger)` | Project an already-decoded ledger without network access. |
 
+The browser's public lookup and vendor policy-sharing check now run `verifyPublicContract` in a fresh module worker. A 30-second outer deadline covers worker initialization, public reads and synchronous state decoding; completion, cancellation, input changes and component unmount terminate the worker. Worker-load/message errors and timeout produce no accepted verification result. The API's existing 20-second request signal and 16 MiB JSON limits remain inside this boundary. The direct Node/API entrypoint does not create a worker; its caller owns isolation. Browser suspension, result transfer and UI rendering can still delay main-thread timers.
+
 The public projection includes `scopeDigest`, `responsePolicyDigest`, `rewardPolicyDigest` and `disclosurePolicyDigest` alongside program ID and windows. To compare supplied policy content locally:
 
 ```ts

@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Browser public-state lookup and vendor policy-export checking now use a dedicated, disposable worker with a 30-second outer deadline. A busy-loop worker fixture verifies responsive cancellation/timeout/retry on desktop and mobile; normal captured-state and policy-file journeys also pass. Direct API callers still own worker isolation, and browser suspension/result transfer are outside a hard latency guarantee. The current image at `25f593c` predates this worker addition.
+
 - An embeddable submission entry now renders public program coordinates and opens invitation review in a separate VulnSeal tab. Vendor workspaces generate escaped embed code with a fallback link. The built widget uses only two small public modules; desktop/mobile checks cover actual cross-origin hosting, no opener access, invalidation and disabled JavaScript. Caddy's narrow module CORS was also checked locally with mounted current artifacts. The refreshed local image also passes the extended container drill; native-wallet completion and public hosting remain open. See [embedding instructions](submission-widget.md).
 
 - Vendor workspaces now export public policy JSON only after a public lookup matches the saved program ID and all six committed fields. The exact public text is previewed before download; missing drafts, mismatch, cancellation and input replacement cannot produce a matched export. A desktop/mobile journey restores a vendor backup, downloads the reviewed policy and compares it in an isolated verifier. This is a source-trusting file handoff, not signed policy publication or proof of ownership.

@@ -1,5 +1,15 @@
 # Validation report
 
+## Isolate browser public decoding in a disposable worker -- 2026-09-10
+
+Public lookup and the vendor policy-sharing check now call the shared public verifier in a dedicated module worker. A 30-second main-thread deadline covers worker startup, public reads and synchronous Compact-state decoding. Success, cancellation, timeout, worker/message errors and component invalidation terminate the worker and remove its timer/listener. Late messages cannot settle an already completed request. Only address and public endpoints are posted to the worker; direct API/Node behavior is unchanged.
+
+**16 web tests / 3 files passed in 4.45 seconds**, exit **0**, covering worker delivery/cleanup, pre-start and active cancellation, timeout/late response, worker/message failures and the existing public lookup/vendor review components. Chrome desktop and Pixel 7 passed **14 E2E cases in 1.1 minutes as reported**, two workers and no retries. An intercepted worker whose message handler loops indefinitely leaves the UI responsive: the outer deadline reports an error, an explicit retry starts another worker and cancellation prevents a later timeout/result. Normal captured-state receipt/finality checks, local policy comparison and vendor-file handoff through the actual compiled worker also pass.
+
+The packaging gate now requires exactly one public-lookup worker entrypoint; all **8 release-tool tests passed**, including rejection of an omitted worker. The final normal web build with TypeScript checking and package check exited **0**: **8 circuits, 80 files, 65,408,457 bytes**. Logs: `.compact/public-worker-tests.log`, `.compact/public-worker-browser.log`, `.compact/public-worker-release-tests.log` and `.compact/public-worker-release.log`.
+
+The browser tests use synthetic/captured services and an injected stalled worker, not new chain finality or a native wallet. The internal API request/JSON limits remain; browser suspension, result transfer and UI rendering can still delay timers. No image/public host or proving material was refreshed in this change; the image recorded at `25f593c` predates this worker addition.
+
 ## Refresh the distributable web image and extend its widget drill -- 2026-09-10
 
 The current application artifact at revision `25f593c` is now packaged into local image `sha256:e2cb2f3a239c53cc465877b86f2bbffb053392f8a0a303d351e7e11b547f374d` (`vulnseal-web:local`). The Docker build exited **0**, including the in-image artifact gate, Caddy matcher tests and Caddy configuration validation. It packages **8 circuits, 73 files, 64,103,964 artifact bytes**, covering the SDK, policy sharing, invitations and embedded entry added since the previous image.
