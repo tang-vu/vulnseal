@@ -389,6 +389,8 @@ input:focus, textarea:focus, select:focus { border-color: #536839; }
 .recovery-page .form-panel { margin-top: 20px; }
 .public-lookup .panel { margin-top: 20px; }
 .public-value { overflow-wrap: anywhere; }
+.workspace-navigation { margin: 12px; padding: 16px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-dark); display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.workspace-navigation p { flex-basis: 100%; margin: 0; }
 .public-lookup dd { margin: 6px 0 18px; }
 .attachment-editor { margin: 24px 0; padding: 20px; border: 1px solid var(--line); border-radius: var(--radius); }
 .attachment-editor h2 { margin-top: 0; }

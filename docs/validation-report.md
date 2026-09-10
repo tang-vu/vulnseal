@@ -1,5 +1,13 @@
 # Validation report
 
+## Preserve live work during fragment navigation -- 2026-09-10
+
+Changing the fragment of a running tab previously left the original workspace displayed under a different invitation/receipt URL. The bootstrap now detects that navigation, restores the original URL without reloading and offers the requested destination in a new tab with `noopener noreferrer`. Dismissal preserves the current workspace; another fragment request replaces the pending destination. The notice lives outside the lazily loaded workspace and does not recreate its identity or draft.
+
+Both navigation component tests passed in **2.67 seconds**, exit **0**, checking original release-path preservation, replacement/dismissal, retained input and listener cleanup. Chrome desktop and Pixel 7 passed **16 E2E cases in 58.8 seconds**, two workers and no retries: an unsaved vendor program name survives same-tab invitation navigation, the new tab reviews the requested invitation with `window.opener === null`, and a later receipt request leaves the original verifier's contract intact. Existing public lookup and invitation journeys also pass. These are local browser/synthetic-data checks; a full reload still requires normal encrypted recovery and no native-wallet transaction was executed.
+
+The final normal web build with TypeScript checking and release package check exited **0**: **8 circuits, 69 files, 64,068,825 bytes**. Local evidence: `.compact/workspace-navigation-tests.log`, `.compact/workspace-navigation-browser.log` and `.compact/workspace-navigation-release.log`. No container image, public host or proving material was refreshed.
+
 ## Reviewed public invitation links -- 2026-09-10
 
 Vendor workspaces with saved contract coordinates now expose a public link preserving the hosted release directory. The role entrypoint recognizes its fragment and reviews network/contract/program before an explicit join. Pasted links and public files share strict invitation validation; extra/duplicate fields, URL credentials/query fields, private file data and oversized inputs cannot enable joining. Editing the source clears its prior review, and superseded file reads cannot replace newer selections. Existing file-based joining now also shows that review.

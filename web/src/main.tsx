@@ -2,8 +2,10 @@
 import React, { lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
 import { AppBoundary, AppLoading } from "./AppBoundary.js";
+import { WorkspaceNavigation } from "./WorkspaceNavigation.js";
 import "./styles.css";
 
+const initialUrl = window.location.href;
 const roleMode = window.location.hash === "#roles" || window.location.hash.startsWith("#roles?");
 const Workspace = lazy(async () => {
   await import("./globals.js");
@@ -16,6 +18,7 @@ const Workspace = lazy(async () => {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
+    <WorkspaceNavigation initialUrl={initialUrl} />
     <AppBoundary><Suspense fallback={<AppLoading />}><Workspace /></Suspense></AppBoundary>
   </React.StrictMode>,
 );

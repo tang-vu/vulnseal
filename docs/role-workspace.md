@@ -2,6 +2,8 @@
 
 Vendors with saved contract coordinates can [share a public program invitation link](program-invitation-links.md) from Reports. Researchers open the link or import a public invitation file, review the network/contract/program, then explicitly connect Lace. Opening a link does not join or submit automatically.
 
+If another invitation or public receipt changes the fragment in this tab, a navigation notice offers to open it in a separate tab. The original URL and live workspace remain together, including unsaved drafts. **Keep working here** dismisses the request. This does not persist unsaved edits or prevent a full reload.
+
 For a saved vendor report, [import a public GitHub release reference](github-patch-release.md) into its private patch notes. Lookup and appending are separate actions; existing notes remain, and only a later explicit **Anchor patch** call hashes their complete text.
 
 Undeployed vendor programs can [import a public GitHub repository as primary scope](github-public-scope.md): look up its URL, review the public metadata, then explicitly apply it to the draft. Existing rewards/windows stay unchanged, and the chosen scope follows normal encrypted backup and deployment gates.
