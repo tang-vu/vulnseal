@@ -5,6 +5,46 @@ import ts from "typescript";
 import { decryptRoleVault, encryptRoleVault } from "../web/src/role-recovery.js";
 import type * as Storage from "../web/src/role-storage.js";
 
+test("a committed write with delayed completion stays unconfirmed after the storage deadline", async ({ page }) => {
+  const source = await readFile(new URL("../web/src/role-storage.ts", import.meta.url), "utf8");
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  await page.goto("/#roles");
+  await page.clock.install();
+  await page.addScriptTag({ content: `window.__roleStorageTest = (() => { const exports = {}; ${compiled}\nreturn exports; })();` });
+  const encrypted = await encryptRoleVault({ version: 1, role: "vendor", network: "preprod", programId: "12".repeat(32), actorSecret: "34".repeat(32), contractAddress: null, reports: [] }, "Delayed storage completion password");
+  const id = "12345678-1234-1234-1234-123456789abc";
+  await page.evaluate(async ({ id, encrypted }) => {
+    const target = window as unknown as { __roleStorageTest: typeof Storage; __delayedWrite: Promise<string>; __lateCompletion: () => void };
+    const original = IDBDatabase.prototype.transaction;
+    const committed = new Promise<void>((resolve, reject) => {
+      IDBDatabase.prototype.transaction = function (...args: Parameters<typeof original>) {
+        const tx = original.apply(this, args);
+        if (this.name === "vulnseal-encrypted-roles" && tx.mode === "readwrite") {
+          IDBDatabase.prototype.transaction = original;
+          // Commit real bytes, but hold delivery of the application's completion callback.
+          Object.defineProperty(tx, "oncomplete", { configurable: true, set(callback) { target.__lateCompletion = () => callback(new Event("complete")); } });
+          tx.addEventListener("complete", () => resolve(), { once: true });
+          tx.addEventListener("abort", () => reject(new Error("Unexpected real write abort")), { once: true });
+        }
+        return tx;
+      };
+    });
+    target.__delayedWrite = target.__roleStorageTest.writeStoredRole(id, "Committed but unconfirmed", encrypted, null).then(() => "confirmed", (cause) => String(cause));
+    await committed;
+  }, { id, encrypted });
+  await page.clock.fastForward(15_000);
+  const result = await page.evaluate(async (id) => {
+    const target = window as unknown as { __roleStorageTest: typeof Storage; __delayedWrite: Promise<string>; __lateCompletion: () => void };
+    const before = await target.__delayedWrite; target.__lateCompletion();
+    return { before, after: await target.__delayedWrite, row: await target.__roleStorageTest.readStoredRole(id) };
+  }, id);
+  expect(result.before).toContain("did not confirm completion within 15 seconds");
+  expect(result.before).toContain("A write may already have committed");
+  expect(result.after).toBe(result.before);
+  expect(result.row.encrypted).toBe(encrypted);
+  expect(result.row.revision).toBe(1);
+});
+
 test("encrypted submission journal survives file restore and a fresh browser tab", async ({ page, context }, testInfo) => {
   const transactionId = "00315eaad1b87f436849790da0f0072be407dfdf9079b78f15e73c838b9ede2c19";
   const encrypted = await encryptRoleVault({ version: 2, role: "vendor", network: "preprod", contractAddress: null, programId: "12".repeat(32), actorSecret: "34".repeat(32), reports: [], submissionAttempts: [{ transactionId, recordedAt: "2026-09-09T04:00:00.000Z" }] }, "Journal browser recovery password");

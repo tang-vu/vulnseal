@@ -1,5 +1,15 @@
 # Validation report
 
+## Bound encrypted browser storage waits -- 2026-09-10
+
+IndexedDB opening and each list/read/write/delete transaction now have separate **15-second application deadlines**. A late open is closed, a late upgrade is aborted, and transaction timeout attempts abort while rejecting the caller and discarding late callbacks. Connections and timers are cleaned up on synchronous setup failures as well. Revision comparison, strict write durability, encrypted-only validation and quota guidance remain in place. Existing autosave failure handling stops further queued saves and retains the live vault. Encryption and browser suspension remain outside these timer guarantees; timeout does not establish rollback.
+
+The final focused run passed **14 tests / 3 files in 10.72 seconds**, exit **0**, covering stalled opens and all four transaction operations, late upgrade/completion, timer cleanup, synchronous setup failures (including a thrown undefined value), serialized autosave and UI checkpoint ordering. The earlier 13-test run also passed before adding the undefined-rejection regression. Existing connector checkpoint tests were separately rerun to check that failed persistence never starts wallet submission.
+
+Chrome desktop and Pixel 7 passed **10 E2E cases in 51.0 seconds**, two workers and no retries. These cover encrypted journal/device recovery, atomic concurrent revision rejection, plaintext/quota failures, catalog export/delete/isolated restore, and a real IndexedDB write whose completion callback is deliberately withheld. That write actually commits; advancing the page clock triggers rejection, and delivering its late completion cannot change that result. Primitive browser checks compile the repository storage module into the test page without a production debug interface. Injected scheduling/quota faults do not establish physical-device storage behavior.
+
+The final normal web build with TypeScript checking and release package check exited **0**: **8 circuits, 69 files, 64,019,129 bytes**. No Docker image, public deployment or native-wallet transaction was changed. [Storage ordering and timeout limits](adr/0011-encrypted-browser-autosave.md).
+
 ## Compare deployed verifier keys with release references -- 2026-09-10
 
 The deployment-policy worker now compares the eight expected SDK-exposed verifier keys with reference files from its own release directory. It reports byte differences and missing/unexpected entrypoints independently of the seven saved policy fields. Only fixed circuit names select URLs; redirects, HTML/error responses and downloads exceeding 64 KiB fail the check under the existing deadlines.
