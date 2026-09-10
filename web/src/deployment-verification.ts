@@ -6,12 +6,13 @@ import { hexToBytes } from "@vulnseal/shared";
 import { captureDeploymentInputs, validateDeploymentInputs, type SavedDeploymentInputs } from "./program.js";
 import { observeTransaction } from "./transaction-verification.js";
 import { readBoundedJson } from "./bounded-json.js";
+import { compareDeploymentVerifiers } from "./deployment-verifiers.js";
 
 export type DeploymentCheckInput = { transactionId: string; saved: SavedDeploymentInputs; endpoints: { indexerUrl: string; rpcUrl: string } };
 export type DeploymentCheckResult = Awaited<ReturnType<typeof compareDeploymentPolicy>>;
 
 /** Compare local intent with the historical state claimed by the indexer, never today's draft. */
-export async function compareDeploymentPolicy(transactionId: string, saved: SavedDeploymentInputs, endpoints: { indexerUrl: string; rpcUrl: string }, signal?: AbortSignal) {
+export async function compareDeploymentPolicy(transactionId: string, saved: SavedDeploymentInputs, endpoints: { indexerUrl: string; rpcUrl: string; keyBase?: string }, signal?: AbortSignal) {
   const expected = validateDeploymentInputs(saved);
   const pending = signal ? AbortSignal.any([signal, AbortSignal.timeout(20_000)]) : AbortSignal.timeout(20_000);
   const observed = await observeTransaction(transactionId, endpoints, pending);
@@ -39,5 +40,6 @@ export async function compareDeploymentPolicy(transactionId: string, saved: Save
     if (typeof action.state !== "string" || !/^(?:0x)?(?:[a-f0-9]{2})+$/i.test(action.state)) throw new Error("Invalid state");
     actual = captureDeploymentInputs(ledger(ContractState.deserialize(hexToBytes(action.state)).data));
   } catch { throw new Error("Deployment state is incompatible with this VulnSeal schema"); }
-  return { address, blockHeight: observed.blockHeight, checkedAt: new Date().toISOString(), mismatches: (Object.keys(expected) as (keyof SavedDeploymentInputs)[]).filter((key) => expected[key] !== actual[key]) };
+  const verifiers = endpoints.keyBase ? await compareDeploymentVerifiers(action.state, endpoints.keyBase, pending) : undefined;
+  return { address, blockHeight: observed.blockHeight, checkedAt: new Date().toISOString(), mismatches: (Object.keys(expected) as (keyof SavedDeploymentInputs)[]).filter((key) => expected[key] !== actual[key]), ...(verifiers ? { verifiers } : {}) };
 }

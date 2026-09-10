@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Deployment-policy comparison additionally checks eight SDK-exposed verifier keys against release reference files, reporting changed keys and missing/unexpected entrypoints. Captured-fixture unit and desktop/mobile browser checks pass, including a changed key. This establishes byte equality for the exposed version, not authenticated source-to-key generation, all-version identity or safe transaction retry; the current Docker image predates this addition.
+
 - Browser network mode requires both wallet connection and program deployment. Guided reports cannot silently become network reports.
 - Wallet connection/configuration must match the requested network; the SDK network ID is updated on connection, and authorization is rechecked before balancing or submitting. Mobile exposes the wallet control.
 - Program form values determine the displayed policy and deployment digests. Severity and private rationale drive the actual acceptance call.

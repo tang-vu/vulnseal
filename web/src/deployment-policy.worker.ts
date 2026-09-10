@@ -7,6 +7,6 @@ self.onmessage = async (event: MessageEvent<DeploymentCheckInput>) => {
     await import("@midnight-ntwrk/ledger-v8");
     const { compareDeploymentPolicy } = await import("./deployment-verification.js");
     const { transactionId, saved, endpoints } = event.data;
-    self.postMessage({ result: await compareDeploymentPolicy(transactionId, saved, endpoints) });
+    self.postMessage({ result: await compareDeploymentPolicy(transactionId, saved, { ...endpoints, keyBase: new URL("../keys/", self.location.href).href }) });
   } catch (cause) { self.postMessage({ error: cause instanceof Error ? cause.message : "Deployment policy comparison failed" }); }
 };

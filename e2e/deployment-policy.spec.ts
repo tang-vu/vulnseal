@@ -5,6 +5,7 @@ import { ledger } from "@vulnseal/contract";
 import { hexToBytes } from "@vulnseal/shared";
 import fixture from "./fixtures/preprod-deployment-state.json" with { type: "json" };
 import later from "./fixtures/preprod-public-state.json" with { type: "json" };
+import referenceKeys from "./fixtures/release-verifier-keys.json" with { type: "json" };
 import { captureDeploymentInputs } from "../web/src/program.js";
 import { encryptRoleVault, withDeploymentInputs, withSubmissionAttempt } from "../web/src/role-recovery.js";
 
@@ -17,6 +18,10 @@ test("deployment policy comparison decodes historical state and reports local in
   const encrypted = await encryptRoleVault(vault, password);
   const bodies: string[] = [];
   let substituteState = false;
+  await page.route("**/keys/*.verifier", route => {
+    const name = new URL(route.request().url()).pathname.split("/").at(-1)!.replace(".verifier", "") as keyof typeof referenceKeys.keys;
+    return route.fulfill({ contentType: "application/octet-stream", body: Buffer.from(referenceKeys.keys[name], "hex") });
+  });
   await page.route("https://indexer.preprod.midnight.network/api/v4/graphql", async route => {
     bodies.push(route.request().postData()!);
     const response = structuredClone(fixture);
@@ -39,6 +44,7 @@ test("deployment policy comparison decodes historical state and reports local in
   expect(bodies).toEqual([]);
   await button.click();
   await expect(page.getByText("Saved deployment policy differs: rewardPolicyDigest.")).toBeVisible();
+  await expect(page.getByText("Verifier keys matching this release: 8 of 8.")).toBeVisible();
   await expect(page.getByText(new RegExp(`Deployment address: ${action.address}`))).toBeVisible();
   await expect(page.getByText(`Contract: ${action.address}`, { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Use observed address in reconnect form" })).toHaveCount(0);
@@ -49,6 +55,11 @@ test("deployment policy comparison decodes historical state and reports local in
   await button.click();
   await expect(page.getByText("Observed deployment state differs from the raw transaction's initial state")).toBeVisible();
   await expect(page.getByText("Saved deployment policy differs: rewardPolicyDigest.")).toHaveCount(0);
+  substituteState = false;
+  await page.route("**/keys/beginTriage.verifier", route => route.fulfill({ contentType: "application/octet-stream", body: Buffer.from([1, 2]) }));
+  await button.click();
+  await expect(page.getByText("Verifier keys matching this release: 7 of 8.")).toBeVisible();
+  await expect(page.getByText("Different verifier keys: beginTriage.")).toBeVisible();
 });
 
 test("an unresponsive deployment worker cannot prevent the UI deadline and retry", async ({ page }) => {

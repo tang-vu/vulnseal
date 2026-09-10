@@ -1,5 +1,13 @@
 # Validation report
 
+## Compare deployed verifier keys with release references -- 2026-09-10
+
+The deployment-policy worker now compares the eight expected SDK-exposed verifier keys with reference files from its own release directory. It reports byte differences and missing/unexpected entrypoints independently of the seven saved policy fields. Only fixed circuit names select URLs; redirects, HTML/error responses and downloads exceeding 64 KiB fail the check under the existing deadlines.
+
+Focused checks passed **37 tests / 3 files in 5.28 seconds**. Chrome desktop and Pixel 7 passed **4 E2E cases in 46.2 seconds**, two workers, no retries: the packaged worker reports eight matching references, rejects substituted deployment state and reports a deliberately changed key; timeout/retry/cancel coverage remains green. Browser data and reference downloads are intercepted with public fixtures. An earlier focused run had three fixture-path failures caused by Vite rewriting a dynamic filesystem URL; the final tests use checked-in public reference bytes, so skip-ZK CI does not require untracked local keys.
+
+A read-only local SDK comparison found all eight captured deployment keys equal to the retained local verifier files, **2,119 bytes each**. The final normal web build, including TypeScript checking, and release package check exited **0**: **8 circuits, 69 files, 64,018,008 bytes**. This is not fresh key generation, source authentication, proof/signature verification or permission to retry. Only the SDK-exposed key version is compared. The existing Docker image predates this change; no image, public host or native-wallet transaction was refreshed. [Design and trust limits](adr/0026-deployment-policy-comparison.md).
+
 ## Bound scanner wrapper and cleanup waits -- 2026-09-10
 
 Read-only Docker/journal inspection confirmed both previous containers had stopped and remained `removing`; disk capacity was sufficient. The original scanner wrapper was still alive waiting for auto-removal. No duplicate removal or global daemon restart was attempted. The existing pending wrapper does not acquire changes made to the script for future runs.
