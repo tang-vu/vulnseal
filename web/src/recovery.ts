@@ -2,6 +2,7 @@
 import { pureCircuits, type Ledger } from "@vulnseal/contract";
 import { base64UrlToBytes, bytesToBase64Url, bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, openReport, parseCiphertextEnvelope, randomBytes, sha256, utf8, type ReportStatusName, type SealedReport, type VulnerabilityReport } from "@vulnseal/shared";
 import { programConstructor, readProgramForm, type ProgramPolicy } from "./program.js";
+import { submissionReceipt } from "./submission-receipt.js";
 
 import { validateAttachmentDraft, type AttachmentDraft } from "./attachment-draft.js";
 export const MAX_RECOVERY_BYTES = 20 * 1024 * 1024;
@@ -193,13 +194,20 @@ export const verifyRecoveryLedger = async (snapshot: RecoverySnapshot, sealed: S
   const policy = await programConstructor(id, snapshot.policy);
   for (const field of ["scopeDigest", "responsePolicyDigest", "rewardPolicyDigest", "disclosurePolicyDigest"] as const) equal(ledger[field], policy[field], field);
   if (ledger.responseDays !== policy.responseDays || ledger.disclosureDelayDays !== policy.disclosureDelayDays) throw new Error("Recovery policy windows do not match the ledger");
-  if (!snapshot.report || !sealed) return undefined;
+  if (!snapshot.report) {
+    if (snapshot.pendingReport && ledger.reports.member(hexToBytes(snapshot.pendingReport.report.id))) {
+      throw new Error("The prepared report already exists in this contract. Keep this backup and investigate the previous submission; this restore cannot establish that another submission is safe.");
+    }
+    return undefined;
+  }
+  if (!sealed) throw new Error("Recovered report decryption material is missing");
   const reportId = hexToBytes(snapshot.report.id);
   if (!ledger.reports.member(reportId)) throw new Error("The recovered report is absent from this contract");
   const record = ledger.reports.lookup(reportId);
   equal(record.commitment, reportId, "report");
   equal(record.ciphertextDigest, sealed.ciphertextDigest, "ciphertext");
   equal(record.researcherKey, pureCircuits.deriveResearcherKey(id, reportId, hexToBytes(snapshot.researcherSecret)), "researcher authority");
+  equal(record.submissionReceipt, submissionReceipt(reportId, record.ciphertextDigest, record.researcherKey), "submission receipt");
   contractStatusName(record.status);
   return record;
 };

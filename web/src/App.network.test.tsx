@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+import { submissionReceipt } from "./submission-receipt.js";
+import { emptyAttachmentDraft } from "./attachment-draft.js";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -60,7 +62,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     const password = "Preserve uncertain demo transition";
     const programId = hexToBytes(snapshot.programId), reportId = hexToBytes(snapshot.report!.id);
     const record = { commitment: reportId, ciphertextDigest: sealed.ciphertextDigest, researcherKey: pureCircuits.deriveResearcherKey(programId, reportId, hexToBytes(snapshot.researcherSecret)), status: 0, severity: 0n, patchCommitment: new Uint8Array(32), retestCommitment: new Uint8Array(32), payoutReceipt: new Uint8Array(32) };
-    const ledger = { ...await programConstructor(programId, snapshot.policy), ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(snapshot.vendorSecret)), reports: { member: () => true, lookup: () => record } };
+    const ledger = { ...await programConstructor(programId, snapshot.policy), ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(snapshot.vendorSecret)), reports: { member: () => true, lookup: () => ({ ...record, submissionReceipt: submissionReceipt(reportId, record.ciphertextDigest, record.researcherKey) }) } };
     const api = { contractAddress: source.contractAddress, readPublicState: vi.fn().mockResolvedValue({ ledger }), usePrivateState: vi.fn().mockResolvedValue(undefined), beginTriage: vi.fn().mockRejectedValue(new Error("Finality connection lost")) };
     let confirmLate!: (value: unknown) => void;
     if (outcome === "timeout") api.beginTriage.mockImplementation(() => new Promise((resolve) => { confirmLate = resolve; }));
@@ -117,6 +119,32 @@ describe("browser network workflow with mocked wallet and finalized API results"
     } finally { click.mockRestore(); }
   }, 20_000);
 
+  it.each([false, true])("preserves a fresh session when a prepared backup already exists on the ledger (started=%s)", async (submissionStarted) => {
+    const user = userEvent.setup();
+    const { snapshot } = await recoveryFixture();
+    const source = { ...snapshot, version: 3 as const, attachmentDraft: emptyAttachmentDraft, mode: "midnight" as const, network: "preprod", contractAddress: "ab".repeat(32), report: null, history: [], pendingReport: { report: snapshot.report!, submissionStarted } };
+    const programId = hexToBytes(snapshot.programId);
+    const ledger = { ...await programConstructor(programId, snapshot.policy), ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(snapshot.vendorSecret)), reports: { member: vi.fn(() => true) } };
+    const api = { contractAddress: source.contractAddress, readPublicState: vi.fn().mockResolvedValue({ ledger }), submitReport: vi.fn(), usePrivateState: vi.fn() };
+    mocks.join.mockResolvedValue(api);
+    const password = "Prepared report recovery password";
+    const serialized = await encryptRecovery(source, password);
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Private recovery" }));
+    const file = new File([serialized], "prepared.json", { type: "application/json" });
+    Object.defineProperty(file, "text", { value: async () => serialized });
+    await user.upload(screen.getByLabelText("Recovery file"), file);
+    await user.type(screen.getByLabelText("Recovery password"), password);
+    fireEvent.submit(screen.getByRole("button", { name: "Restore encrypted backup" }).closest("form")!);
+    expect(await screen.findByText(/The prepared report already exists/, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Restore encrypted backup" })).toBeEnabled();
+    expect(screen.queryByText("Your report is sealed")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Recovered report/)).not.toBeInTheDocument();
+    expect(api.submitReport).not.toHaveBeenCalled();
+    expect(api.usePrivateState).not.toHaveBeenCalled();
+    expect(mocks.deploy).not.toHaveBeenCalled();
+  }, 15_000);
+
   it("restores network authority only after verification and uses ledger progress newer than the backup", async () => {
     const user = userEvent.setup();
     const { snapshot, sealed } = await recoveryFixture();
@@ -125,7 +153,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     const programId = hexToBytes(snapshot.programId);
     const reportId = hexToBytes(snapshot.report!.id);
     const record = { commitment: reportId, ciphertextDigest: sealed.ciphertextDigest, researcherKey: pureCircuits.deriveResearcherKey(programId, reportId, hexToBytes(snapshot.researcherSecret)), status: 4, severity: 4n, patchCommitment: new Uint8Array(32).fill(7), retestCommitment: new Uint8Array(32), payoutReceipt: new Uint8Array(32) };
-    const ledger = { ...await programConstructor(programId, snapshot.policy), ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(snapshot.vendorSecret)), reports: { member: () => true, lookup: () => record } };
+    const ledger = { ...await programConstructor(programId, snapshot.policy), ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(snapshot.vendorSecret)), reports: { member: () => true, lookup: () => ({ ...record, submissionReceipt: submissionReceipt(reportId, record.ciphertextDigest, record.researcherKey) }) } };
     const api = {
       contractAddress: networkSnapshot.contractAddress,
       readPublicState: vi.fn().mockResolvedValueOnce({ ledger: { ...ledger, ownerKey: new Uint8Array(32) } }).mockResolvedValue({ ledger }),
@@ -254,7 +282,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
       expect(snapshot.report).toBeNull();
       expect(snapshot.history).toEqual([]);
       const programId = hexToBytes(snapshot.programId);
-      mocks.join.mockResolvedValue({ ...api, readPublicState: vi.fn().mockResolvedValue({ ledger: { ...await programConstructor(programId, snapshot.policy), ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(snapshot.vendorSecret)) } }) });
+      mocks.join.mockResolvedValue({ ...api, readPublicState: vi.fn().mockResolvedValue({ ledger: { ...await programConstructor(programId, snapshot.policy), ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(snapshot.vendorSecret)), reports: { member: () => false } } }) });
       cleanup(); render(<App />);
       await user.click(screen.getByRole("button", { name: "Private recovery" }));
       const file = new File([serialized], "uncertain.json", { type: "application/json" });

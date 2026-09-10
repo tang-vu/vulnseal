@@ -44,6 +44,12 @@ This timer bounds the asynchronous application wait, not SDK cancellation or cha
 
 ## Operational limits
 
+### Ledger conflicts during restore
+
+Network restoration now checks whether a saved pending report already exists in the selected contract, before activating the restored session. If it exists, restore refuses with an instruction to retain the file and investigate the previous submission, regardless of the backup's `submissionStarted` value. An old snapshot marked not-started must not offer a new submission for a report that is already present. This refusal does not promote the preparation to a completed report or infer the finality of any particular transaction.
+
+If the pending report is absent, restoration preserves its original uncertainty marker; absence is not evidence that a retry is safe. Completed-report restoration also requires decrypted report material and recomputes the submission receipt from the report commitment, ciphertext digest and researcher key, in addition to the existing program/policy/authority checks. These checks detect inconsistencies in the returned ledger state; they do not authenticate the indexer, prove deployed code identity or reconcile transaction history. Recovery formats and encryption are unchanged.
+
 This is an explicit snapshot, not automatic persistence. Save a new file after new reports, secrets, or private evidence. Losing both the current tab and the latest backup loses any newer material. Transactions interrupted before their results are captured still require a separate pending-transaction recovery design.
 
 The current experimental session holds both roles. Its recovery file must not be used for researcher/vendor key exchange: anyone with the file and password gains both authorities. Separate-role exports and deliberate key sharing are subsequent work. The file does not back up the Lace wallet seed, rotate a compromised secret, or recover a forgotten password.

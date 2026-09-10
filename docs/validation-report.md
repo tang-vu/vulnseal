@@ -1,5 +1,15 @@
 # Validation report
 
+## Reject stale prepared-report restoration -- 2026-09-10
+
+Combined-demo network restore now checks a pending report's membership in the selected ledger before activating the recovered session. A present report is refused for both values of the backup's `submissionStarted` marker, with instructions to retain the file and investigate. An absent report preserves the original marker, including the existing uncertain-outcome lock. Completed reports require decrypted material and a submission receipt recomputed from commitment, ciphertext digest and researcher key. No backup format or main contract changed.
+
+`recovery.test.ts`, `submission-receipt.test.ts` and `App.network.test.tsx` passed **24 tests / 3 files in 37.76 seconds**, exit **0**; web typecheck passed. The new UI cases import real encrypted files with mocked wallet/ledger responses, refuse the conflict without activating a report, retain the restore form, and assert no report submission or program deployment. Existing failed/timed-out pending submissions still restore as uncertain when absent. Initial development runs exposed a missing test import and incomplete ledger fixtures; those were corrected, including adding actual receipt values and absent-report membership to the mocks.
+
+Production Chrome desktop and Pixel 7 backup/close/restore/continue journeys passed **2 tests in 1.2 minutes**, two workers and no retries, with `CI=1 npm run test:e2e -- e2e/vulnseal.spec.ts --grep 'encrypted backup restores'`. This browser check exercises guided recovery; the new network conflict behavior is covered by mocked-network UI tests, not native Lace.
+
+`npm run release:build` exited **0**: the source check at **2026-09-10T08:13:58.312Z** matched the unchanged eight-circuit main contract, all six workspace builds passed, and the checked web artifact contains **62 files / 62,655,228 bytes**. Proving keys were retained. Docker images, public hosting, native-wallet execution, authenticated ledger history and safe-retry reconciliation remain outside this validation.
+
 ## SQLite adapter from Node stdin/eval -- 2026-09-10
 
 Three real child-process regressions reproduced `ERR_INPUT_TYPE_NOT_ALLOWED` with the previously compiled adapter: Node `--eval` with `--input-type=module`, eval with `--input-type module`, and module stdin. The worker loads a file but inherited the host's input-only flag. The adapter now explicitly supplies execution arguments with just that option/value removed; other options are preserved.

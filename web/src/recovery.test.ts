@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { pureCircuits, type Ledger } from "@vulnseal/contract";
 import { hexToBytes } from "@vulnseal/shared";
 import { programConstructor } from "./program.js";
 import { decryptRecovery, encryptRecovery, validateRecovery, verifyRecoveryLedger } from "./recovery.js";
+import { submissionReceipt } from "./submission-receipt.js";
 import { recoveryFixture, recoveryDraft as draft } from "./test/recovery-fixture.js";
 
 const password = "test-only recovery password";
@@ -95,7 +96,9 @@ describe("encrypted browser recovery", () => {
     const programId = hexToBytes(snapshot.programId);
     const policy = await programConstructor(programId, snapshot.policy);
     const reportId = hexToBytes(snapshot.report!.id);
-    const record = { commitment: reportId, ciphertextDigest: sealed.ciphertextDigest, researcherKey: pureCircuits.deriveResearcherKey(programId, reportId, hexToBytes(snapshot.researcherSecret)), status: 7, severity: 3n };
+    const researcherKey = pureCircuits.deriveResearcherKey(programId, reportId, hexToBytes(snapshot.researcherSecret));
+    const record = { commitment: reportId, ciphertextDigest: sealed.ciphertextDigest, researcherKey, submissionReceipt: submissionReceipt(reportId, sealed.ciphertextDigest, researcherKey), status: 7, severity: 3n,
+      decisionDigest: new Uint8Array(32), patchCommitment: new Uint8Array(32), retestCommitment: new Uint8Array(32), retestPassed: false, payoutReceipt: new Uint8Array(32), rewardTier: 0n, createdSequence: 1n, updatedSequence: 2n };
     const ledger = { ...policy, ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(snapshot.vendorSecret)), reports: { member: () => true, lookup: () => record } } as unknown as Ledger;
     const current = await verifyRecoveryLedger(snapshot, sealed, ledger);
     expect(current?.status).toBe(7);
@@ -103,5 +106,21 @@ describe("encrypted browser recovery", () => {
     await expect(verifyRecoveryLedger({ ...snapshot, researcherSecret: "ff".repeat(32) }, sealed, ledger)).rejects.toThrow("researcher authority");
     await expect(verifyRecoveryLedger({ ...snapshot, policy: { ...snapshot.policy, responseDays: 14 } }, sealed, ledger)).rejects.toThrow("responsePolicyDigest");
     await expect(verifyRecoveryLedger(snapshot, sealed, { ...ledger, reports: { ...ledger.reports, member: () => false } })).rejects.toThrow("absent");
+    await expect(verifyRecoveryLedger(snapshot, undefined, ledger)).rejects.toThrow("decryption material is missing");
+    await expect(verifyRecoveryLedger(snapshot, sealed, { ...ledger, reports: { ...ledger.reports, lookup: () => ({ ...record, submissionReceipt: new Uint8Array(32) }) } })).rejects.toThrow("submission receipt");
+  });
+
+  it.each([false, true])("refuses an already-present prepared report without treating submissionStarted=%s as retry authority", async (submissionStarted) => {
+    const { snapshot } = await recoveryFixture();
+    const programId = hexToBytes(snapshot.programId);
+    const policy = await programConstructor(programId, snapshot.policy);
+    const pending = { ...snapshot, version: 3 as const, mode: "midnight" as const, network: "preprod", contractAddress: "ab".repeat(32), report: null, history: [], pendingReport: { report: snapshot.report!, submissionStarted } };
+    const member = vi.fn(() => true);
+    const ledger = { ...policy, ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(snapshot.vendorSecret)), reports: { member } } as unknown as Ledger;
+    await expect(verifyRecoveryLedger(pending, undefined, ledger)).rejects.toThrow("prepared report already exists");
+    expect(member).toHaveBeenCalledWith(hexToBytes(snapshot.report!.id));
+    member.mockReturnValue(false);
+    await expect(verifyRecoveryLedger(pending, undefined, ledger)).resolves.toBeUndefined();
+    expect(pending.pendingReport.submissionStarted).toBe(submissionStarted);
   });
 });
