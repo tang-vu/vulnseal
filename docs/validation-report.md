@@ -1,5 +1,13 @@
 # Validation report
 
+## Bind retirement approval to the store and inventory -- 2026-09-10
+
+Removal plans now include the canonical store path, backend, selected/present digests, a hash of all committed blob names and a `planDigest` over that scope. CLI and library apply require this reviewed plan digest; the previous policy-only hash is insufficient. Validation happens under the directory lease before creating an audit or deleting. Changing the target store or even adding an unrelated blob invalidates the plan. Audits preserve the checked scope and digest.
+
+All **6 retirement tests passed (13.18s)** and build exited **0**. New cases cover both backends, identical inventories at different store paths, missing confirmation, old policy-only confirmation, changed inventories, rejection before audit creation, and successful application after reviewing a fresh plan. Existing partial-audit failure/retry and retained-data tests passed in the same run. A separate compiled CLI probe on Node **24.14.1** exited **0** for both backends with the new plan digest: incorrect confirmation was refused, the selected fixture was removed, unrelated bytes were retained and the audit completed.
+
+This binds administrative scope, not human authorization, byte-level contents or physical-volume identity. The stopped-writer/cooperative-lease requirements still apply. Only synthetic test stores were modified. No full-suite rerun, runtime image rebuild, public deployment or physical-erasure claim is made in this increment; the preceding full cipherstore result remains 44 tests at its recorded revision.
+
 ## Offline selective ciphertext removal -- 2026-09-10
 
 The compiled `retire.js` CLI now provides a non-removing plan and explicit apply for filesystem and SQLite stores. Apply requires the reviewed policy digest, holds the offline directory lease, rejects incomplete/mixed stores, creates a new private audit outside the data directory before deleting, and removes only approved matching files/rows. Its incremental audit is flushed before work, after each result and at completion. Existing audits are never overwritten; SQLite removal is transactional per row. No HTTP deletion route was added.

@@ -9,7 +9,7 @@ import { readRetirementPolicy, type RetirementPolicy } from "./retirement-policy
 import { SqliteCiphertextStorage } from "./sqlite-storage.js";
 
 /** Offline logical removal, never secure erasure. Without an audit path this only previews. */
-export async function retireCiphertext(source: string, policy: RetirementPolicy, auditPath?: string) {
+export async function retireCiphertext(source: string, policy: RetirementPolicy, auditPath?: string, expectedPlanDigest?: string) {
   const directory = await realpath(source), release = await acquireDirectoryLease(directory);
   let sqlite: SqliteCiphertextStorage | undefined;
   let audit: Awaited<ReturnType<typeof open>> | undefined;
@@ -36,8 +36,11 @@ export async function retireCiphertext(source: string, policy: RetirementPolicy,
       return result;
     };
     if (!sqlite) for (const digest of present) if (!(await lstat(filename(digest))).isFile()) throw new Error("Retirement target must be a regular file");
-    const plan = { backend, selected, present, policyDigest: createHash("sha256").update(JSON.stringify(selected)).digest("hex") };
+    const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+    const scope = { version: 1, store: directory, backend, selected, present, inventoryDigest: hash([...inventory].sort()) };
+    const plan = { ...scope, policyDigest: hash(selected), planDigest: hash(scope) };
     if (auditPath === undefined) return { ...plan, applied: false, removed: 0 };
+    if (expectedPlanDigest !== plan.planDigest) throw new Error("Retirement plan changed or its reviewed digest is incorrect; review a fresh plan for this store");
     const target = path.join(await realpath(path.dirname(path.resolve(auditPath))), path.basename(path.resolve(auditPath)));
     const relative = path.relative(directory, target);
     if (!relative || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative))) throw new Error("Retirement audit must be outside the store");
@@ -66,11 +69,10 @@ export async function retireCiphertext(source: string, policy: RetirementPolicy,
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    const [command, source, policyFile, expectedPolicyDigest, audit, ...extra] = process.argv.slice(2);
-    if (!source || !policyFile || extra.length || !["plan", "apply"].includes(command ?? "") || (command === "plan" ? expectedPolicyDigest !== undefined || audit !== undefined : !expectedPolicyDigest || !audit)) throw new Error("Usage: retire.js plan <stopped-store> <policy-file> | apply <stopped-store> <policy-file> <reviewed-policy-digest> <new-private-audit-file>");
+    const [command, source, policyFile, expectedPlanDigest, audit, ...extra] = process.argv.slice(2);
+    if (!source || !policyFile || extra.length || !["plan", "apply"].includes(command ?? "") || (command === "plan" ? expectedPlanDigest !== undefined || audit !== undefined : !expectedPlanDigest || !audit)) throw new Error("Usage: retire.js plan <stopped-store> <policy-file> | apply <stopped-store> <policy-file> <reviewed-plan-digest> <new-private-audit-file>");
     const policy = await readRetirementPolicy(policyFile);
-    if (command === "apply" && createHash("sha256").update(JSON.stringify(policy.digests())).digest("hex") !== expectedPolicyDigest) throw new Error("Retirement policy changed or its reviewed digest is incorrect; review a fresh plan");
-    const result = await retireCiphertext(source, policy, command === "apply" ? audit : undefined);
+    const result = await retireCiphertext(source, policy, command === "apply" ? audit : undefined, expectedPlanDigest);
     process.stdout.write(JSON.stringify(result) + "\n");
   } catch (error) { process.stderr.write(`Cipherstore retirement failed: ${error instanceof Error ? error.message : "unknown error"}\n`); process.exitCode = 1; }
 }
