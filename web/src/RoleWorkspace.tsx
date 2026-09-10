@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { GitHubReleaseImport } from "./GitHubReleaseImport.js";
 import { GitHubScopeImport } from "./GitHubScopeImport.js";
 import { DeploymentPolicyCheck } from "./DeploymentPolicyCheck.js";
 import { JournalEntries } from "./JournalEntries.js";
@@ -321,6 +322,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
                 <button type="button" className="secondary-button" disabled={!backedUp} onClick={uploadAll}>Upload all saved ciphertext ({vault.reports.length})</button>
               </section>
               <p>Working notes and the selected tier are saved privately per report in encrypted backups and browser autosave. Each report submission also keeps a snapshot in its journal entry, so later edits preserve that earlier context. These are local notes, not verified transaction arguments. Only an explicit transaction publishes its corresponding digest or tier.</p>
+              {vault.role === "vendor" && <GitHubReleaseImport key={chosen.reportId} onAppend={(text) => updateNotes(detail ? `${detail}\n\n${text}` : text, tier)} />}
               <label>Private decision, patch reference or retest notes<textarea value={detail} onChange={(event) => updateNotes(event.target.value, tier)} /></label><label>Public severity / reward tier<select value={tier} onChange={(event) => updateNotes(detail, event.target.value)}><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
               <fieldset className="workflow-controls" disabled={!backedUp || !snapshot || !session}>
                 {session && vault.role === "researcher" && !record && <button className="primary-button" onClick={() => write(async () => {

@@ -1,5 +1,19 @@
 # Validation report
 
+## Import published GitHub releases into patch notes -- 2026-09-10
+
+Saved vendor reports now offer explicit public release lookup and a separate append action. Existing private notes are preserved; imported text contains the release URL/ID, tag, reported tag commit, publication time and prerelease flag. The existing Anchor patch path hashes the full notes text and preserves it in the pre-wallet journal when actually submitted; import itself starts no transaction. The component is keyed to the selected report, so switching reports aborts and invalidates an outstanding result.
+
+The shared GitHub reader now supports public-repository validation followed by release-by-tag metadata and a SHA-only lookup of `tags/<tag>`. All three reads share one 15-second deadline. It refuses unpublished/inconsistent metadata, invalid calendar dates, unsafe tag paths and oversized bodies; release body/author/asset fields are discarded. GitHub URLs are the only request destinations, with no authorization, cookies, request body or referrer. [Behavior, upstream API references and trust limits](github-patch-release.md).
+
+The final focused run passed **53 tests / 4 files in 10.68 seconds**, exit **0**, including existing scope/pinning regression, release validation, shared deadline, explicit append, cancellation, URL edits and report switching. The preceding helper/scope-only run passed 49 tests before adding the four release-component cases. Chrome desktop and Pixel 7 passed **6 E2E cases in 1.2 minutes as reported**, two workers and no automatic retries: published-release notes preserve private text and full encrypted vault contents through isolated recovery, and both scope modes retain their previous behavior.
+
+The first browser invocation was interrupted: its log recorded two page/browser-closed failures while waiting for downloads, followed by server interrupts, without a complete suite result. On resumption its process handle was absent and no matching Playwright process remained. The final six-case invocation above is separate; the interrupted run is not counted as successful.
+
+A read-only live Chrome client check from `about:blank` returned `cli/cli` release **181781776**, tag **v2.60.0**, commit **44ee17760709bedf1cad7e452e61751489b81a33**, published **2024-10-24T17:36:17Z**, prerelease false, exit **0**. This checks live fetch/CORS/schema compatibility, not atomic metadata/tag consistency, source objects, signatures, assets or remediation. Full-UI browser responses are intercepted fixtures. No GitHub write or native-wallet transaction was performed.
+
+The final normal web build with TypeScript checking and release package check exited **0**: **8 circuits, 69 files, 64,052,374 bytes**. No image, public host, contract or proving keys were changed.
+
 ## Pin GitHub scope to a reported commit -- 2026-09-10
 
 The optional **Pin scope to the current HEAD commit** lookup mode validates public repository metadata, then requests `/commits/HEAD` using SHA-only media. A full 40-character SHA-1 response produces a `/tree/<sha>` scope URL, previewed before explicit application and saved through the existing program draft/backup path. The two reads share one 15-second deadline; SHA input is limited to 128 bytes. Failed/invalid commit lookup never falls back silently to an unpinned scope. Changing the pin option cancels the previous lookup.

@@ -1,5 +1,7 @@
 # Use independent browser roles
 
+For a saved vendor report, [import a public GitHub release reference](github-patch-release.md) into its private patch notes. Lookup and appending are separate actions; existing notes remain, and only a later explicit **Anchor patch** call hashes their complete text.
+
 Undeployed vendor programs can [import a public GitHub repository as primary scope](github-public-scope.md): look up its URL, review the public metadata, then explicitly apply it to the draft. Existing rewards/windows stay unchanged, and the chosen scope follows normal encrypted backup and deployment gates.
 
 Connected restoration holds a fixed copy of the selected identity, saved reports and journal while waiting for Lace. Existing ledger reports must match the saved commitment and ciphertext digest, and their submission receipt must match the contract's hash of the commitment, ciphertext digest and researcher key. Researcher workspaces additionally verify their own derived researcher authority; vendor authority is checked by the role session.
