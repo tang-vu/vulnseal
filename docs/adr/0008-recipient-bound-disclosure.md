@@ -37,3 +37,7 @@ The sender panel displays the selected report commitment. Fingerprint confirmati
 ## Clear panel input and preview
 
 **Clear exchange inputs and preview** drops the panel's passwords, selected file references, parsed recipient, fingerprint confirmation, decrypted preview and status/error messages. It also resets the native file inputs so the same file can be explicitly selected again. The action is disabled during a pending operation. Receiving keys and workspace reports remain held by the parent; this control does not delete files, backups or ledger data, and does not promise secure erasure from browser memory. A retained receiving key continues to require a separate backup and keeps the leave warning active.
+
+## Download failures
+
+Public receiving-key export uses the same local operation/error handling as private exchange backups and packages. A failed download reports an error while retaining the key for explicit retry. All panel downloads remove their temporary anchor and schedule blob-URL revocation even if clicking the anchor throws. Success messages describe download initiation; the user still needs to retain the file.

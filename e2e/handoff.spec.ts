@@ -43,10 +43,17 @@ test("a separate recipient restores its own key and opens an encrypted disclosur
     await recipient.getByRole("button", { name: "Save receiving key backup" }).click();
     const backupPath = testInfo.outputPath("recipient-backup.json");
     await (await backupDownload).saveAs(backupPath);
+    await recipient.evaluate(() => {
+      const original = URL.createObjectURL;
+      URL.createObjectURL = function () { URL.createObjectURL = original; throw new Error("Synthetic public-key download failure"); };
+    });
+    await recipient.getByRole("button", { name: "Download public receiving key" }).click();
+    await expect(recipient.getByRole("alert")).toHaveText("Synthetic public-key download failure");
     const publicDownload = recipient.waitForEvent("download");
     await recipient.getByRole("button", { name: "Download public receiving key" }).click();
     const publicPath = testInfo.outputPath("recipient-public.json");
     await (await publicDownload).saveAs(publicPath);
+    await expect(recipient.getByRole("alert")).toHaveCount(0);
     const publicKey = JSON.parse(await readFile(publicPath, "utf8"));
     expect(publicKey.fingerprint).toBe(retainedFingerprint);
     expect(Object.keys(publicKey).sort()).toEqual(["fingerprint", "format", "publicKey", "version"]);

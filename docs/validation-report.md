@@ -1,5 +1,13 @@
 # Validation report
 
+## Handle public receiving-key download failures -- 2026-09-10
+
+Public receiving-key export now runs through the panel's serialized operation/error handler, keeping its key and retry control available when download initiation fails. The shared exchange download helper cleans its anchor and schedules blob-URL revocation in a `finally` block, including click failures. Successful public export clears the prior error and reports download initiation.
+
+The first component run passed 6/10 tests: the newly introduced fake-timer test left fake timers active for later tests. Adding timer restoration to suite cleanup fixed that test-isolation issue. The final **10 component tests passed in 5.32 seconds**, covering download failure, link/URL cleanup and retained-key retry alongside the existing panel cases. **4 desktop/mobile E2E cases passed in 42.9 seconds**, two workers and no retries: injected public-key download failure produces an alert, explicit retry exports the same fingerprint and public-only schema, and the actual file continues through encryption, isolated recipient recovery and disclosure decryption.
+
+The final normal TypeScript/web build and package gate exited **0**: **8 circuits, 80 files, 65,415,565 bytes**. Logs: `.compact/public-key-download-tests.log`, `.compact/public-key-download-tests-final.log`, `.compact/public-key-download-browser.log` and `.compact/public-key-download-release.log`. No image/public host was refreshed. [Download behavior and limits](adr/0008-recipient-bound-disclosure.md#download-failures).
+
 ## Refine Prometheus findings with matching source and binary evidence -- 2026-09-10
 
 An optional `source-check` target in the existing Prometheus Dockerfile reuses the actual build stage and scans both command roots with their `netgo,builtinassets` tags using pinned govulncheck 1.8.0. The diagnostic build exited **0**. Both resolved module files and both rebuilt binary SHA-256 values match the retained evidence for current runtime image `9716ce24565dad60ce6e2e3660e21c1268f457ee2aebddf0bc40ea4b19a04296`.

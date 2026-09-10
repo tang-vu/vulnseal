@@ -7,7 +7,7 @@ vi.mock("./handoff.js", async (original) => ({ ...await original<typeof import("
 import { HandoffPanel } from "./HandoffPanel.js";
 import type { Disclosure, RecipientKeys } from "./handoff.js";
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 const keys = { recipient: { format: "vulnseal-recipient", version: 1, publicKey: "synthetic", fingerprint: "ab".repeat(32) }, privateKey: {} } as RecipientKeys;
 const start = () => {
   fireEvent.change(screen.getByLabelText("Recipient backup password"), { target: { value: "Synthetic receiving password" } });
@@ -20,6 +20,29 @@ const warnsOnLeave = () => {
   window.dispatchEvent(event);
   return event.defaultPrevented;
 };
+
+it("reports public-key download failure, cleans the temporary link and retries the retained key", async () => {
+  vi.useFakeTimers();
+  const revoke = vi.fn(), blobs: Blob[] = [];
+  vi.stubGlobal("URL", class extends URL { static createObjectURL = (blob: Blob) => { blobs.push(blob); return "blob:public-recipient"; }; static revokeObjectURL = revoke; });
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementationOnce(() => { throw new Error("Synthetic public-key download failure"); }).mockImplementation(() => {});
+  const onKeys = vi.fn();
+  render(<HandoffPanel disclosure={undefined} keys={keys} onKeys={onKeys} />);
+  const button = screen.getByRole("button", { name: "Download public receiving key" });
+  await act(async () => fireEvent.click(button));
+  expect(screen.getByRole("alert")).toHaveTextContent("Synthetic public-key download failure");
+  expect(document.querySelector('a[download="vulnseal-recipient-public.json"]')).toBeNull();
+  expect(button).toBeEnabled();
+  expect(screen.getByText(keys.recipient.fingerprint)).toBeInTheDocument();
+  await act(async () => vi.advanceTimersByTime(1000));
+  expect(revoke).toHaveBeenCalledWith("blob:public-recipient");
+  await act(async () => fireEvent.click(button));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByText(/Public receiving key download started/)).toBeInTheDocument();
+  expect(blobs).toHaveLength(2);
+  expect(onKeys).not.toHaveBeenCalled();
+  await act(async () => vi.runOnlyPendingTimers());
+});
 
 it("requires renewed recipient confirmation when selected disclosure changes, but preserves it across equivalent renders", async () => {
   const disclosure: Disclosure = { network: "undeployed", contractAddress: null, programId: "aa".repeat(32), reportId: "bb".repeat(32), envelope: "synthetic envelope", key: "cc".repeat(32), salt: "dd".repeat(32) };

@@ -7,7 +7,8 @@ import { AttachmentReview } from "./AttachmentFields.js";
 const download = (serialized: string, filename: string) => {
   const url = URL.createObjectURL(new Blob([serialized], { type: "application/json" }));
   const link = document.createElement("a"); link.href = url; link.download = filename;
-  document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  try { document.body.append(link); link.click(); }
+  finally { link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 };
 const read = async (file: File | undefined, limit: number) => {
   if (!file) throw new Error("Choose a file first");
@@ -84,7 +85,7 @@ export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { reado
             <label>Recipient restore password<input type="password" required minLength={12} autoComplete="current-password" value={restorePassword} onChange={(event) => setRestorePassword(event.target.value)} /></label>
             <button className="secondary-button">Restore receiving key</button>
           </form>
-        </> : <><p className="public-value">Your receiving fingerprint: <code>{keys.recipient.fingerprint}</code></p><p>This key stays in memory for this tab. Save its encrypted backup before closing; you can save it again above if encryption or download failed. Its separate backup contains no wallet or contract actor secrets.</p><button className="secondary-button" onClick={() => download(JSON.stringify(keys.recipient, null, 2), "vulnseal-recipient-public.json")}>Download public receiving key</button></>}
+        </> : <><p className="public-value">Your receiving fingerprint: <code>{keys.recipient.fingerprint}</code></p><p>This key stays in memory for this tab. Save its encrypted backup before closing; you can save it again above if encryption or download failed. Its separate backup contains no wallet or contract actor secrets.</p><button className="secondary-button" onClick={() => void run(undefined, async (commit) => { commit(() => { download(JSON.stringify(keys.recipient, null, 2), "vulnseal-recipient-public.json"); setMessage("Public receiving key download started. Verify its fingerprint with the sender through your agreed channel."); }); })}>Download public receiving key</button></>}
       </section>
       <section className="form-panel"><h2>2. Researcher: encrypt the sealed report</h2>
         <p>The package contains the report ciphertext, decryption key and commitment salt. It excludes researcher/vendor actor secrets and private triage/retest notes. The recipient will be able to read and retain the full report, including contact and attachment metadata.</p>
