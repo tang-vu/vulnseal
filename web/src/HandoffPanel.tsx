@@ -29,6 +29,7 @@ export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { reado
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const generation = useRef(0), busy = useRef(false);
+  const fields = useRef<HTMLFieldSetElement>(null);
   useEffect(() => () => { generation.current++; }, []);
   const hasLocalWork = Boolean(working || password || confirmation || restorePassword || backup || recipient || packageFile || opened || keys);
   useEffect(() => {
@@ -49,7 +50,15 @@ export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { reado
   return <section className="page narrow-page handoff-page">
     <div className="page-heading"><div><span className="eyebrow accent">Private disclosure exchange</span><h1>Share a report, keep your authority</h1><p>Exchange an encrypted report with a recipient in a separate browser. Recipient keys decrypt disclosures; they do not authorize contract transitions.</p></div></div>
     <p className="operation-notice">Use your agreed channel to confirm the recipient fingerprint. A public key alone does not establish vendor identity. Files are downloaded locally; this page does not send messages or upload disclosure packages.</p>
-    <fieldset className="workflow-controls" disabled={working}>
+    <fieldset ref={fields} className="workflow-controls" disabled={working}>
+      <p>Clear this panel's passwords, selected files, recipient confirmation and decrypted preview when finished. Your receiving key and saved workspace reports remain available.</p>
+      <button type="button" className="secondary-button" onClick={() => {
+        if (busy.current) return;
+        setPassword(""); setConfirmation(""); setRestorePassword(""); setBackup(undefined);
+        setRecipient(undefined); setConfirmed(false); setPackageFile(undefined); setOpened(undefined);
+        setError(""); setMessage("");
+        fields.current?.querySelectorAll<HTMLInputElement>('input[type="file"]').forEach(input => { input.value = ""; });
+      }}>Clear exchange inputs and preview</button>
       <section className="form-panel"><h2>1. Recipient: prepare a receiving key</h2>
           <form onSubmit={(event) => void run(event, async (commit, isCurrent) => {
             if (password !== confirmation) throw new Error("Recipient backup passwords do not match");

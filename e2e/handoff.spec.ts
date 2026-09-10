@@ -96,6 +96,16 @@ test("a separate recipient restores its own key and opens an encrypted disclosur
     await expect(restored.getByText(/guided local report, with no network transaction evidence/)).toBeVisible();
     expect(await restored.evaluate(() => "midnight" in window)).toBe(false);
     expect(remoteRequests).toEqual([]);
+    await restored.getByRole("button", { name: "Clear exchange inputs and preview" }).click();
+    await expect(restored.getByRole("heading", { name: "Cross-tenant authorization bypass" })).toHaveCount(0);
+    expect(await restored.getByLabel("Encrypted disclosure file").evaluate((input: HTMLInputElement) => input.files?.length)).toBe(0);
+    await expect(restored.getByRole("button", { name: "Download public receiving key" })).toBeVisible();
+    await restored.getByRole("button", { name: "Private recovery", exact: true }).click();
+    await restored.getByRole("button", { name: "Private exchange", exact: true }).click();
+    await expect(restored.getByRole("heading", { name: "Cross-tenant authorization bypass" })).toHaveCount(0);
+    await restored.getByLabel("Encrypted disclosure file").setInputFiles(packagePath);
+    await restored.getByRole("button", { name: "Decrypt received disclosure" }).click();
+    await expect(restored.getByRole("heading", { name: "Cross-tenant authorization bypass" })).toBeVisible();
     if (process.env.VULNSEAL_CAPTURE_VISUALS === "1") {
       await restored.evaluate(() => { (document.activeElement as HTMLElement)?.blur(); window.scrollTo(0, 0); });
       await restored.screenshot({ path: `docs/screenshots/${testInfo.project.name}-handoff.png`, fullPage: true });

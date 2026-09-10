@@ -33,3 +33,7 @@ Role locking still remounts the workspace and clears the panel, and actual unmou
 ## Recipient confirmation and selected report
 
 The sender panel displays the selected report commitment. Fingerprint confirmation is cleared whenever the source disclosure changes in network, contract, program, report, envelope, key or salt, including when it becomes unavailable. The parsed recipient stays available for explicit reconfirmation. Equivalent rerenders and navigation with the same disclosure retain the confirmation. This prevents a saved confirmation for one report from silently enabling export of another after workspace selection changes. An export already requested for the prior report may still finish using that request's captured source; this guard does not retract downloaded disclosures.
+
+## Clear panel input and preview
+
+**Clear exchange inputs and preview** drops the panel's passwords, selected file references, parsed recipient, fingerprint confirmation, decrypted preview and status/error messages. It also resets the native file inputs so the same file can be explicitly selected again. The action is disabled during a pending operation. Receiving keys and workspace reports remain held by the parent; this control does not delete files, backups or ledger data, and does not promise secure erasure from browser memory. A retained receiving key continues to require a separate backup and keeps the leave warning active.

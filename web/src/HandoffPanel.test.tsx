@@ -48,6 +48,24 @@ it("requires renewed recipient confirmation when selected disclosure changes, bu
   }
   view.rerender(<HandoffPanel disclosure={undefined} keys={undefined} onKeys={onKeys} />);
   expect(consent).not.toBeChecked(); expect(send).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Clear exchange inputs and preview" }));
+  expect(screen.queryByText(keys.recipient.fingerprint)).not.toBeInTheDocument();
+  expect(consent).toBeDisabled();
+  expect(warnsOnLeave()).toBe(false);
+});
+
+it("clears unfinished passwords and file state without replacing the retained receiving key", () => {
+  const onKeys = vi.fn();
+  render(<HandoffPanel disclosure={undefined} keys={keys} onKeys={onKeys} />);
+  fireEvent.change(screen.getByLabelText("Recipient backup password"), { target: { value: "unfinished password" } });
+  fireEvent.change(screen.getByLabelText("Confirm recipient backup password"), { target: { value: "unfinished confirmation" } });
+  fireEvent.change(screen.getByLabelText("Encrypted disclosure file"), { target: { files: [new File(["{}"], "package.json")] } });
+  fireEvent.click(screen.getByRole("button", { name: "Clear exchange inputs and preview" }));
+  expect(screen.getByLabelText("Recipient backup password")).toHaveValue("");
+  expect(screen.getByLabelText("Confirm recipient backup password")).toHaveValue("");
+  expect(screen.getByText(keys.recipient.fingerprint)).toBeInTheDocument();
+  expect(onKeys).not.toHaveBeenCalled();
+  expect(warnsOnLeave()).toBe(true);
 });
 
 it("warns for unfinished exchange input, clears reverted input and removes the guard on unmount", () => {
@@ -87,6 +105,7 @@ it("retains the receiving key before backup encryption but does not download aft
   start();
   await act(async () => {});
   expect(mocks.backup).toHaveBeenCalledOnce();
+  expect(screen.getByRole("button", { name: "Clear exchange inputs and preview" })).toBeDisabled();
   expect(onKeys).toHaveBeenCalledExactlyOnceWith(keys);
   view.unmount();
   await act(async () => { finish("encrypted synthetic backup"); });

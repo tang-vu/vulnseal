@@ -1,5 +1,13 @@
 # Validation report
 
+## Explicitly clear retained exchange input and preview -- 2026-09-10
+
+The persistent private-exchange panel now offers **Clear exchange inputs and preview**. It clears local password/file/recipient/confirmation/decrypted-result state and stale status/error text, and resets native file input values. It is disabled while processing. The UI explains that receiving keys and saved workspace reports remain available; no backup or filesystem deletion occurs.
+
+**9 component tests passed in 5.21 seconds**, including recipient confirmation removal, password clearing, retained-key/leave-guard behavior and the processing interlock. **6 desktop/mobile E2E cases passed in 1.2 minutes**, two workers and no retries. Chrome confirms a decrypted preview disappears, the actual selected-file list becomes empty, navigation does not restore the preview, and reselecting the original file decrypts successfully with the same retained key. Existing two-report confirmation, backup retry, close warning and tampering journeys also pass.
+
+The final normal TypeScript/web build and package gate exited **0**: **8 circuits, 80 files, 65,412,859 bytes**. Logs: `.compact/exchange-clear-tests.log`, `.compact/exchange-clear-browser.log` and `.compact/exchange-clear-release.log`. No image/public host was refreshed. This removes panel state and display, not every copy in JavaScript/browser memory or parent workspace data. [Design and limits](adr/0008-recipient-bound-disclosure.md#clear-panel-input-and-preview).
+
 ## Bind recipient confirmation to the selected disclosure -- 2026-09-10
 
 Private exchange now displays the source report commitment and resets fingerprint confirmation when any disclosure source field changes or the source disappears. The parsed recipient remains for review; equivalent source rerenders and same-report navigation retain confirmation. This addresses confirmation carrying over when a persistent exchange panel receives a different selected report.
