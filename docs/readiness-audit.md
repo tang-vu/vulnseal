@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- The public verifier and bounded JSON reader now live behind API package entrypoints shared with the web app. Typed receipt-to-report comparison is callable directly from Node, with an offline captured-state example and public-only input/link validation. This remains source-trusting current-state comparison; an embeddable submission widget and authenticated public timelines are not implemented by this extraction.
+
 - Undeployed vendor drafts can explicitly import public GitHub repository scope, optionally pinned to the reported HEAD SHA. Saved vendor reports can append published release/tag-commit references to private notes without replacing existing text. Bounded credential-free lookup, cancellation/report switching and encrypted file recovery have client/component and desktop/mobile checks; live Chrome client probes also passed. GitHub App integration and independent object/ownership/asset verification remain separate requirements.
 
 - Contract tests now exercise seeded multi-report interleavings across repeated failed retests and replacement patches, preserving unrelated reports and fields, sequence counters and distinct payout-authorization receipts. These are compiled-circuit simulator checks of the existing workflow, not payment transfers, network concurrency or Wave 2 completion.

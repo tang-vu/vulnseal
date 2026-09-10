@@ -49,6 +49,9 @@ jobs:
       - name: Build dependencies, typecheck, and test current artifacts
         run: npm run validate
 
+      - name: Exercise public verification SDK from Node without network
+        run: node examples/public-verification-fixture.mjs
+
       - name: Production dependency audit
         run: npm run audit:prod
 

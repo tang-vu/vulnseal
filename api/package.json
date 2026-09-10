@@ -38,6 +38,14 @@
     "./types": {
       "types": "./dist/types.d.ts",
       "import": "./dist/types.js"
+    },
+    "./public-verification": {
+      "types": "./dist/public-verification.d.ts",
+      "import": "./dist/public-verification.js"
+    },
+    "./bounded-json": {
+      "types": "./dist/bounded-json.d.ts",
+      "import": "./dist/bounded-json.js"
     }
   },
   "dependencies": {

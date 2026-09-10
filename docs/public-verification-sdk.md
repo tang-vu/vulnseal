@@ -1,0 +1,39 @@
+# Public verification API
+
+The workspace package exposes `@vulnseal/api/public-verification` with TypeScript declarations. Its implementation is shared with the web verifier; the web module re-exports it instead of maintaining another decoder. This is a local/private workspace package, not a published npm release. It depends on the pinned Midnight runtime and generated contract schema. Browser integrations still need the corresponding WASM/bundler setup; the repository's Vite application is the working reference.
+
+Available functions:
+
+| Function | Result |
+| --- | --- |
+| `parsePublicReceipt(text)` | Validate the public-only v1 schema and normalize 32-byte identifiers. Extra/private fields fail. |
+| `publicReceiptLink(base, receipt)` | Validate the receipt and create an HTTP(S) verifier fragment, preserving the release path while removing credentials/query data. |
+| `verifyPublicContract(address, endpoints, signal?)` | Query current contract state and compare its reported block with RPC finality; decode the public projection. |
+| `verifyPublicReceipt(text, endpoints, signal?)` | Also require the receipt's report and ciphertext digest to match the observed contract; return `{ receipt, report, verification }`. |
+| `projectPublicLedger(ledger)` | Project an already-decoded ledger without network access. |
+
+For example, after building the workspace dependencies:
+
+```js
+import { readFile } from "node:fs/promises";
+import { verifyPublicReceipt } from "@vulnseal/api/public-verification";
+
+const text = await readFile("public-receipt.json", "utf8");
+const { PUBLIC_INDEXER_URL: indexerUrl, PUBLIC_RPC_URL: rpcUrl } = process.env;
+if (!indexerUrl || !rpcUrl) throw new Error("Configure public indexer and RPC URLs first");
+const result = await verifyPublicReceipt(text, { indexerUrl, rpcUrl });
+console.log(result.report.status, result.verification.blockHeight);
+```
+
+Configure and validate those endpoints for the receipt's expected network before calling. The API does not infer their network from the receipt, choose hosts, or authenticate an operator-provided endpoint. Only public contract/RPC parameters are sent; the helper does not fetch ciphertext, connect a wallet, prove or submit a transaction. The existing 20-second request signal and 16 MiB received-JSON limit apply. Browser suspension and synchronous decoding can delay application timers.
+
+The executable offline example is:
+
+```sh
+npm run build
+node examples/public-verification-fixture.mjs
+```
+
+It imports the compiled package entrypoint in Node, decodes captured Preprod state, verifies a known public receipt against simulated RPC responses, and asserts four intercepted requests. It makes no network request and explicitly labels its output as fixture/simulated finality. CI runs it after the ordinary workspace validation.
+
+These checks trust the supplied indexer/RPC for inclusion and state provenance. Matching a receipt's public digest does not verify ciphertext availability, private preimages, source/constructor identity, signatures, proof validity or remediation. `PAYOUT_AUTHORIZED` does not mean a token transfer. The projection describes current reported state, not a complete authenticated timeline. Program/provider setup, embeddable submission UX, public history and independently authenticated state remain separate SDK/product work.

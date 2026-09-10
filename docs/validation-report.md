@@ -1,5 +1,17 @@
 # Validation report
 
+## Public verification package entrypoint -- 2026-09-10
+
+The public verifier and received-JSON reader now live in the API package, exposed as `@vulnseal/api/public-verification` and `@vulnseal/api/bounded-json`. Existing web modules re-export those implementations. The new `verifyPublicReceipt` validates a public receipt before fetching, requires its report and ciphertext digest to match observed state, and returns receipt/report/observation together. Verifier links now validate runtime receipt fields and accept only HTTP(S) bases while removing credentials/query data and preserving the release path.
+
+The API build passed, and **8 API tests passed in 2.20 seconds**, covering receipt matching, absent reports, digest mismatch, private-field rejection and link validation. **41 web tests / 4 files passed in 7.05 seconds**, exit **0**, exercising the re-exported public reader, bounded JSON, transaction and deployment comparisons. Production Chrome desktop and Pixel 7 passed **14 E2E cases in 1.2 minutes as reported**, two workers and no retries, covering public lookup, deployment workers and report replay.
+
+`node examples/public-verification-fixture.mjs` exited **0** using the built package export directly from Node. It decoded captured public state, matched the known receipt, and asserted four intercepted indexer/RPC requests. Its output explicitly identifies offline fixture data and simulated finality; no network request, wallet or ciphertext access occurred. CI now invokes this example after workspace validation, but no remote CI result is claimed.
+
+The local/private package remains unpublished. Endpoint/network selection is caller-controlled and not authenticated by receipt parsing. Current-state comparison does not establish signatures, proofs, source identity, ciphertext availability, remediation, payment transfer or a complete timeline. [SDK usage and limits](public-verification-sdk.md).
+
+The final normal web build with TypeScript checking and release package check exited **0**: **8 circuits, 69 files, 64,054,421 bytes**. No image, public host or proving material was refreshed.
+
 ## Retain release preview when notes reject an append -- 2026-09-10
 
 The notes update handler now reports success/failure to the release importer. If appending would exceed the existing 64 KiB note limit, the old notes and already-resolved release preview remain available with an error. Shortening the notes and applying again reuses that exact preview without a second lookup. A thrown apply error also retains the preview; successful application clears it and the local error. Previously the preview disappeared even when the parent rejected the edit.
