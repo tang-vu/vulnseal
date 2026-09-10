@@ -1,0 +1,89 @@
+{
+  "recordedAt": "2026-09-10T05:43:17.535795+00:00",
+  "applicationRevision": "d744aba",
+  "validate": {
+    "command": "npm run validate",
+    "exitCode": 0,
+    "workspaceBuildsAndTypechecks": 6,
+    "tests": 294,
+    "files": 53,
+    "workspaces": {
+      "shared": {
+        "tests": 13,
+        "files": 1,
+        "durationSeconds": 0.666
+      },
+      "contract": {
+        "tests": 25,
+        "files": 2,
+        "durationSeconds": 73.81
+      },
+      "api": {
+        "tests": 32,
+        "files": 4,
+        "durationSeconds": 3.87
+      },
+      "cipherstore": {
+        "tests": 21,
+        "files": 4,
+        "durationSeconds": 4.13
+      },
+      "integration": {
+        "tests": 9,
+        "files": 3,
+        "durationSeconds": 3.34
+      },
+      "web": {
+        "tests": 194,
+        "files": 39,
+        "durationSeconds": 87.36
+      }
+    }
+  },
+  "toolTests": {
+    "release": {
+      "tests": 8,
+      "exitCode": 0
+    },
+    "environment": {
+      "tests": 3,
+      "exitCode": 0
+    },
+    "compiler": {
+      "tests": 5,
+      "exitCode": 0
+    }
+  },
+  "limits": [
+    "Local deterministic and controlled browser checks do not establish native Lace compatibility or public production readiness.",
+    "Known runtime security gates remain unresolved; this does not rescan or rebuild Docker images.",
+    "Roadmap escrow, disputes, second storage adapter and external audit/pilot evidence remain incomplete."
+  ],
+  "browser": {
+    "command": "CI=1 npm run test:e2e",
+    "exitCode": 0,
+    "passed": 78,
+    "duration": "4.1m",
+    "workers": 2,
+    "automaticRetries": 0
+  },
+  "replication": {
+    "command": "CI=1 npm run test:e2e:replication",
+    "exitCode": 0,
+    "passed": 4,
+    "durationSeconds": 48.6,
+    "workers": 2,
+    "automaticRetries": 0,
+    "scope": "Two HTTP instances of the existing local filesystem adapter, not two independent adapter implementations."
+  },
+  "release": {
+    "command": "npm run release:build",
+    "exitCode": 0,
+    "sourceCheckedAt": "2026-09-10T05:42:19.796Z",
+    "circuits": 8,
+    "files": 62,
+    "bytes": 62649560,
+    "provingKeysRegenerated": false,
+    "manifestSha256": "f9380fee9e537b39c8ee15dca8329b0052e3ea89fc09a5e06086f59579b87f6a"
+  }
+}

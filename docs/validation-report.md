@@ -1,5 +1,13 @@
 # Validation report
 
+## Consolidated regression baseline -- 2026-09-10
+
+At application revision **d744aba**, `npm run validate` exited **0**: all six workspace builds/typechecks and **294 tests across 53 files** passed, including **194 web tests across 39 files**. The separate release/environment/compiler checks passed **16 tests**. The full Chrome desktop/Pixel 7 suite passed **78 cases in 4.1 minutes**, and the separate two-store replication suite passed **4 cases in 48.6 seconds**. Both browser commands used two CI workers, no automatic retries, and exited **0**; no code or timeout changes were needed in this consolidated run.
+
+After browser testing, the normal `release:build` passed with source comparison at **05:42:19.796 UTC** and a final inventory of **8 circuits, 62 files, 62,649,560 bytes**. This replaces the artifact configured for browser-test storage endpoints. Proving keys were retained. [Consolidated evidence](evidence/consolidated-d744aba.json) records the counts, commands and limits.
+
+This is current local regression evidence, not native-wallet or public deployment validation. The runtime security findings remain unresolved and Docker images were not rebuilt or rescanned. The roadmap review still finds unimplemented escrow/disputes, a second storage-adapter implementation and external audit/pilot evidence; testing two instances of the same HTTP/filesystem service does not complete the two-adapter requirement. Those requirements remain open.
+
 ## Cancel public lookup and receipt import -- 2026-09-10
 
 The public verifier now exposes cancellation for its existing abortable lookup. Receipt imports show a distinct reading state, disable lookup until the import finishes or is canceled, and clear the file input so the same receipt can be selected again after edits. Canceling ignores late file contents or errors; it does not interrupt the browser's underlying `File.text()` read. Receipt import still only fills the form and never starts a network lookup automatically.
