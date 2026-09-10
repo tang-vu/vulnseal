@@ -1,5 +1,15 @@
 # Validation report
 
+## Warn before closing unfinished private exchange -- 2026-09-10
+
+The private-exchange panel now registers its own unload guard while it holds unfinished recipient passwords, selected files, a parsed recipient, a decrypted disclosure, a receiving key or an active operation. This closes the period before a newly created key reaches the parent workspace. Reverted empty inputs do not leave a warning behind, and panel unmount removes the listener.
+
+All **7 component tests passed** in 41.08 seconds, including empty/reverted fields, file selection and cleanup, retained keys, same-key backup failure retries and existing unmount guards. **4 desktop/mobile E2E cases passed in 1.0 minute**, two workers and no retries: actual Chrome close cancellation preserves unfinished recipient input; clearing that input permits close without another warning. Backup download failure/retry, separate-page restore, disclosure decryption and tampering checks also pass. Logs: `.compact/handoff-leave-tests.log` and `.compact/handoff-leave-browser.log`.
+
+The final normal TypeScript/web build and release package check exited **0**: **8 circuits, 80 files, 65,409,728 bytes** (`.compact/handoff-leave-release.log`). No container image or public host was refreshed.
+
+This is a browser leave warning, not autosave or crash recovery. Browser/OS termination can bypass it, and switching an in-app panel still follows existing navigation semantics. Receiving keys require their separate encrypted backup. [Recovery limits](adr/0006-encrypted-browser-recovery.md#operational-limits).
+
 ## Preserve receiving keys across backup failures -- 2026-09-10
 
 Private exchange now retains a newly generated receiving key in its parent workspace before encrypting/downloading its separate backup. Previously either failure discarded the generated key and offered only another creation attempt. **Save receiving key backup** now retries with the retained key, also allowing a new backup of an already restored key. The success message says that download started; it does not claim the browser saved the file. Password fields clear only after download initiation succeeds. Existing unmount guards prevent late downloads or attachment of keys generated after unmount.

@@ -2,6 +2,24 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 
+test("unfinished recipient input warns before close and reverting it removes the warning", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Private exchange" }).click();
+  const password = page.getByLabel("Recipient backup password", { exact: true });
+  await password.fill("Unfinished recipient password");
+  const warning = page.waitForEvent("dialog");
+  await page.close({ runBeforeUnload: true });
+  const dialog = await warning;
+  expect(dialog.type()).toBe("beforeunload");
+  await dialog.dismiss();
+  await expect(password).toHaveValue("Unfinished recipient password");
+  await password.fill("");
+  const closed = page.waitForEvent("close");
+  page.on("dialog", async unexpected => { await unexpected.dismiss(); throw new Error("Reverted empty exchange still warned"); });
+  await page.close({ runBeforeUnload: true });
+  await closed;
+});
+
 test("a separate recipient restores its own key and opens an encrypted disclosure without actor recovery", async ({ page, browser }, testInfo) => {
   const recipientContext = await browser.newContext(testInfo.project.use);
   try {

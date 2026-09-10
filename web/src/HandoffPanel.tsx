@@ -29,6 +29,13 @@ export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { reado
   const [message, setMessage] = useState("");
   const generation = useRef(0), busy = useRef(false);
   useEffect(() => () => { generation.current++; }, []);
+  const hasLocalWork = Boolean(working || password || confirmation || restorePassword || backup || recipient || packageFile || opened || keys);
+  useEffect(() => {
+    if (!hasLocalWork) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [hasLocalWork]);
   const run = async (event: FormEvent | undefined, action: (commit: (fn: () => void) => void, isCurrent: () => boolean) => Promise<void>) => {
     event?.preventDefault(); if (busy.current) return;
     busy.current = true; const pending = ++generation.current;

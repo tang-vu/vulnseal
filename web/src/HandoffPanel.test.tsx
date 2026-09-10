@@ -15,6 +15,38 @@ const start = () => {
   fireEvent.submit(screen.getByRole("button", { name: "Create receiving key and save backup" }).closest("form")!);
 };
 
+const warnsOnLeave = () => {
+  const event = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(event);
+  return event.defaultPrevented;
+};
+
+it("warns for unfinished exchange input, clears reverted input and removes the guard on unmount", () => {
+  const view = render(<HandoffPanel disclosure={undefined} keys={undefined} onKeys={vi.fn()} />);
+  expect(warnsOnLeave()).toBe(false);
+  for (const label of ["Recipient backup password", "Confirm recipient backup password", "Recipient restore password"]) {
+    fireEvent.change(screen.getByLabelText(label), { target: { value: "unfinished private input" } });
+    expect(warnsOnLeave()).toBe(true);
+    fireEvent.change(screen.getByLabelText(label), { target: { value: "" } });
+    expect(warnsOnLeave()).toBe(false);
+  }
+  fireEvent.change(screen.getByLabelText("Encrypted disclosure file"), { target: { files: [new File(["{}"], "disclosure.json")] } });
+  expect(warnsOnLeave()).toBe(true);
+  fireEvent.change(screen.getByLabelText("Encrypted disclosure file"), { target: { files: [] } });
+  expect(warnsOnLeave()).toBe(false);
+  fireEvent.change(screen.getByLabelText("Recipient backup file"), { target: { files: [new File(["{}"], "backup.json")] } });
+  expect(warnsOnLeave()).toBe(true);
+  view.unmount();
+  expect(warnsOnLeave()).toBe(false);
+});
+
+it("keeps a guard for a retained receiving key even with no unfinished fields", () => {
+  const view = render(<HandoffPanel disclosure={undefined} keys={keys} onKeys={vi.fn()} />);
+  expect(warnsOnLeave()).toBe(true);
+  view.unmount();
+  expect(warnsOnLeave()).toBe(false);
+});
+
 it("retains the receiving key before backup encryption but does not download after unmount", async () => {
   let finish!: (value: string) => void;
   mocks.create.mockResolvedValue(keys);
