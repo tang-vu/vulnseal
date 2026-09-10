@@ -1,5 +1,15 @@
 # Validation report
 
+## Pin GitHub scope to a reported commit -- 2026-09-10
+
+The optional **Pin scope to the current HEAD commit** lookup mode validates public repository metadata, then requests `/commits/HEAD` using SHA-only media. A full 40-character SHA-1 response produces a `/tree/<sha>` scope URL, previewed before explicit application and saved through the existing program draft/backup path. The two reads share one 15-second deadline; SHA input is limited to 128 bytes. Failed/invalid commit lookup never falls back silently to an unpinned scope. Changing the pin option cancels the previous lookup.
+
+The final focused run passed **34 tests / 2 files in 5.78 seconds**, exit **0**, including SHA-only requests, invalid/oversized identifiers, shared deadline and late results after toggling the option. An initial 33-test run passed before adding the toggle-specific cancellation case. Chrome desktop and Pixel 7 passed **4 E2E cases in 54.3 seconds**, two workers, no retries, covering both pinned/unpinned preview, explicit application, unchanged private reward policy, credential-free requests and encrypted file restore in an isolated context.
+
+A live Chrome client check from `about:blank`, without interception, exited **0** and returned `https://github.com/octocat/Hello-World/tree/7fd1a60b01f91b314f59955a4e4d4e80d8edf11d`. That is the observed GitHub HEAD, not an independently recomputed/signed object or ownership proof. No source diff or author data was requested. The metadata and HEAD reads are not atomic, and object retention remains GitHub-dependent. [API reference and scope semantics](github-public-scope.md).
+
+The normal web build with TypeScript checking and release package check exited **0**: **8 circuits, 69 files, 64,037,821 bytes**. No image/public host, contract or proving material changed; no wallet/network transaction was made.
+
 ## Public GitHub repository scope import -- 2026-09-10
 
 Undeployed vendor drafts now offer a read-only public repository lookup and a separate action to replace primary scope. Other draft fields stay intact and normal encrypted persistence applies. The client restricts input/endpoint identity, omits credentials/body/referrer, refuses redirects and non-public/mismatched metadata, and bounds the complete request to 15 seconds and received JSON to 256 KiB. Cancellation, input changes and unmount discard late results. Enter in the lookup input is handled locally so it cannot submit the surrounding deployment form.

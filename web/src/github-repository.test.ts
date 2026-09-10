@@ -3,7 +3,25 @@ import { afterEach, expect, it, vi } from "vitest";
 import { fetchPublicRepository, repositoryCoordinates, GITHUB_REFERENCE_TIMEOUT_MS } from "./github-repository.js";
 const url = "https://github.com/octocat/Hello-World";
 const metadata = { full_name: "octocat/Hello-World", html_url: url, private: false, visibility: "public", archived: false, disabled: false };
+const sha = "ab".repeat(20);
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+it("pins a public repository to its SHA-only HEAD response", async () => {
+  const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify(metadata))).mockResolvedValueOnce(new Response(`${sha}\n`)); vi.stubGlobal("fetch", fetcher);
+  await expect(fetchPublicRepository(url, new AbortController().signal, true)).resolves.toEqual({ fullName: metadata.full_name, url: `${url}/tree/${sha}`, archived: false, commitSha: sha });
+  expect(fetcher).toHaveBeenNthCalledWith(2, "https://api.github.com/repos/octocat/Hello-World/commits/HEAD", expect.objectContaining({ headers: { Accept: "application/vnd.github.sha", "X-GitHub-Api-Version": "2022-11-28" }, credentials: "omit", redirect: "error" }));
+});
+it.each(["main", "ab123", "../evil", JSON.stringify({ sha }), "a".repeat(129)])("rejects unusable commit responses without returning an unpinned fallback: %s", async body => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify(metadata))).mockResolvedValueOnce(new Response(body)));
+  await expect(fetchPublicRepository(url, new AbortController().signal, true)).rejects.toThrow(/commit identifier|128 bytes/);
+});
+it("keeps one deadline across repository and HEAD reads", async () => {
+  vi.useFakeTimers(); let first!: (response: Response) => void;
+  const fetcher = vi.fn().mockImplementationOnce(() => new Promise(resolve => { first = resolve; })).mockResolvedValueOnce(new Response(new ReadableStream())); vi.stubGlobal("fetch", fetcher);
+  const result = expect(fetchPublicRepository(url, new AbortController().signal, true)).rejects.toThrow("15 seconds");
+  await vi.advanceTimersByTimeAsync(10_000); first(new Response(JSON.stringify(metadata)));
+  await vi.advanceTimersByTimeAsync(5_000); await result;
+  expect(fetcher).toHaveBeenCalledTimes(2); expect(vi.getTimerCount()).toBe(0);
+});
 it.each(["http://github.com/a/b", "https://github.com.evil/a/b", "https://secret@github.com/a/b", "https://github.com/a/b?token=secret", "https://github.com/a/b#private", "https://github.com/a/b/issues", "https://github.com/a/%2e%2e", "https://github.com/a/.."])("rejects unsafe or non-repository URLs before fetch: %s", async input => {
   const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
   await expect(fetchPublicRepository(input, new AbortController().signal)).rejects.toThrow("public repository URL");

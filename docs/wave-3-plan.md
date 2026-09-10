@@ -4,7 +4,7 @@
 
 - GitHub App/API integration that imports public scope and patch release references without exposing private reports.
 
-  The vendor draft now supports an explicit [public GitHub repository scope import](github-public-scope.md) through unauthenticated read-only metadata lookup. It preserves private workspace content and requires a separate apply action. GitHub App integration, release/patch references, commit-pinned scope and ownership verification remain open; this is not completion of the full outcome.
+  The vendor draft now supports an explicit [public GitHub repository scope import](github-public-scope.md) through unauthenticated read-only metadata lookup, optionally pinned to the GitHub-reported HEAD commit. It preserves private workspace content and requires a separate apply action. GitHub App integration, release/patch references, independent object/ownership verification remain open; this is not completion of the full outcome.
 - Production ciphertext adapter with retention, regional replication, access audit, deletion policy, and client-side key-sharing design.
 - Embeddable submission widget and a small typed SDK for program creation, seal verification, and public timelines.
 - Privacy-safe organization analytics based on intentionally disclosed aggregate fields; document leakage budget before implementation.

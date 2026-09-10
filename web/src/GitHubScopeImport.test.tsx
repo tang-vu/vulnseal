@@ -17,7 +17,7 @@ it("applies only after a separate click", async () => {
   await user.click(screen.getByRole("button", { name: "Use repository as primary scope" }));
   expect(onApply).toHaveBeenCalledExactlyOnceWith(reference.url);
 });
-it.each(["cancel", "edit", "unmount"])("discards late lookup results after %s", async mode => {
+it.each(["cancel", "edit", "pin", "unmount"])("discards late lookup results after %s", async mode => {
   let resolve!: (value: typeof reference) => void;
   mocks.lookup.mockReturnValue(new Promise(done => { resolve = done; }));
   const user = userEvent.setup(), onApply = vi.fn(); const view = render(<GitHubScopeImport onApply={onApply} />);
@@ -26,6 +26,7 @@ it.each(["cancel", "edit", "unmount"])("discards late lookup results after %s", 
   const signal = mocks.lookup.mock.calls[0]![1] as AbortSignal;
   if (mode === "cancel") await user.click(screen.getByRole("button", { name: "Cancel repository lookup" }));
   else if (mode === "edit") await user.clear(screen.getByLabelText("Public GitHub repository URL"));
+  else if (mode === "pin") await user.click(screen.getByLabelText("Pin scope to the current HEAD commit"));
   else view.unmount();
   expect(signal.aborted).toBe(true);
   await act(async () => resolve(reference));

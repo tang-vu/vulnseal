@@ -4,7 +4,7 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
-- Undeployed vendor drafts can explicitly look up a public GitHub repository and apply its canonical URL as primary scope, preserving other policy fields. Bounded credential-free lookup, cancellation and encrypted file recovery have client/component and desktop/mobile checks; a live Chrome client probe also passed. GitHub App integration, ownership/commit pinning and patch-release references remain separate requirements.
+- Undeployed vendor drafts can explicitly look up a public GitHub repository and apply its canonical URL, optionally pinned to the GitHub-reported HEAD SHA, as primary scope while preserving other policy fields. Bounded credential-free lookup, cancellation and encrypted file recovery have client/component and desktop/mobile checks; live Chrome client probes also passed. GitHub App integration, independent object/ownership verification and patch-release references remain separate requirements.
 
 - Contract tests now exercise seeded multi-report interleavings across repeated failed retests and replacement patches, preserving unrelated reports and fields, sequence counters and distinct payout-authorization receipts. These are compiled-circuit simulator checks of the existing workflow, not payment transfers, network concurrency or Wave 2 completion.
 
