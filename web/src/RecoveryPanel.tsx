@@ -37,7 +37,7 @@ export function RecoveryPanel({ onExport, onImport, canImport }: {
       setMessage("Encrypted backup download started. Confirm the file is saved, and make a new backup after new reports or private evidence.");
     })}>
       <h2>Download encrypted backup</h2>
-      <p>The file is encrypted locally with AES-256-GCM. Your password and private material are not uploaded.</p>
+      <p>The file is encrypted locally with AES-256-GCM. Your password and private material are not uploaded. This tab keeps its leave warning because starting a download does not confirm that you saved the file.</p>
       <label>Backup password<input type="password" autoComplete="new-password" minLength={12} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
       <label>Confirm backup password<input type="password" autoComplete="new-password" minLength={12} required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label>
       <button className="primary-button" disabled={working}>Download encrypted backup</button>

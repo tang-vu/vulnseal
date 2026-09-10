@@ -170,14 +170,19 @@ function App() {
   const [needsRefresh, setNeedsRefresh] = useState(false);
   const [uncertainTransition, setUncertainTransition] = useState<UncertainCircuit | null>(null);
   const [operation, setOperation] = useState<Operation>({ state: "idle" });
+  const [patchReference, setPatchReference] = useState("release/2026.09.1+7f34c82");
+  const [retestNotes, setRetestNotes] = useState("Original reproduction now returns HTTP 403 for the cross-tenant request.");
+  const draftState = JSON.stringify({ report, attachmentDraft, severity, rationale, patchReference, retestNotes });
+  const initialDraftState = useRef(draftState);
+  // Download initiation cannot prove that a recovery file was saved. Keep the
+  // guard while this tab holds report/authority material or edited private input.
+  const hasPrivateSessionMaterial = Boolean(api || sealed || reportId || pendingPreparation || uncertainTransition || recipientKeys || programPolicy !== defaultProgram || draftState !== initialDraftState.current);
   useEffect(() => {
-    if (!pendingPreparation && !uncertainTransition && operation.state !== "working") return;
+    if (!hasPrivateSessionMaterial && operation.state !== "working") return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [pendingPreparation, uncertainTransition, operation.state]);
-  const [patchReference, setPatchReference] = useState("release/2026.09.1+7f34c82");
-  const [retestNotes, setRetestNotes] = useState("Original reproduction now returns HTTP 403 for the cross-tenant request.");
+  }, [hasPrivateSessionMaterial, operation.state]);
 
   const modeLabel = runtimeMode === "midnight" ? "Midnight network" : "Guided local";
   const networkReady = api !== undefined;

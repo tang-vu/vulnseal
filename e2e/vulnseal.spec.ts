@@ -3,6 +3,31 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
+for (const prepared of [false, true]) {
+  test(`closing a tab warns for ${prepared ? "a sealed report" : "an edited draft"} and can be cancelled`, async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: /Seal a vulnerability/i }).click();
+    await page.getByLabel("Report title").fill("Private work retained after cancelling close");
+    if (prepared) {
+      await page.getByRole("checkbox").check();
+      await page.getByRole("button", { name: /Encrypt & seal/i }).click();
+      await expect(page.getByRole("heading", { name: "Your report is sealed" })).toBeVisible();
+    }
+    const warning = page.waitForEvent("dialog");
+    await page.close({ runBeforeUnload: true });
+    const dialog = await warning;
+    expect(dialog.type()).toBe("beforeunload");
+    await dialog.dismiss();
+    expect(page.isClosed()).toBe(false);
+    if (prepared) await expect(page.getByRole("heading", { name: "Your report is sealed" })).toBeVisible();
+    else await expect(page.getByLabel("Report title")).toHaveValue("Private work retained after cancelling close");
+    const nextWarning = page.waitForEvent("dialog"), closed = page.waitForEvent("close");
+    await page.close({ runBeforeUnload: true });
+    await (await nextWarning).accept();
+    await closed;
+  });
+}
+
 test("guided disclosure reaches an honest public payout-authorization trail", async ({ page }, testInfo) => {
   const capture = process.env.VULNSEAL_CAPTURE_VISUALS === "1";
   const screenshotDirectory = path.resolve("docs/screenshots");

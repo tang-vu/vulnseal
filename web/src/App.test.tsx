@@ -6,6 +6,24 @@ import axe from "axe-core";
 import App from "./App.js";
 
 describe("VulnSeal product interface", () => {
+  it("warns for edited private drafts, clears when reverted, and removes its listener on unmount", async () => {
+    const user = userEvent.setup();
+    const leaving = () => { const event = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; };
+    const view = render(<App />);
+    expect(leaving()).toBe(false);
+    await user.click(screen.getByRole("button", { name: /Seal a vulnerability/i }));
+    expect(leaving()).toBe(false);
+    const title = screen.getByLabelText("Report title");
+    const original = (title as HTMLInputElement).value;
+    await user.clear(title);
+    expect(leaving()).toBe(true);
+    await user.type(title, original);
+    expect(leaving()).toBe(false);
+    await user.type(title, " private edit");
+    expect(leaving()).toBe(true);
+    view.unmount();
+    expect(leaving()).toBe(false);
+  });
   it("does not claim a saved ciphertext when report validation fails before encryption", async () => {
     const user = userEvent.setup();
     const upload = vi.fn(); vi.stubGlobal("fetch", upload);
@@ -39,7 +57,7 @@ describe("VulnSeal product interface", () => {
     expect(upload.mock.calls[1]![0]).toBe(upload.mock.calls[0]![0]);
     expect(upload.mock.calls[1]![1].body).toBe(upload.mock.calls[0]![1].body);
     const finished = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(finished);
-    expect(finished.defaultPrevented).toBe(false);
+    expect(finished.defaultPrevented).toBe(true); // The sealed report's key is still in this tab.
   });
   afterEach(() => {
     cleanup();

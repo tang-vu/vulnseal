@@ -1,5 +1,13 @@
 # Validation report
 
+## Preserve leave warnings for private demo material -- 2026-09-10
+
+The combined demo previously removed its leave warning once a ciphertext upload succeeded, despite retaining the report key only in the tab. The guard now covers completed/prepared reports, program authority/policy, receiving keys and edited report/attachment/private-note state as well as active or uncertain operations. Untouched default drafts do not trigger it; reverted drafts clear it when no other protected material exists. Starting a recovery download does not certify a saved file and does not clear the guard; recovery copy explains that distinction.
+
+`App.test.tsx` and `App.network.test.tsx` passed **20 tests / 2 files in 38.13 seconds**, exit **0**; web typecheck passed. Unit checks cover untouched/edited/reverted drafts, handler cleanup, successful uploads retaining the guard, and existing network flows. Production-browser tests used actual `beforeunload` dialogs: cancel preserved edited drafts and sealed reports, then explicit acceptance closed each tab. **4 tests passed in 36.7 seconds**, Chrome desktop and Pixel 7, two workers and no retries, using `CI=1 npm run test:e2e -- e2e/vulnseal.spec.ts --grep 'closing a tab warns'`.
+
+The normal web build and `check-web-release.mjs --write-manifest` both exited **0**, producing **8 circuits, 62 files, 62,656,265 bytes** with retained keys and existing unchanged-contract source evidence. This does not provide autosave, crash/OS-kill recovery, coverage for every unfinished child-form field, native-wallet validation or a current Docker/public-host release. See [recovery operational limits](adr/0006-encrypted-browser-recovery.md#operational-limits).
+
 ## Reject stale prepared-report restoration -- 2026-09-10
 
 Combined-demo network restore now checks a pending report's membership in the selected ledger before activating the recovered session. A present report is refused for both values of the backup's `submissionStarted` marker, with instructions to retain the file and investigate. An absent report preserves the original marker, including the existing uncertain-outcome lock. Completed reports require decrypted material and a submission receipt recomputed from commitment, ciphertext digest and researcher key. No backup format or main contract changed.

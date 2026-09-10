@@ -44,6 +44,10 @@ This timer bounds the asynchronous application wait, not SDK cancellation or cha
 
 ## Operational limits
 
+The combined demo requests a leave warning while it holds a sealed/prepared report, connected program authority, receiving keys, a created program policy, edited report/attachment/private-note fields, or an active/uncertain operation. Viewing the untouched default draft does not enable the warning; reverting edited draft fields to their initial values clears it when no other protected material exists. Completing a ciphertext upload does not clear the guard because its decryption key still lives in the tab. Starting a backup download also does not prove the file was saved, so it does not dismiss the guard. The handler is removed when the component unmounts.
+
+Real Chrome desktop/mobile tests verify cancelling close preserves both edited drafts and sealed reports, and explicitly accepting close still closes the tab. This is a leave warning, not autosave, crash recovery or a guarantee for browser/OS termination. It covers state retained by the App component, not every unfinished field in child forms. Receiving keys use their separate key-backup flow; the combined recovery file does not acquire new fields from this warning change.
+
 ### Ledger conflicts during restore
 
 Network restoration now checks whether a saved pending report already exists in the selected contract, before activating the restored session. If it exists, restore refuses with an instruction to retain the file and investigate the previous submission, regardless of the backup's `submissionStarted` value. An old snapshot marked not-started must not offer a new submission for a report that is already present. This refusal does not promote the preparation to a completed report or infer the finality of any particular transaction.
