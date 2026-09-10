@@ -1,5 +1,17 @@
 # Validation report
 
+## Historical deployment policy comparison -- 2026-09-10
+
+The active role journal now offers an explicit, cancellable comparison for v12 constructor snapshots. It requires one finalized successful deployment, fetches that transaction's historical state, checks transaction/block/action consistency, decodes the Compact ledger and compares all seven saved policy fields locally. It does not use the mutable draft, persist the result/address, verify vendor authority or unlock retry. The wallet-free inspector has no such private-context action.
+
+The first unit run exposed an incompatible `ChargedState` wrapper from directly importing ledger-v8; switching to the existing protocol Compact runtime adapter fixed decoding. The focused suite then passed **38 tests / 4 files in 11.97 seconds**, exit **0**, including transaction-candidate and deployment-checkpoint regressions. After replacing the generic state fixture with the actual deployment capture, the helper's **21 tests / 1 file passed in 4.07 seconds**, exit **0**. These 21 overlap the earlier 38. Cases cover every field mismatch, inconsistent hashes/heights/status/address/action, duplicate transactions, ambiguous actions, invalid serialized state and missing finality; component tests exercise explicit invocation and late-result suppression after cancellation, input changes and unmount.
+
+A read-only request using the actual `DeploymentPolicy` GraphQL query returned exactly one `ContractDeploy` for historical identifier `00b43beb1f533b27d1c08a1aa0c229ed192c05cbc727486661d125f09e6e460c0c`, block **2371845**, transaction hash `8e5cad796ba2eeb7f6e07424d8478ce95a0428a916c492e6e689a5ce09bc7957`, address `83c5aa340bd149b447c873fc2eecc4a9dadd183e5b26f9c3784e4c9acdaba9eb`. The public state has **36,362 hex characters**. This verifies query compatibility at capture time, not authenticated inclusion. The fixture and provenance are in `e2e/fixtures/preprod-deployment-state.json` and its README.
+
+Production-browser desktop Chrome and Pixel 7 checks passed **2 tests in 40.0 seconds**, two workers and no retries. They use the captured deployment with mocked RPC replies and a synthetic backup whose reward digest differs: the UI reports that field, requests only public identifiers/parameters, and leaves the workspace address unbound. The initial browser invocation failed during JSON module loading before collecting tests; adding the required JSON import attribute fixed the loader. These are deterministic browser checks, not new native-wallet or live end-to-end finality evidence. [Design and limits](adr/0026-deployment-policy-comparison.md).
+
+The subsequent normal web build (including TypeScript checking) and package check both exited **0**, producing **8 circuits, 62 files, 62,687,016 bytes**. Proving keys remain retained and the existing main-contract source evidence is unchanged. No Docker image, public host or native wallet was deployed/refreshed.
+
 ## Consolidated application regression at af11da5 -- 2026-09-10
 
 `npm run validate` exited **0** in a single invocation at `af11da5c48fca8a5f679792732a5f2e4d12dc1f2`, on Node **24.14.1**. All six workspace builds and typechecks passed, followed by **341 tests / 61 files**: shared 13/1, contract 25/2, API 34/4, cipherstore 49/10, integration 9/3 and web 211/41. This includes the stdin/eval SQLite fix, vendor drafts, v12 deployment checkpoints and post-checkpoint session lock. Existing missing-source-map and Node experimental SQLite warnings remain in the log; they were not test failures.

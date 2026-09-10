@@ -1,0 +1,17 @@
+# ADR-0026: Compare saved deployment policy with historical state
+
+Status: Accepted for conditional read-only comparison; authenticated deployment/retry reconciliation remains open.
+
+## Decision
+
+An active role workspace with a recorded constructor intent and v12 deployment snapshot offers **Compare saved deployment policy**. Nothing is fetched until the user clicks. The check requires a successful, finalized transaction with exactly one deployment action, using the existing indexer/RPC block comparison. It then requests the state from that transaction, requiring matching transaction hash, block height/hash, status, action kind and address. Missing or ambiguous evidence is refused.
+
+The protocol's Compact runtime adapter decodes the serialized historical state into the current VulnSeal ledger schema. All seven saved fields are compared locally: program ID, scope and policy digests, and response/disclosure windows. The result names differing fields or reports an exact match. It shows the observed deployment address, block and check time. It never uses the editable program draft as historical intent.
+
+Requests contain the transaction identifier and public RPC parameters, not the saved digests, actor secret, report content or backup. Responses are bounded to 16 MiB for the state query; the whole check has a 20-second asynchronous deadline. Cancellation, changed inputs and unmounting discard late results. The wallet-free inspector does not expose this private-context action.
+
+## Meaning and limits
+
+This is a comparison with indexer-claimed historical state, not authenticated transaction execution, constructor arguments, circuit/code identity, vendor authority or policy prose. The result is not persisted, does not save an address, unlock transactions or authorize retry. The separate existing candidate-address shortcut and wallet/authority checks retain their own requirements. No native-wallet transaction is performed by this feature.
+
+The serialized state decoder must use `midnight-js-protocol/compact-runtime`; the ledger-v8 state wrapper is not interchangeable with Compact's charged-state type. Tests decode captured public state, exercise individual field mismatches and inconsistent/ambiguous evidence, and discard cancelled/stale results. A captured historical deployment fixture supports deterministic browser checks with mocked RPC finality. Its successful live GraphQL capture establishes query compatibility at capture time, not proof of inclusion or authenticated state.
