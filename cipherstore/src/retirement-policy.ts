@@ -18,6 +18,7 @@ export class RetirementPolicy {
     }
   }
   has(digest: string): boolean { return this.#digests.has(digest); }
+  digests(): readonly string[] { return [...this.#digests].sort(); }
   assertAllowed(digest: string): void {
     if (this.has(digest)) throw new Error("STORAGE_RETIRED");
   }

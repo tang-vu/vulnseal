@@ -1,5 +1,17 @@
 # Validation report
 
+## Offline selective ciphertext removal -- 2026-09-10
+
+The compiled `retire.js` CLI now provides a non-removing plan and explicit apply for filesystem and SQLite stores. Apply requires the reviewed policy digest, holds the offline directory lease, rejects incomplete/mixed stores, creates a new private audit outside the data directory before deleting, and removes only approved matching files/rows. Its incremental audit is flushed before work, after each result and at completion. Existing audits are never overwritten; SQLite removal is transactional per row. No HTTP deletion route was added.
+
+All **44 cipherstore tests across 9 files passed (25.59s)** with two workers; final build exited **0**. The initial unrestricted-worker run had **4 failures**, including five-second timeouts; it is not counted as successful. The focused new removal tests passed **4/4 (8.61s)**. The package's test commands now limit concurrency to two workers to reduce contention across the disk/process-heavy suites; no service deadline or assertion was relaxed.
+
+Tests cover preview without removal, lease rejection, existing/inside-store audit rejection, selective removal with unrelated ciphertext retained, completed audits, repeated explicit apply with already absent targets, and old-backup restore refusal under the policy. Controlled audit-write failures occur after the first actual removal on each backend: the initial audit lacks completion, the second selected blob remains, the lease is released, and an explicit new attempt with a new audit removes the remainder. This is failure-injection recovery evidence, not an atomic batch or power-loss guarantee.
+
+A final file-based compiled CLI probe exited **0** on Node **24.14.1** for both backends: plan reported its exact target, an incorrect policy hash was refused, apply removed one selected blob, another blob remained byte-identical, and the audit completed. Two earlier stdin probe attempts failed because their fixture SQLite workers inherited `--input-type=module`; those attempts were not counted as passes. Running the probe as a file avoided that harness invocation issue without changing the tested CLI.
+
+The [operator guide](ciphertext-retention.md#offline-logical-removal) records authorization, audit privacy, failure/retry handling and copy/erasure limits. No operator dataset, independent replica, production backup, public deployment or wallet was modified. The tests remove only newly created synthetic fixtures. No new runtime image or scan is claimed; registry administration, physical erasure and independently operated multi-copy removal remain open.
+
 ## Optional retirement policy enforcement -- 2026-09-10
 
 `CIPHERSTORE_RETIREMENT_FILE` now loads an operator-owned, bounded UTF-8 inventory before service startup or backup restoration. Invalid/missing configured files fail closed. The policy accepts at most 100,000 unique lowercase digests in an 8 MiB regular file and holds an immutable snapshot; updates require restarting the service. It is optional and does not manage authorizations, delete bytes or propagate to other operators.

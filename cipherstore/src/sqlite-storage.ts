@@ -40,6 +40,8 @@ export class SqliteCiphertextStorage implements CiphertextStorage {
   async read(digest: string): Promise<Uint8Array> { validateStorageDigest(digest); return await this.request("read", digest) as Uint8Array; }
   async put(digest: string, body: Uint8Array): Promise<boolean> { validateStorageDigest(digest); return await this.request("put", digest, body) as boolean; }
   async checkReadiness(): Promise<void> { await this.request("ready"); }
+  /** Administrative operation only; caller must hold the offline directory lease. */
+  async removeOffline(digest: string): Promise<boolean> { validateStorageDigest(digest); return await this.request("remove", digest) as boolean; }
   /** Call under the offline directory lease when constructing a backup inventory. */
   async listDigests(): Promise<readonly string[]> { return await this.request("list") as string[]; }
   close(): Promise<void> {

@@ -82,6 +82,8 @@ port.on("message", ({ id, operation, digest, body }: { id: number; operation: st
           connection.prepare("INSERT INTO blobs(digest,body) VALUES(?,?)").run(digest, body);
           return true;
         });
+      } else if (operation === "remove") {
+        result = transaction(connection, () => connection.prepare("DELETE FROM blobs WHERE digest=?").run(digest).changes === 1);
       } else throw new Error("UNSUPPORTED_STORAGE_OPERATION");
     }
     port.postMessage({ id, result });
