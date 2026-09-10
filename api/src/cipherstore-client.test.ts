@@ -29,7 +29,7 @@ describe("CipherstoreClient", () => {
     await new CipherstoreClient("https://a.test/storage///").put(address, body);
     expect(fetchMock.mock.calls[0]![0]).toBe(`https://a.test/storage/v1/blobs/${address}`);
   });
-  it.each([[507, "storage is full"], [503, "temporarily busy or unavailable"]] as const)("explains HTTP %i without automatically retrying", async (status, message) => {
+  it.each([[507, "storage is full"], [503, "temporarily busy or unavailable"], [410, "retired by the storage operator"]] as const)("explains HTTP %i without automatically retrying", async (status, message) => {
     const fetchMock = vi.fn(async () => new Response("{}", { status })); vi.stubGlobal("fetch", fetchMock);
     const body = "{}", digest = createHash("sha256").update(body).digest("hex");
     await expect(new CipherstoreClient("http://127.0.0.1:8787").put(`sha256:${digest}`, body)).rejects.toThrow(message);
@@ -112,6 +112,13 @@ describe("CipherstoreClient", () => {
 });
 
 describe("replicated ciphertext", () => {
+  it("reports a replica retirement refusal without telling the caller to retry an unavailable store", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(null, { status: 201 })).mockResolvedValueOnce(new Response(null, { status: 410 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const body = "{}", address = `sha256:${createHash("sha256").update(body).digest("hex")}`;
+    await expect(new ReplicatedCipherstoreClient(["https://a.test", "https://b.test"]).put(address, body)).rejects.toThrow("1 of 2 stores acknowledged this upload. At least one store reports this ciphertext as retired. Other stores may retain copies.");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
   afterEach(() => vi.unstubAllGlobals());
   const urls = ["http://127.0.0.1:8787", "http://127.0.0.1:8788"];
   const body = "{}", address = `sha256:${createHash("sha256").update(body).digest("hex")}`;

@@ -7,6 +7,7 @@ import { MAX_CIPHERTEXT_BYTES, validateEnvelope } from "./server.js";
 import { acquireDirectoryLease, directoryLeaseName } from "./directory-lease.js";
 import { SqliteCiphertextStorage } from "./sqlite-storage.js";
 import { assertRestoreComplete, incompleteRestoreName } from "./restore-state.js";
+import { readRetirementPolicy, type RetirementPolicy } from "./retirement-policy.js";
 
 const manifestName = "vulnseal-cipherstore-manifest.json";
 const filenamePattern = /^([a-f0-9]{64})\.ciphertext\.json$/;
@@ -87,9 +88,10 @@ export const verifyCipherstoreBackup = async (source: string): Promise<Manifest>
   return value as unknown as Manifest;
 };
 
-export const restoreCipherstoreBackup = async (source: string, destination: string, backend: "filesystem" | "sqlite" = "filesystem"): Promise<Manifest> => {
+export const restoreCipherstoreBackup = async (source: string, destination: string, backend: "filesystem" | "sqlite" = "filesystem", retirementPolicy?: RetirementPolicy): Promise<Manifest> => {
   if (backend !== "filesystem" && backend !== "sqlite") throw new Error("Unsupported restore backend");
   const directory = await realpath(source), manifest = await verifyCipherstoreBackup(directory);
+  for (const entry of manifest.blobs) retirementPolicy?.assertAllowed(entry.digest);
   const output = await freshDestination(directory, destination);
   const release = await acquireDirectoryLease(output);
   let sqlite: SqliteCiphertextStorage | undefined;
@@ -112,7 +114,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   try {
     const [command, source, destination, ...extra] = process.argv.slice(2);
     if (!source || extra.length || !["create", "verify", "restore", "restore-sqlite"].includes(command ?? "") || (command === "verify" ? destination !== undefined : !destination)) throw new Error("Usage: backup.js create <stopped-store> <new-backup-dir> | verify <backup-dir> | restore <backup-dir> <new-store-dir> | restore-sqlite <backup-dir> <new-store-dir>");
-    const result = command === "create" ? await createCipherstoreBackup(source, destination!) : command === "restore" || command === "restore-sqlite" ? await restoreCipherstoreBackup(source, destination!, command === "restore-sqlite" ? "sqlite" : "filesystem") : await verifyCipherstoreBackup(source);
+    const retirementPolicy = (command === "restore" || command === "restore-sqlite") && process.env.CIPHERSTORE_RETIREMENT_FILE !== undefined ? await readRetirementPolicy(process.env.CIPHERSTORE_RETIREMENT_FILE) : undefined;
+    const result = command === "create" ? await createCipherstoreBackup(source, destination!) : command === "restore" || command === "restore-sqlite" ? await restoreCipherstoreBackup(source, destination!, command === "restore-sqlite" ? "sqlite" : "filesystem", retirementPolicy) : await verifyCipherstoreBackup(source);
     process.stdout.write(JSON.stringify({ operation: command, blobs: result.blobs.length, bytes: result.blobs.reduce((total, entry) => total + entry.bytes, 0) }) + "\n");
   } catch (error) { process.stderr.write(`Cipherstore backup failed: ${error instanceof Error ? error.message : "unknown error"}\n`); process.exitCode = 1; }
 }

@@ -29,6 +29,8 @@ const readCiphertext = async (response: Response): Promise<string> => {
   } finally { reader.releaseLock(); }
 };
 
+export class RetiredCiphertextError extends Error {}
+
 export class CipherstoreClient {
   private readonly baseUrl: string;
   constructor(baseUrl: string, private readonly timeoutMs = CIPHERSTORE_REQUEST_TIMEOUT_MS) {
@@ -68,6 +70,7 @@ export class CipherstoreClient {
       void response.body?.cancel().catch(() => {});
       if (response.status === 507) throw new Error("Ciphertext storage is full. Keep your draft and contact the storage operator before retrying.");
       if (response.status === 503) throw new Error("Ciphertext storage is temporarily busy or unavailable. Keep your draft and try again shortly.");
+      if (response.status === 410) throw new RetiredCiphertextError("This ciphertext is retired by the storage operator. Keep your saved report and contact the operator; repeating the upload will not resolve this policy refusal.");
       if (!response.ok) throw new Error(`Cipherstore PUT failed with HTTP ${response.status}`);
     });
   }
@@ -102,6 +105,7 @@ export class ReplicatedCipherstoreClient {
   async put(address: string, serializedEnvelope: string): Promise<void> {
     const results = await Promise.allSettled(this.clients.map((client) => client.put(address, serializedEnvelope)));
     const acknowledged = results.filter((result) => result.status === "fulfilled").length;
+    if (results.some((result) => result.status === "rejected" && result.reason instanceof RetiredCiphertextError)) throw new RetiredCiphertextError(`Ciphertext replication incomplete: ${acknowledged} of ${results.length} stores acknowledged this upload. At least one store reports this ciphertext as retired. Other stores may retain copies. Keep the saved report and contact the operators before another upload.`);
     if (acknowledged !== results.length) throw new Error(`Ciphertext replication incomplete: ${acknowledged} of ${results.length} stores acknowledged this upload. A failed response may still have stored the bytes. Keep the saved report and retry its identical ciphertext when all stores are available.`);
   }
 

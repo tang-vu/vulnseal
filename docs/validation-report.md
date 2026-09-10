@@ -1,5 +1,17 @@
 # Validation report
 
+## Optional retirement policy enforcement -- 2026-09-10
+
+`CIPHERSTORE_RETIREMENT_FILE` now loads an operator-owned, bounded UTF-8 inventory before service startup or backup restoration. Invalid/missing configured files fail closed. The policy accepts at most 100,000 unique lowercase digests in an 8 MiB regular file and holds an immutable snapshot; updates require restarting the service. It is optional and does not manage authorizations, delete bytes or propagate to other operators.
+
+For listed digests, HTTP GET returns 404 and PUT returns 410 without accessing the adapter. The same guard covers explicit uploads/backfill to that service. Both filesystem and SQLite restore reject an archive containing any listed digest before creating the destination, preserving the original archive. No entries are silently filtered. Raw adapters and unconfigured services remain outside enforcement. The client now distinguishes HTTP 410 from temporary failures, including partial replication, and directs users to contact operators instead of treating retirement as transient unavailability.
+
+All **40 cipherstore tests across 8 files passed (19.25s)**; build passed. New tests exercise actual HTTP against both adapters, repeated retired PUTs, allowed uploads/reads, continued readiness, preserved underlying bytes, policy bounds/invalid UTF-8/duplicate fields and both restore backends. All **17 ciphertext-client tests passed (1.09s)**; API typecheck passed, including no automatic retry and partial replication with a retirement refusal.
+
+A separate compiled CLI probe exited **0** on Node **24.14.1**: both restore commands exited **1** for a retired archive without creating their destination, and both service backends exited **1** for a missing configured policy before creating a store. Compose configuration resolution exited **0**, retaining the data volume and adding the read-only policy bind with host-path creation disabled; this was a configuration check, not a container launch.
+
+`release:build` exited **0** after six workspace builds and the fresh Compact source comparison at **2026-09-10T07:04:15.090Z**. Packaging checked **8 circuits, 62 files, 62,654,013 bytes**, with retained proving keys. No new container build/scan, browser E2E, wallet transaction, removal operation or public deployment was performed in this increment. Selective removal, protected registry administration, independently operated replicas and end-to-end removal/recovery drills remain open.
+
 ## Ciphertext retention and removal policy -- 2026-09-10
 
 The new [policy](ciphertext-retention.md) records the current no-expiry/no-eviction behavior and separates service blobs, backups/snapshots, participant copies, handoffs, public ledger records and operational metadata. It defines private request authorization, custody inventory, maintenance/removal distinctions, per-location verification and bounded completion reporting. It explicitly identifies the absent selective-removal tooling and protected retired-digest registry needed to prevent recreation through PUT, backfill or historical restore.

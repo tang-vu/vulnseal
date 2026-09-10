@@ -11,6 +11,7 @@ import { createCipherstoreServer, MEDIA_TYPE } from "./server.js";
 import { SqliteCiphertextStorage } from "./sqlite-storage.js";
 import { acquireDirectoryLease } from "./directory-lease.js";
 import { assertRestoreComplete, incompleteRestoreName } from "./restore-state.js";
+import { RetirementPolicy } from "./retirement-policy.js";
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>();
   return { ...actual, open: vi.fn(actual.open) };
@@ -110,6 +111,17 @@ it("refuses nested destinations and unlisted files without modifying the source"
   await writeFile(path.join(fixture.backup, "unlisted.txt"), "unlisted");
   await expect(verifyCipherstoreBackup(fixture.backup)).rejects.toThrow("inventory");
   expect(await readFile(path.join(fixture.store, `${fixture.digest}.ciphertext.json`), "utf8")).toBe(fixture.body);
+});
+
+it.each(["filesystem", "sqlite"] as const)("rejects retired ciphertext before creating a %s restoration", async (backend) => {
+  const fixture = await setup();
+  const manifest = await createCipherstoreBackup(fixture.store, fixture.backup);
+  await expect(restoreCipherstoreBackup(fixture.backup, fixture.restored, backend, new RetirementPolicy([fixture.digest]))).rejects.toThrow("STORAGE_RETIRED");
+  expect(await readdir(fixture.root)).not.toContain("restored");
+  expect(await verifyCipherstoreBackup(fixture.backup)).toEqual(manifest);
+  await restoreCipherstoreBackup(fixture.backup, fixture.restored, backend, new RetirementPolicy(["ab".repeat(32)]));
+  const roundTrip = await createCipherstoreBackup(fixture.restored, path.join(fixture.root, "round-trip"));
+  expect(roundTrip.blobs).toEqual(manifest.blobs);
 });
 
 it.each(["filesystem", "sqlite"] as const)("keeps a failed %s restore unusable and permits a fresh explicit restoration", async (backend) => {

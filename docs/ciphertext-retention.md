@@ -28,7 +28,7 @@ Deleting a browser catalog entry affects that entry at that origin. It does not 
 1. Record an opaque case ID and exact ciphertext digests in a restricted operator record. Keep requestor authentication and authorization evidence in the operator's established private channel. Do not request actor secrets, report keys, salts or plaintext to authorize removal. Keep digests and case details out of public issues, metrics labels and CI artifacts.
 2. Establish the authorized operator, covered copies, request purpose and agreed retention commitments. Distinguish availability maintenance with a retained recovery backup from removal of all operator-controlled recoverable copies. Receiving keys and public transactions alone are insufficient authority. If authority or scope is unresolved, keep the request pending and preserve the data.
 3. Inventory every controlled primary, replica, portable backup, volume snapshot and export containing the selected bytes. Keep locations private. Independent custodians require separate action through the agreed channel; the app does not contact them. Mark outside copies unverified rather than claiming deletion.
-4. Prevent uploads, replication/backfill and restore jobs from reintroducing selected digests during the operation. Stop affected writers and confirm they have drained before offline changes; respect the directory lease. Follow the operator's service agreement for maintenance. The current service cannot selectively reject retired digests, so local removal cannot promise continued absence after writes resume.
+4. Prevent uploads, replication/backfill and restore jobs from reintroducing selected digests during the operation. Stop affected writers and confirm they have drained before offline changes; respect the directory lease. Follow the operator's service agreement for maintenance. Configure the retirement policy below on every covered service and restore command before resuming; an unconfigured replica or restore remains able to reintroduce data.
 5. Perform only separately authorized, backend-specific removal against the exact inventory. There is currently no supported selective-removal CLI. Do not improvise live SQLite edits, delete a whole volume to remove one report, or treat quota pressure as approval. Availability maintenance should retain a verified recovery backup; a removal request must explicitly account for that backup instead of silently creating a new indefinite copy.
 6. Check each covered location. GET absence is an availability check, not physical-erasure evidence. Verify unrelated reports still return their original digests and decrypt with separately held test keys; check readiness against remaining quota. Verify rewritten/restored inventories before serving them. Do not restore an old archive directly into service if it contains digests approved for removal.
 7. Record actual removals, retained copies, failures and outside scope, with timestamps, tool/version and private evidence references. Return that bounded result through the agreed private channel. Keep failed replicas and unresolved backups open. This repository performs no automatic retry or public notification.
@@ -37,7 +37,29 @@ Deleting a browser catalog entry affects that entry at that origin. It does not 
 
 Production removal needs a protected registry of retired digests, enforced by uploads, explicit backfill, migration and restore before serving data. Digests are correlation metadata: restrict registry access and specify its retention and recovery. Do not expose a public listing endpoint.
 
-This registry and its enforcement are **not implemented**. A historical backup can currently restore all its ciphertext, and an explicit upload can recreate a missing blob. Manifest verification proves archive consistency, not compliance with a later removal request. The incomplete-restore marker blocks unfinished restoration; it is not a removal registry.
+An optional operator-owned retirement file now enforces a fixed policy snapshot in the HTTP server and backup restoration. Registry administration, authenticated request handling, selective removal and cross-operator coordination are **not implemented**. Without the configured policy, a historical backup can restore all its ciphertext and an upload can recreate a missing blob. Manifest verification proves archive consistency, not compliance with a later removal request. The incomplete-restore marker is a separate control.
+
+## Configure the retirement guard
+
+Create a private UTF-8 JSON file outside the data directory and repository, readable by the service account and writable only by its authorized operator:
+
+```json
+{
+  "format": "vulnseal-retired-ciphertext",
+  "version": 1,
+  "digests": ["abababababababababababababababababababababababababababababababab"]
+}
+```
+
+The illustrated digest is synthetic; replace it with the separately approved inventory. The format accepts only these fields, version 1 and up to 100,000 unique lowercase 64-character hex digests. The regular file must be at most 8 MiB with valid UTF-8. Empty inventories are allowed. An explicitly configured missing, malformed, oversized or unreadable file prevents startup/restore; it never becomes an empty policy on error.
+
+Build the current cipherstore, then set `CIPHERSTORE_RETIREMENT_FILE` to the absolute filename in the environment of both `node cipherstore/dist/index.js` and every `backup.js restore` / `restore-sqlite` invocation. The CLI does not automatically load the root `.env` file. Docker users can combine `infra/cipherstore.yml` with `infra/cipherstore-retirement.yml`; set that variable to the absolute host filename. The override binds the existing file read-only at `/run/vulnseal/retired-ciphertext.json`, alongside the data volume. It refuses to create a missing host path. Rebuild the image before using newly added policy support.
+
+Policy is read once before startup or restoration and held as an immutable in-memory snapshot. Stop writers, replace the approved policy and restart/recreate services when changing it; there is no hot reload. Protect and back up the current policy independently of historical ciphertext archives. Configure the same approved inventory on every covered replica and restore runner. Omitting the environment variable disables this optional guard; removing configuration is not an authorized removal of the policy.
+
+For listed digests, GET returns the ordinary 404 response and PUT returns 410 `blob_retired` without reading or writing the adapter. Explicit backfill and retries through that service are refused too. PUT's response reveals retirement of the requested digest; there is no inventory-listing endpoint. Other digests retain normal behavior. Listed data still exists, still consumes quota and can remain in backups; this is **access restriction, not deletion**. Local encrypted copies and unconfigured replicas remain readable to their holders.
+
+Restore verifies the backup and rejects the entire operation if any entry is retired, before creating the destination. It never silently drops entries or reports a partial restore as complete. Backup creation and verification continue to preserve/check the original archive; they neither filter retired content nor bundle the current policy. Selective rewriting remains future work. Library embedders must explicitly supply a `RetirementPolicy` to `createCipherstoreServer` and as the fourth argument of `restoreCipherstoreBackup`; raw adapters do not enforce it themselves.
 
 ## Storage-specific limits
 

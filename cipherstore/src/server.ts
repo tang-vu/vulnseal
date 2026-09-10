@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { FilesystemCiphertextStorage } from "./filesystem-storage.js";
 import { storageErrorCode as errorCode, type CiphertextStorage } from "./storage.js";
+import type { RetirementPolicy } from "./retirement-policy.js";
 
 const MAX_CIPHERTEXT_BYTES = 5 * 1024 * 1024;
 const MEDIA_TYPE = "application/vnd.vulnseal.ciphertext+json";
@@ -12,6 +13,7 @@ export type CipherstoreOptions = {
   readonly dataDirectory: string;
   /** Optional trusted adapter; its constructor owns storage quota configuration. */
   readonly storage?: CiphertextStorage;
+  readonly retirementPolicy?: RetirementPolicy;
   readonly allowedOrigin?: string;
   readonly maxStoredBytes?: number;
   readonly maxStoredBlobs?: number;
@@ -79,6 +81,7 @@ export const validateEnvelope = (bytes: Uint8Array): void => {
 };
 
 export const createCipherstoreServer = (options: CipherstoreOptions) => {
+  const retirementPolicy = options.retirementPolicy;
   const maxStoredBytes = options.maxStoredBytes ?? 1024 * 1024 * 1024;
   const maxStoredBlobs = options.maxStoredBlobs ?? 10_000;
   const maxConcurrentUploads = options.maxConcurrentUploads ?? 16;
@@ -167,6 +170,10 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
     }
     if (uploading) activeUploads++;
     try {
+      if (retirementPolicy?.has(hexDigest)) {
+        if (request.method === "GET") { json(response, 404, { error: "blob_not_found" }); return; }
+        if (request.method === "PUT") { request.resume(); json(response, 410, { error: "blob_retired" }); return; }
+      }
       await storage.prepare();
       if (request.method === "PUT") {
         if (request.headers["content-type"]?.split(";")[0]?.trim().toLowerCase() !== MEDIA_TYPE) {

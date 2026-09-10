@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+# Combine with cipherstore.yml; the host policy must already exist.
+services:
+  cipherstore:
+    environment:
+      CIPHERSTORE_RETIREMENT_FILE: /run/vulnseal/retired-ciphertext.json
+    volumes:
+      - type: bind
+        source: ${CIPHERSTORE_RETIREMENT_FILE:?Set the absolute host path to the retirement policy}
+        target: /run/vulnseal/retired-ciphertext.json
+        read_only: true
+        bind:
+          create_host_path: false
