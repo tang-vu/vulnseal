@@ -27,6 +27,8 @@ console.log(result.report.status, result.verification.blockHeight);
 
 Configure and validate those endpoints for the receipt's expected network before calling. The API does not infer their network from the receipt, choose hosts, or authenticate an operator-provided endpoint. Only public contract/RPC parameters are sent; the helper does not fetch ciphertext, connect a wallet, prove or submit a transaction. The existing 20-second request signal and 16 MiB received-JSON limit apply. Browser suspension and synchronous decoding can delay application timers.
 
+Finality lookup requires a full 32-byte hexadecimal finalized-head hash before requesting its header. Bare or prefixed hashes are normalized to lowercase with an `0x` prefix; null, non-string and malformed hashes fail before any follow-up RPC request.
+
 The executable offline example is:
 
 ```sh

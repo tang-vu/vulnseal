@@ -1,5 +1,15 @@
 # Validation report
 
+## Reject malformed finalized-head evidence -- 2026-09-10
+
+The shared public verifier now validates the RPC finalized-head hash before requesting its header or the contract block hash. It requires 32 hexadecimal bytes and normalizes accepted bare/prefixed values to lowercase with an `0x` prefix. Previously a null, non-string or malformed head could still produce an accepted observation when subsequent synthetic RPC responses supplied a sufficient height and matching block hash.
+
+Seven new negative regression cases failed against the previous implementation, which accepted their observations. After the fix, **17 API tests passed in 2.21 seconds**, including two normalization cases; the API build also exited **0**. **37 web tests / 3 files passed in 4.71 seconds**, covering public, transaction and deployment verification. Chrome desktop and Pixel 7 passed **8 E2E cases in 36.8 seconds**, two workers and no retries, including null-head rejection with an error, no finalized-state display and no follow-up RPC call. The compiled-package offline Node example also exited **0**.
+
+These tests use captured public state and synthetic RPC responses. They do not establish authenticated inclusion, source identity, new network finality or a native-wallet lifecycle. Local logs: `.compact/public-head-rejection-before.log`, `.compact/public-head-web-tests.log`, `.compact/public-head-browser.log`.
+
+The final normal web build with TypeScript checking and release package check exited **0**: **8 circuits, 69 files, 64,054,888 bytes**, recorded in `.compact/public-head-release-build.log`. No image, public host or proving material was refreshed.
+
 ## Public verification package entrypoint -- 2026-09-10
 
 The public verifier and received-JSON reader now live in the API package, exposed as `@vulnseal/api/public-verification` and `@vulnseal/api/bounded-json`. Existing web modules re-export those implementations. The new `verifyPublicReceipt` validates a public receipt before fetching, requires its report and ciphertext digest to match observed state, and returns receipt/report/observation together. Verifier links now validate runtime receipt fields and accept only HTTP(S) bases while removing credentials/query data and preserving the release path.

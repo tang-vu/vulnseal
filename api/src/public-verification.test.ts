@@ -13,6 +13,31 @@ function mock() {
   vi.stubGlobal("fetch", fetcher); return fetcher;
 }
 afterEach(() => vi.unstubAllGlobals());
+it.each([null, {}, 42, "", "0x12", "0x" + "gg".repeat(32), "a".repeat(65)])("rejects invalid finalized-head evidence before requesting a header: %j", async head => {
+  const requests: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+    const body = JSON.parse(String(init.body));
+    if (body.query) return Response.json(fixture);
+    requests.push(body.method);
+    return Response.json({ result: body.method === "chain_getFinalizedHead" ? head : body.method === "chain_getHeader" ? { number: `0x${(action.transaction.block.height + 100).toString(16)}` } : `0x${action.transaction.block.hash}` });
+  }));
+  await expect(verifyPublicReceipt(JSON.stringify(receipt), endpoints)).rejects.toThrow("invalid finalized block hash");
+  expect(requests).toEqual(["chain_getFinalizedHead"]);
+});
+it.each(["AB".repeat(32), "0X" + "AB".repeat(32)])("normalizes a valid finalized head for its header lookup: %s", async head => {
+  const fetcher = vi.fn(async (_url: string, init: RequestInit) => {
+    const body = JSON.parse(String(init.body));
+    if (body.query) return Response.json(fixture);
+    if (body.method === "chain_getHeader") {
+      expect(body.params).toEqual(["0x" + "ab".repeat(32)]);
+      return Response.json({ result: { number: `0x${action.transaction.block.height.toString(16)}` } });
+    }
+    return Response.json({ result: body.method === "chain_getFinalizedHead" ? head : `0x${action.transaction.block.hash}` });
+  });
+  vi.stubGlobal("fetch", fetcher);
+  await expect(verifyPublicReceipt(JSON.stringify(receipt), endpoints)).resolves.toHaveProperty("report.status", "PAYOUT_AUTHORIZED");
+  expect(fetcher).toHaveBeenCalledTimes(4);
+});
 it.each(["javascript:alert(1)", "data:text/html,unsafe", "file:///private/backup.json"])("refuses unsafe verifier link base %s", base => {
   expect(() => publicReceiptLink(base, parsePublicReceipt(JSON.stringify(receipt)))).toThrow("HTTP or HTTPS");
 });

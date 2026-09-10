@@ -70,7 +70,9 @@ export const verifyPublicContract = async (
     if (response.error || response.result === undefined) throw new Error("RPC could not verify block finality");
     return response.result;
   };
-  const headHash = await rpc("chain_getFinalizedHead", []);
+  const reportedHead = await rpc("chain_getFinalizedHead", []);
+  if (typeof reportedHead !== "string" || !/^(?:0x)?[0-9a-f]{64}$/i.test(reportedHead)) throw new Error("RPC returned an invalid finalized block hash");
+  const headHash = `0x${publicHex(reportedHead)}`;
   const [header, canonicalBlockHash] = await Promise.all([rpc("chain_getHeader", [headHash]), rpc("chain_getBlockHash", [blockHeight])]);
   if (typeof header?.number !== "string" || !/^0x[0-9a-f]+$/i.test(header.number)) throw new Error("RPC returned an invalid finalized height");
   const finalizedHead = Number.parseInt(header.number.slice(2), 16);

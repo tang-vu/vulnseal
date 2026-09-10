@@ -33,6 +33,20 @@ test("public share link verifies captured ledger state in a fresh browser withou
   await expect(page.getByRole("alert")).toHaveText("The receipt ciphertext digest does not match the ledger report");
 });
 
+test("public lookup rejects a null finalized head without showing finalized state", async ({ page }) => {
+  await publicServices(page);
+  const methods: string[] = [];
+  await page.route("https://rpc.preprod.midnight.network/**", route => {
+    methods.push(route.request().postDataJSON().method);
+    return route.fulfill({ json: { jsonrpc: "2.0", id: 1, result: null } });
+  });
+  await page.goto(`/#verify?network=preprod&contract=${action.address}`);
+  await page.getByRole("button", { name: "Load public state" }).click();
+  await expect(page.getByRole("alert")).toContainText("invalid finalized block hash");
+  await expect(page.getByRole("heading", { name: "Finalized public state" })).toHaveCount(0);
+  expect(methods).toEqual(["chain_getFinalizedHead"]);
+});
+
 test("public lookup imports a receipt and rejects a private recovery file", async ({ page }) => {
   await publicServices(page);
   await page.goto("/");
