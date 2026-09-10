@@ -63,6 +63,8 @@ jobs:
 
       - name: Test ciphertext replication against two independent stores
         run: npm run test:e2e:replication
+      - name: Test filesystem and SQLite replication
+        run: npm run test:e2e:cross-adapter
 
   cipherstore-container:
     runs-on: ubuntu-latest

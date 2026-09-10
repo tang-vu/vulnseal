@@ -1,5 +1,7 @@
 # Ciphertext service capacity and operation
 
+The server supports `CIPHERSTORE_BACKEND=filesystem` (default) or `sqlite`. Use a separate directory/Compose volume for a new backend; startup rejects mixing existing backend data. SQLite uses a dedicated worker and the same ciphertext-only HTTP protocol. Offline `backup.js create` exports either backend; `restore-sqlite` imports a verified backup into a new SQLite directory. See [backend configuration, migration and limits](cipherstore-adapters.md) before changing a deployment. Existing container evidence predates the SQLite implementation.
+
 Run one cipherstore writer process per data directory. Use a persistent local filesystem supporting exclusive creation and hard links; retain the directory across restarts. The HTTP service stores encrypted envelopes only and is not an authenticated multi-tenant object store.
 
 | Setting | Default | Meaning |

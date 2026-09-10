@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { MAX_CIPHERTEXT_BYTES, validateEnvelope } from "./server.js";
 import { acquireDirectoryLease, directoryLeaseName } from "./directory-lease.js";
+import { SqliteCiphertextStorage } from "./sqlite-storage.js";
 
 const manifestName = "vulnseal-cipherstore-manifest.json";
 const filenamePattern = /^([a-f0-9]{64})\.ciphertext\.json$/;
@@ -38,22 +39,35 @@ const freshDestination = async (source: string, destination: string) => {
 /** The writer must be stopped: immutable blobs simplify copies but do not define a live inventory snapshot. */
 export const createCipherstoreBackup = async (source: string, destination: string): Promise<Manifest> => {
   const directory = await realpath(source), release = await acquireDirectoryLease(directory);
+  let sqlite: SqliteCiphertextStorage | undefined;
   try {
     const names = (await readdir(directory)).sort();
     const blobs: Entry[] = [];
     const output = await freshDestination(directory, destination);
-    for (const name of names) {
-      if (name.endsWith(".tmp") || name === directoryLeaseName) continue;
-      const match = filenamePattern.exec(name);
-      if (!match) throw new Error("Source contains an unrecognized entry; inspect it with the writer stopped");
-      if (blobs.length >= 100_000) throw new Error("Backup contains too many blobs");
-      const digest = match[1]!, bytes = await readBlob(directory, digest);
-      await writeExclusive(path.join(output, name), bytes); blobs.push({ digest, bytes: bytes.length });
+    if (names.includes("ciphertext.sqlite")) {
+      if (names.some((name) => !["ciphertext.sqlite", "ciphertext.sqlite-journal", directoryLeaseName].includes(name))) throw new Error("SQLite source contains an unrecognized entry");
+      sqlite = new SqliteCiphertextStorage(directory, Number.MAX_SAFE_INTEGER, 100000);
+      for (const digest of await sqlite.listDigests()) {
+        const bytes = await sqlite.read(digest);
+        if (bytes.byteLength > MAX_CIPHERTEXT_BYTES || createHash("sha256").update(bytes).digest("hex") !== digest) throw new Error("Ciphertext backup digest mismatch");
+        validateEnvelope(bytes);
+        await writeExclusive(path.join(output, `${digest}.ciphertext.json`), bytes);
+        blobs.push({ digest, bytes: bytes.byteLength });
+      }
+    } else {
+      for (const name of names) {
+        if (name.endsWith(".tmp") || name === directoryLeaseName) continue;
+        const match = filenamePattern.exec(name);
+        if (!match) throw new Error("Source contains an unrecognized entry; inspect it with the writer stopped");
+        if (blobs.length >= 100_000) throw new Error("Backup contains too many blobs");
+        const digest = match[1]!, bytes = await readBlob(directory, digest);
+        await writeExclusive(path.join(output, name), bytes); blobs.push({ digest, bytes: bytes.length });
+      }
     }
     const manifest: Manifest = { format: "vulnseal-cipherstore-backup", version: 1, createdAt: new Date().toISOString(), blobs };
     await writeExclusive(path.join(output, manifestName), Buffer.from(JSON.stringify(manifest, null, 2) + "\n"));
     return manifest;
-  } finally { await release(); }
+  } finally { try { await sqlite?.close(); } finally { await release(); } }
 };
 
 export const verifyCipherstoreBackup = async (source: string): Promise<Manifest> => {
@@ -71,25 +85,29 @@ export const verifyCipherstoreBackup = async (source: string): Promise<Manifest>
   return value as unknown as Manifest;
 };
 
-export const restoreCipherstoreBackup = async (source: string, destination: string): Promise<Manifest> => {
+export const restoreCipherstoreBackup = async (source: string, destination: string, backend: "filesystem" | "sqlite" = "filesystem"): Promise<Manifest> => {
+  if (backend !== "filesystem" && backend !== "sqlite") throw new Error("Unsupported restore backend");
   const directory = await realpath(source), manifest = await verifyCipherstoreBackup(directory);
   const output = await freshDestination(directory, destination);
   const release = await acquireDirectoryLease(output);
+  let sqlite: SqliteCiphertextStorage | undefined;
   try {
+    if (backend === "sqlite") { sqlite = new SqliteCiphertextStorage(output, Number.MAX_SAFE_INTEGER, 100000); await sqlite.prepare(); }
     for (const entry of manifest.blobs) {
       const bytes = await readBlob(directory, entry.digest);
       if (bytes.length !== entry.bytes) throw new Error("Backup changed during restoration");
-      await writeExclusive(path.join(output, `${entry.digest}.ciphertext.json`), bytes);
+      if (sqlite) await sqlite.put(entry.digest, bytes);
+      else await writeExclusive(path.join(output, `${entry.digest}.ciphertext.json`), bytes);
     }
     return manifest;
-  } finally { await release(); }
+  } finally { try { await sqlite?.close(); } finally { await release(); } }
 };
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const [command, source, destination, ...extra] = process.argv.slice(2);
-    if (!source || extra.length || !["create", "verify", "restore"].includes(command ?? "") || (command === "verify" ? destination !== undefined : !destination)) throw new Error("Usage: backup.js create <stopped-store> <new-backup-dir> | verify <backup-dir> | restore <backup-dir> <new-store-dir>");
-    const result = command === "create" ? await createCipherstoreBackup(source, destination!) : command === "restore" ? await restoreCipherstoreBackup(source, destination!) : await verifyCipherstoreBackup(source);
+    if (!source || extra.length || !["create", "verify", "restore", "restore-sqlite"].includes(command ?? "") || (command === "verify" ? destination !== undefined : !destination)) throw new Error("Usage: backup.js create <stopped-store> <new-backup-dir> | verify <backup-dir> | restore <backup-dir> <new-store-dir> | restore-sqlite <backup-dir> <new-store-dir>");
+    const result = command === "create" ? await createCipherstoreBackup(source, destination!) : command === "restore" || command === "restore-sqlite" ? await restoreCipherstoreBackup(source, destination!, command === "restore-sqlite" ? "sqlite" : "filesystem") : await verifyCipherstoreBackup(source);
     process.stdout.write(JSON.stringify({ operation: command, blobs: result.blobs.length, bytes: result.blobs.reduce((total, entry) => total + entry.bytes, 0) }) + "\n");
   } catch (error) { process.stderr.write(`Cipherstore backup failed: ${error instanceof Error ? error.message : "unknown error"}\n`); process.exitCode = 1; }
 }

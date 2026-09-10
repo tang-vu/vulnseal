@@ -7,6 +7,8 @@ import type { Server } from "node:http";
 import { afterEach, expect, it } from "vitest";
 import { createCipherstoreBackup, restoreCipherstoreBackup, verifyCipherstoreBackup } from "./backup.js";
 import { createCipherstoreServer, MEDIA_TYPE } from "./server.js";
+import { SqliteCiphertextStorage } from "./sqlite-storage.js";
+import { acquireDirectoryLease } from "./directory-lease.js";
 let server: Server | undefined;
 afterEach(async () => { await new Promise<void>((resolve) => server?.close(() => resolve()) ?? resolve()); server = undefined; });
 const serve = async (directory: string) => {
@@ -60,6 +62,39 @@ it("rejects corruption before creating a restoration directory and rejects manif
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")); manifest.blobs[0].digest = "../outside";
   await writeFile(manifestPath, JSON.stringify(manifest));
   await expect(verifyCipherstoreBackup(fixture.backup)).rejects.toThrow("Invalid ciphertext backup entry");
+});
+
+it("migrates encrypted backups through SQLite and back to filesystem with decryptable bytes", async () => {
+  const fixture = await setup();
+  const sqliteDirectory = path.join(fixture.root, "sqlite"), sqliteBackup = path.join(fixture.root, "sqlite-backup");
+  await createCipherstoreBackup(fixture.store, fixture.backup);
+  await restoreCipherstoreBackup(fixture.backup, sqliteDirectory, "sqlite");
+  expect(await readdir(sqliteDirectory)).toEqual(["ciphertext.sqlite"]);
+  const release = await acquireDirectoryLease(sqliteDirectory);
+  try { await expect(createCipherstoreBackup(sqliteDirectory, sqliteBackup)).rejects.toThrow(); }
+  finally { await release(); }
+  const copy = await createCipherstoreBackup(sqliteDirectory, sqliteBackup);
+  expect(copy.blobs).toEqual([{ digest: fixture.digest, bytes: Buffer.byteLength(fixture.body) }]);
+  expect(await verifyCipherstoreBackup(sqliteBackup)).toEqual(copy);
+  await restoreCipherstoreBackup(sqliteBackup, fixture.restored);
+  const base = await serve(fixture.restored);
+  const response = await fetch(`${base}/v1/blobs/sha256:${fixture.digest}`);
+  expect(response.status).toBe(200);
+  const envelope = await response.json(), bytes = Buffer.from(envelope.ciphertext, "base64url");
+  const decipher = createDecipheriv("aes-256-gcm", fixture.key, fixture.iv);
+  decipher.setAAD(Buffer.from(fixture.aad)); decipher.setAuthTag(bytes.subarray(-16));
+  expect(Buffer.concat([decipher.update(bytes.subarray(0, -16)), decipher.final()]).toString()).toBe(fixture.plaintext);
+  await expect(restoreCipherstoreBackup(sqliteBackup, sqliteDirectory, "sqlite")).rejects.toMatchObject({ code: "EEXIST" });
+});
+
+it("refuses a SQLite backup containing bytes that do not match their stored digest", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "vulnseal-sqlite-bad-backup-"));
+  const directory = path.join(root, "store"), destination = path.join(root, "backup");
+  const storage = new SqliteCiphertextStorage(directory, 10000, 10);
+  try { await storage.put("ab".repeat(32), Buffer.from("invalid ciphertext")); }
+  finally { await storage.close(); }
+  await expect(createCipherstoreBackup(directory, destination)).rejects.toThrow("digest mismatch");
+  expect(await readdir(destination)).not.toContain("vulnseal-cipherstore-manifest.json");
 });
 
 it("refuses nested destinations and unlisted files without modifying the source", async () => {

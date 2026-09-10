@@ -4,6 +4,7 @@ dist/
 coverage/
 playwright-report/
 test-results/
+test-results-cross-adapter/
 *.tsbuildinfo
 **/.vite/
 

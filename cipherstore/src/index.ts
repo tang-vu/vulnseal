@@ -2,13 +2,15 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCipherstoreServer } from "./server.js";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readdir } from "node:fs/promises";
 import { acquireDirectoryLease } from "./directory-lease.js";
+import { SqliteCiphertextStorage } from "./sqlite-storage.js";
 
 export * from "./server.js";
 export * from "./directory-lease.js";
 export * from "./storage.js";
 export * from "./filesystem-storage.js";
+export * from "./sqlite-storage.js";
 
 const isEntrypoint = process.argv[1] !== undefined &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -20,6 +22,8 @@ if (isEntrypoint) {
     return Number(raw);
   };
   const host = process.env.CIPHERSTORE_HOST ?? "127.0.0.1";
+  const backend = process.env.CIPHERSTORE_BACKEND ?? "filesystem";
+  if (backend !== "filesystem" && backend !== "sqlite") throw new Error("CIPHERSTORE_BACKEND must be filesystem or sqlite");
   const metricsEnabled = integer("CIPHERSTORE_METRICS_ENABLED", 0);
   if (metricsEnabled > 1) throw new Error("CIPHERSTORE_METRICS_ENABLED must be 0 or 1");
   const port = integer("CIPHERSTORE_PORT", 8787);
@@ -29,7 +33,7 @@ if (isEntrypoint) {
   const dataDirectory = path.resolve(
     process.env.CIPHERSTORE_DATA_DIR ?? path.join(process.cwd(), "data"),
   );
-  const server = createCipherstoreServer({
+  const options = {
     dataDirectory,
     metricsEnabled: metricsEnabled === 1,
     allowedOrigin: process.env.CIPHERSTORE_ALLOWED_ORIGIN ?? "http://127.0.0.1:5173",
@@ -38,21 +42,34 @@ if (isEntrypoint) {
     maxConcurrentUploads: integer("CIPHERSTORE_MAX_CONCURRENT_UPLOADS", 16),
     requestTimeoutMs: integer("CIPHERSTORE_REQUEST_TIMEOUT_MS", 30_000),
     maxConnections: integer("CIPHERSTORE_MAX_CONNECTIONS", 64),
-  });
+  };
+  let server = createCipherstoreServer(options);
+  let storage: SqliteCiphertextStorage | undefined;
   await mkdir(dataDirectory, { recursive: true });
   const release = await acquireDirectoryLease(dataDirectory);
   try {
+    const entries = await readdir(dataDirectory);
+    if (backend === "filesystem" && entries.some((name) => name.startsWith("ciphertext.sqlite")) ||
+        backend === "sqlite" && entries.some((name) => /^[a-f0-9]{64}\.ciphertext\.json$/.test(name))) {
+      throw new Error("Storage directory belongs to another backend; use a separate directory and explicit migration");
+    }
+    if (backend === "sqlite") {
+      storage = new SqliteCiphertextStorage(dataDirectory, options.maxStoredBytes, options.maxStoredBlobs);
+      await storage.prepare();
+      server = createCipherstoreServer({ ...options, storage });
+    }
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject); server.listen(port, host, () => { server.off("error", reject); resolve(); });
     });
-  } catch (error) { await release(); throw error; }
+  } catch (error) { try { await storage?.close(); } finally { await release(); } throw error; }
   process.stdout.write(`VulnSeal cipherstore listening on http://${host}:${port}\n`);
   let stopping = false;
   const stop = () => {
     if (stopping) return; stopping = true;
     void (async () => {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-      await server.drain(); await release();
+      await server.drain();
+      try { await storage?.close(); } finally { await release(); }
     })().catch((error) => { process.stderr.write(`Cipherstore shutdown failed: ${String(error)}\n`); process.exitCode = 1; });
   };
   process.on("SIGINT", stop); process.on("SIGTERM", stop);
