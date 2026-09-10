@@ -1,5 +1,11 @@
 # Validation report
 
+## Consolidated web regression after exchange and recovery lifecycle fixes -- 2026-09-10
+
+At clean revision `55d8a69734fd8d605d010961d6b01b82782a17bb`, the complete web unit/component suite passed **357 tests across 57 files in 98.40 seconds**, exit **0**. One full ordinary browser invocation passed **126 desktop/mobile cases in 5.8 minutes**, two workers, no exclusions and no automatic retries, exit **0**. This consolidates receiving-key backup retries, leave guards, persistent exchange navigation, report-bound recipient confirmation, explicit panel clearing and combined-recovery callback guards with all existing web journeys.
+
+The final normal TypeScript/web build and package check exited **0**, restoring deployment configuration after E2E: **8 circuits, 80 files, 65,414,820 bytes**. [Machine-readable evidence and raw log hashes](evidence/web-regression-55d8a69.json). The six-workspace baseline at `b137720` remains historical and was not rerun here. Separate replication/tooling/escrow suites, native Lace, public hosting, remote CI, proving keys and image/security checks are outside this run. No external deployment or transaction was performed.
+
 ## Guard combined recovery across asynchronous panel changes -- 2026-09-10
 
 Recovery forms now share a synchronous busy guard and disabled fieldset. Pending callbacks are invalidated on unmount, preventing late export downloads or restoration starting after a delayed file read from a closed panel. Import eligibility is rechecked after reading, before entering the parent restoration. Download cleanup runs even if the anchor click fails; retry input remains until successful download initiation.

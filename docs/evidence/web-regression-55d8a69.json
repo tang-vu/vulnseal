@@ -1,0 +1,46 @@
+{
+  "recordedAt": "2026-09-10T15:26:24.377299+00:00",
+  "applicationRevision": "55d8a69734fd8d605d010961d6b01b82782a17bb",
+  "node": "24.14.1",
+  "webTests": {
+    "command": "npm run test:run -w @vulnseal/web",
+    "exitCode": 0,
+    "tests": 357,
+    "files": 57,
+    "durationSeconds": 98.4,
+    "rawLogSha256": "4423ceb2da1ea1798cb9a987448895f2298d81d3086390a029334b7cde443516"
+  },
+  "browser": {
+    "command": "CI=1 npm run test:e2e",
+    "exitCode": 0,
+    "passed": 126,
+    "failed": 0,
+    "workers": 2,
+    "automaticRetries": 0,
+    "durationAsReported": "5.8m",
+    "singleSuccessfulFullSuiteInvocation": true,
+    "rawLogSha256": "397332b87f40323a121976af3f74a8cb5ba4172e3c1c0a64d85144bfa4339ed5"
+  },
+  "releasePackaging": {
+    "commands": [
+      "npm run build -w @vulnseal/web",
+      "node scripts/check-web-release.mjs --write-manifest"
+    ],
+    "exitCodes": [
+      0,
+      0
+    ],
+    "circuits": 8,
+    "files": 80,
+    "bytes": 65414820,
+    "manifestWritten": true,
+    "normalEnvironmentRestoredAfterE2E": true,
+    "rawLogSha256": "6620cb9abc7f580da3324a19f0ea653a6c85c0d2fde6d43a2e70e596bd28feb0"
+  },
+  "limits": [
+    "This is a complete web unit/component and ordinary browser regression, not a fresh six-workspace validate run.",
+    "Separate replication configurations, standalone tooling and escrow checks were not rerun.",
+    "Browser network/wallet scenarios use local services, captured/synthetic data and injected faults; native Lace, public hosting and remote CI remain unverified.",
+    "No container rebuild, security scan, proving-key regeneration or external deployment was performed. Existing security findings remain unresolved."
+  ]
+}
