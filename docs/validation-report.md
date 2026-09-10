@@ -1,5 +1,13 @@
 # Validation report
 
+## Package and exercise the public worker in the web image -- 2026-09-10
+
+Application revision `38f19dc` is packaged in image `sha256:3f4ee9d7422529ae05c167b559d8114da9aef49f5bc59dce597dc0c6ce1d8959`. BuildKit completed export/unpack and the inspected tag matches; the process exit response was unavailable after session expiry, so the evidence records it as unknown. The in-image package gate and Caddy configuration validation completed; Caddy build/matcher layers were cached. The artifact contains **8 circuits, 80 files, 65,408,457 bytes**.
+
+The extended permanent container drill exited **0** on desktop and Pixel 7. It observes an injected worker's console signal inside its message handler immediately before an infinite loop, then verifies the packaged UI's timeout, explicit retry and cancellation without accepting a result. The first attempt exited **1** because its fetch-before-loop signal was not observed; the final fixture uses the console event and retains the same application assertions. Normal captured-state lookup, deployment-policy matching/mismatch, cross-origin widget isolation, headers/404s, non-root/read-only execution and graceful restart also passed. Full HTTP comparison used **81 requests / 65,409,736 transferred bytes**, including the extra homepage request. Syntax checking passed, cleanup completed, and label queries found no remaining drill/scanner containers.
+
+The exact-image scan exited **1**: **0 Alpine OS findings**, and **1 UNKNOWN GO-2026-5932** in `golang.org/x/crypto v0.56.0`, with no fixed version reported. It remains unsuppressed; the security gate is still failed. [Build, drill and scan evidence with raw log hashes](evidence/web-public-worker-runtime.json); [current container drill](evidence/web-container-drill.json). This is local captured/synthetic runtime evidence, not public hosting, a native Lace ceremony, remote CI or fresh proving material.
+
 ## Isolate browser public decoding in a disposable worker -- 2026-09-10
 
 Public lookup and the vendor policy-sharing check now call the shared public verifier in a dedicated module worker. A 30-second main-thread deadline covers worker startup, public reads and synchronous Compact-state decoding. Success, cancellation, timeout, worker/message errors and component invalidation terminate the worker and remove its timer/listener. Late messages cannot settle an already completed request. Only address and public endpoints are posted to the worker; direct API/Node behavior is unchanged.

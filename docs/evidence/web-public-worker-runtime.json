@@ -1,0 +1,51 @@
+{
+  "recordedAt": "2026-09-10T14:34:08.037497+00:00",
+  "applicationRevision": "38f19dcf59bb6a216f2f98b98e8eb452ebe2ea42",
+  "imageId": "sha256:3f4ee9d7422529ae05c167b559d8114da9aef49f5bc59dce597dc0c6ce1d8959",
+  "imageConfigId": "sha256:6eb31c65fa5a91e4e0db04debe02f02b2200ece31cc429ef8f22f89008be92bf",
+  "build": {
+    "command": "docker build -f infra/web.Dockerfile -t vulnseal-web:local .",
+    "exitCode": null,
+    "artifactFiles": 80,
+    "artifactBytes": 65408457,
+    "circuits": 8,
+    "rawLogSha256": "1b986e52163b8eaff9f84e64435dfcb77efbceee840bf95f0eade6ecc0f900a4",
+    "completionEvidence": "BuildKit final export/unpack DONE; inspected tag matches exported manifest. Process exit response was unavailable after session expiry.",
+    "caddyMatcherTests": "cached layer; not rerun in this build"
+  },
+  "containerDrill": {
+    "command": "VULNSEAL_DOCKER_WSL_DISTRO=Ubuntu node scripts/test-web-container.mjs --write-evidence",
+    "exitCode": 0,
+    "evidence": "docs/evidence/web-container-drill.json",
+    "cleanupCompleted": true,
+    "rawLogSha256": "0cd9344eb4b760fbd0555cab9ac894410f9257b28fa027c214b47863ef04bad0",
+    "initialAttempt": {
+      "exitCode": 1,
+      "reason": "Fetch immediately before a synchronous busy loop did not produce the expected handler-start signal. Replaced fixture signal with a worker console event; application assertions unchanged.",
+      "rawLogSha256": "224205eddc5f52e9e586fc1a54d2aedf2b16bb7dc610b23c29386ab7a1313cb3"
+    }
+  },
+  "scanner": {
+    "command": "sh scripts/scan-container.sh vulnseal-web:local",
+    "exitCode": 1,
+    "strictGatePassed": false,
+    "os": "alpine 3.23.5",
+    "osFindings": 0,
+    "findings": [
+      {
+        "id": "GO-2026-5932",
+        "severity": "UNKNOWN",
+        "package": "golang.org/x/crypto",
+        "installedVersion": "v0.56.0",
+        "fixedVersionReported": null
+      }
+    ],
+    "cleanupCompleted": true,
+    "rawLogSha256": "ada37839c0b608382d4ab98000656666aba806a93066492f9a8062ef04c8c0fd"
+  },
+  "limits": [
+    "Local image and captured/synthetic browser evidence only; no public TLS host, native wallet transaction, fresh proving keys or remote CI.",
+    "The UNKNOWN finding remains an unsuppressed security-gate failure; successful runtime checks are not production readiness.",
+    "No container publishing or external deployment was performed."
+  ]
+}
