@@ -1,5 +1,13 @@
 # Validation report
 
+## Refine the remaining Caddy finding with source analysis -- 2026-09-10
+
+A dedicated diagnostic Dockerfile now prepares the same Caddy source/module graph, CEL compatibility patch, pinned Go 1.27.1 image and CGO-disabled configuration as the runtime build, with govulncheck 1.8.0. Its build exited **0**. Source scanning exited **0** after checking **158 modules** and the Go standard library: **0 symbol findings**, **0 imported-package findings**, and **1 required-module finding, GO-2026-5932**, in x/crypto v0.56.0. No fixed version was reported.
+
+The bounded owned scan container finished without OOM, and inspection, removal and the final empty label query confirmed cleanup. [Machine-readable diagnostic evidence](evidence/caddy-source-diagnostic.json) records source hashes, exact diagnostic/runtime image context and raw build/scan/state hashes. The findings narrow the earlier stripped-binary module fallback; they do not certify runtime safety or replace an audit. [Method and official-tool limitations](go-vulnerability-checks.md#caddy-source-analysis).
+
+The strict Trivy gate still fails on the existing UNKNOWN finding. No suppression, runtime dependency change, production image rebuild, Prometheus analysis, wallet action or external deployment was performed by this diagnostic.
+
 ## Refresh the web image after recovery improvements -- 2026-09-10
 
 Application revision `83a6604` is packaged in local image `sha256:b101ee3bc5a551d574d18a78e3c194f0ed41485022a9499788800e0bf382b1dc`. The Docker build exited **0**, with an in-image package check and Caddy configuration validation. Caddy compile/matcher layers were cached. Artifact size is **8 circuits, 80 files, 65,414,820 bytes**.

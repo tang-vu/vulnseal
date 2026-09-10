@@ -1,0 +1,59 @@
+{
+  "recordedAt": "2026-09-10T15:35:23.664026+00:00",
+  "applicationRevision": "9b528010f76a817fd9804011af68d54aa698ae23",
+  "diagnosticImageId": "sha256:4b1e19d2a5dafc304c302bfcd4b292d0f38e4ab0ce5599a54a03cbda832475c0",
+  "runtimeImageContext": "sha256:b101ee3bc5a551d574d18a78e3c194f0ed41485022a9499788800e0bf382b1dc",
+  "build": {
+    "command": "docker build -f infra/caddy-source-check.Dockerfile -t vulnseal-caddy-source-check:local .",
+    "exitCode": 0,
+    "rawLogSha256": "9a3683c1b1ee8bcd1e52261d7a0310eee75cfd547f69563f7918df414b4d03b1"
+  },
+  "scan": {
+    "command": "timeout 900 govulncheck -show verbose,traces ./...",
+    "mode": "source",
+    "govulncheck": "v1.8.0",
+    "go": "go1.27.1",
+    "cgoEnabled": false,
+    "rootPackage": "vulnseal.local/hosting",
+    "modulesScanned": 158,
+    "exitCode": 0,
+    "symbolFindings": 0,
+    "importedPackageFindings": 0,
+    "requiredModuleFindings": [
+      {
+        "id": "GO-2026-5932",
+        "module": "golang.org/x/crypto",
+        "installedVersion": "v0.56.0",
+        "fixedVersionReported": null
+      }
+    ],
+    "startedAt": "2026-09-10T15:33:39.991745737Z",
+    "finishedAt": "2026-09-10T15:33:50.343497687Z",
+    "oomKilled": false,
+    "memoryLimitGiB": 8,
+    "goMemoryLimitGiB": 6,
+    "cpuLimit": 4,
+    "pidLimit": 512,
+    "rawLogSha256": "d45d74c6ea06e0b6b2ffeea74c92736ef6dcdb96e8280a0dd9ba3d122eb40c1e",
+    "rawStateSha256": "4d04b845aa080c282ab6c8c43f4f1f5c936c227dd60fb144f9009d4a6ef54bca"
+  },
+  "inputSha256": {
+    "infra/caddy/go.mod": "f2b308a387b39cdb802e51ab1274b510569546492550a2fae6c14098604346eb",
+    "infra/caddy/go.sum": "63d5ddb64a7d5039efde0d4357bf9486ce3741ddd20843d39105e04a742b95f0",
+    "infra/caddy/main.go": "229c28ec234ef072d7dbf9ce97a956bc44411a605a9c8b27589bb8f66a5a3439",
+    "infra/caddy/apply-cel-compat.sh": "26f9be6ce532429c066c5501635b63174f4ab4b4ee9ef166b7c93eda4e5e2b8b",
+    "infra/caddy-source-check.Dockerfile": "c4299d4c1d8611aef0b2916055fa39436041fe9f6f0c39b082dec4231da7552c"
+  },
+  "cleanupCompleted": true,
+  "strictRuntimeSecurityGatePassed": false,
+  "limits": [
+    "No known vulnerable call/import was reported for this source build configuration; this is not proof of runtime non-exploitability or an independent audit.",
+    "Static analysis has reflection/unsafe and conservative-call limitations documented by govulncheck. Other build flags, future dependencies and database changes require reassessment.",
+    "The exact-runtime Trivy gate still reports GO-2026-5932 at UNKNOWN and remains failed; no suppression or exception was added.",
+    "This source diagnostic does not rescan Prometheus, establish native Lace compatibility, regenerate proving keys or deploy anything externally."
+  ],
+  "references": [
+    "https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck",
+    "https://vuln.go.dev/ID/GO-2026-5932.json"
+  ]
+}
