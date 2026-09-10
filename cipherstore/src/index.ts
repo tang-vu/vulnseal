@@ -5,12 +5,14 @@ import { createCipherstoreServer } from "./server.js";
 import { mkdir, readdir } from "node:fs/promises";
 import { acquireDirectoryLease } from "./directory-lease.js";
 import { SqliteCiphertextStorage } from "./sqlite-storage.js";
+import { assertRestoreComplete } from "./restore-state.js";
 
 export * from "./server.js";
 export * from "./directory-lease.js";
 export * from "./storage.js";
 export * from "./filesystem-storage.js";
 export * from "./sqlite-storage.js";
+export * from "./restore-state.js";
 
 const isEntrypoint = process.argv[1] !== undefined &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -48,6 +50,7 @@ if (isEntrypoint) {
   await mkdir(dataDirectory, { recursive: true });
   const release = await acquireDirectoryLease(dataDirectory);
   try {
+    await assertRestoreComplete(dataDirectory);
     const entries = await readdir(dataDirectory);
     if (backend === "filesystem" && entries.some((name) => name.startsWith("ciphertext.sqlite")) ||
         backend === "sqlite" && entries.some((name) => /^[a-f0-9]{64}\.ciphertext\.json$/.test(name))) {

@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import * as files from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { Server } from "node:http";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { createCipherstoreBackup, restoreCipherstoreBackup, verifyCipherstoreBackup } from "./backup.js";
 import { createCipherstoreServer, MEDIA_TYPE } from "./server.js";
 import { SqliteCiphertextStorage } from "./sqlite-storage.js";
 import { acquireDirectoryLease } from "./directory-lease.js";
+import { assertRestoreComplete, incompleteRestoreName } from "./restore-state.js";
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...actual, open: vi.fn(actual.open) };
+});
 let server: Server | undefined;
 afterEach(async () => { await new Promise<void>((resolve) => server?.close(() => resolve()) ?? resolve()); server = undefined; });
 const serve = async (directory: string) => {
@@ -104,4 +110,38 @@ it("refuses nested destinations and unlisted files without modifying the source"
   await writeFile(path.join(fixture.backup, "unlisted.txt"), "unlisted");
   await expect(verifyCipherstoreBackup(fixture.backup)).rejects.toThrow("inventory");
   expect(await readFile(path.join(fixture.store, `${fixture.digest}.ciphertext.json`), "utf8")).toBe(fixture.body);
+});
+
+it.each(["filesystem", "sqlite"] as const)("keeps a failed %s restore unusable and permits a fresh explicit restoration", async (backend) => {
+  const fixture = await setup();
+  const manifest = await createCipherstoreBackup(fixture.store, fixture.backup);
+  const failure = new Error("controlled restore write failure");
+  const originalOpen = (await vi.importActual<typeof import("node:fs/promises")>("node:fs/promises")).open;
+  const originalPut = SqliteCiphertextStorage.prototype.put;
+  const fault = backend === "filesystem"
+    ? vi.spyOn(files, "open").mockImplementation(async (...args) => {
+      const handle = await originalOpen(...args);
+      if (String(args[0]) === path.join(fixture.restored, `${fixture.digest}.ciphertext.json`)) {
+        await handle.writeFile("partial ciphertext"); await handle.close(); throw failure;
+      }
+      return handle;
+    })
+    : vi.spyOn(SqliteCiphertextStorage.prototype, "put").mockImplementation(async function (digest, body) {
+      await originalPut.call(this, digest, body); throw failure;
+    });
+  try { await expect(restoreCipherstoreBackup(fixture.backup, fixture.restored, backend)).rejects.toThrow(failure); }
+  finally { fault.mockRestore(); }
+  expect(await readdir(fixture.restored)).toContain(incompleteRestoreName);
+  await expect(assertRestoreComplete(fixture.restored)).rejects.toThrow("restore is incomplete");
+  const release = await acquireDirectoryLease(fixture.restored); await release();
+  const rejectedBackup = path.join(fixture.root, "rejected-backup");
+  await expect(createCipherstoreBackup(fixture.restored, rejectedBackup)).rejects.toThrow("restore is incomplete");
+  expect(await readdir(fixture.root)).not.toContain("rejected-backup");
+  await expect(restoreCipherstoreBackup(fixture.backup, fixture.restored, backend)).rejects.toMatchObject({ code: "EEXIST" });
+  expect(await verifyCipherstoreBackup(fixture.backup)).toEqual(manifest);
+  const retry = path.join(fixture.root, "fresh-retry");
+  await restoreCipherstoreBackup(fixture.backup, retry, backend);
+  await assertRestoreComplete(retry);
+  const roundTrip = await createCipherstoreBackup(retry, path.join(fixture.root, "retry-backup"));
+  expect(roundTrip.blobs).toEqual(manifest.blobs);
 });

@@ -1,5 +1,13 @@
 # Validation report
 
+## Incomplete restoration startup guard -- 2026-09-10
+
+Filesystem and SQLite restoration now leave a flushed `.vulnseal-restore-incomplete` marker until copying and SQLite closure succeed. Service CLI startup and backup creation refuse marked directories; backup refusal happens before creating a destination. Failure cleanup retains the marker and releases the cooperative lease when possible. Existing destinations remain protected against overwrite; recovery requires an explicit restore into a new directory. Library embedders must call the exported `assertRestoreComplete` themselves before serving restored data.
+
+All **35 cipherstore tests across 7 files passed (15.96s)**. New controlled failures occurred after writing partial filesystem bytes and after a real SQLite insertion. Both cases retained the marker, released the lease, rejected a backup of the failed destination, preserved the verified source backup, and successfully restored into a fresh destination. Two initial test attempts failed because of the fault-injection mock setup (native ESM namespace and recursive mock); those attempts are not passes. The final suite used the real file opener behind the injected write failure.
+
+A separate compiled CLI check on Node **24.14.1** exited **0**: both backend subprocesses exited **1** with the incomplete-restore error before listening, retained the marker, released the writer lease, and created no database. Build passed. These are controlled write-failure and startup checks, not a process-kill or power-loss restoration drill. No runtime image was rebuilt or rescanned, no web artifact changed, and no wallet transaction or public deployment occurred.
+
 ## SQLite lock and native capacity error recovery -- 2026-09-10
 
 SQLite lock/queue pressure now produces **HTTP 503 with Retry-After: 1**, while native SQLITE_FULL produces the existing capacity error mapped to **HTTP 507**. Extended error codes are classified by their primary byte. The worker does not retry writes. Transaction cleanup now checks `isTransaction` before rollback: SQLite can already have rolled back, and the previous unconditional rollback could replace the original failure with a secondary error.

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
-import { lstat, mkdir, open, readdir, realpath } from "node:fs/promises";
+import { lstat, mkdir, open, readdir, realpath, unlink } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { MAX_CIPHERTEXT_BYTES, validateEnvelope } from "./server.js";
 import { acquireDirectoryLease, directoryLeaseName } from "./directory-lease.js";
 import { SqliteCiphertextStorage } from "./sqlite-storage.js";
+import { assertRestoreComplete, incompleteRestoreName } from "./restore-state.js";
 
 const manifestName = "vulnseal-cipherstore-manifest.json";
 const filenamePattern = /^([a-f0-9]{64})\.ciphertext\.json$/;
@@ -41,6 +42,7 @@ export const createCipherstoreBackup = async (source: string, destination: strin
   const directory = await realpath(source), release = await acquireDirectoryLease(directory);
   let sqlite: SqliteCiphertextStorage | undefined;
   try {
+    await assertRestoreComplete(directory);
     const names = (await readdir(directory)).sort();
     const blobs: Entry[] = [];
     const output = await freshDestination(directory, destination);
@@ -92,6 +94,7 @@ export const restoreCipherstoreBackup = async (source: string, destination: stri
   const release = await acquireDirectoryLease(output);
   let sqlite: SqliteCiphertextStorage | undefined;
   try {
+    await writeExclusive(path.join(output, incompleteRestoreName), Buffer.from("Restore has not completed. Restore the verified backup into a new directory.\n"));
     if (backend === "sqlite") { sqlite = new SqliteCiphertextStorage(output, Number.MAX_SAFE_INTEGER, 100000); await sqlite.prepare(); }
     for (const entry of manifest.blobs) {
       const bytes = await readBlob(directory, entry.digest);
@@ -99,6 +102,8 @@ export const restoreCipherstoreBackup = async (source: string, destination: stri
       if (sqlite) await sqlite.put(entry.digest, bytes);
       else await writeExclusive(path.join(output, `${entry.digest}.ciphertext.json`), bytes);
     }
+    await sqlite?.close();
+    await unlink(path.join(output, incompleteRestoreName));
     return manifest;
   } finally { try { await sqlite?.close(); } finally { await release(); } }
 };
