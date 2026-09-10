@@ -1,7 +1,7 @@
 {
-  "capturedAt": "2026-09-10T06:37:07.981Z",
+  "capturedAt": "2026-09-10T08:01:38.288Z",
   "backend": "sqlite",
-  "imageId": "sha256:16985c127ab5881dc8a36119d0da8cb0e530adfe232bf35ca62d7a51cd97373a",
+  "imageId": "sha256:59c4d7d15c951aab200db198f1d7c49e154839823f9c5187382e111537ffc984",
   "nonRoot": true,
   "readOnlyRoot": true,
   "metricsEnabled": true,
@@ -15,5 +15,11 @@
   "fullStoreRemainsReadable": true,
   "secondWriterRefused": true,
   "gracefulRestart": true,
-  "persistedCiphertextDecrypted": true
+  "persistedCiphertextDecrypted": true,
+  "retirement": {
+    "backend": "sqlite",
+    "node": "v24.20.0",
+    "retirementRuntimePassed": true,
+    "fixtureRemoved": true
+  }
 }

@@ -1,5 +1,15 @@
 # Validation report
 
+## Retirement controls in the current runtime image -- 2026-09-10
+
+The rebuilt ciphertext image is **`sha256:59c4d7d15c951aab200db198f1d7c49e154839823f9c5187382e111537ffc984`**, using Node **24.20.0**. Its final build exited **0**, with **46 tests / 9 files in 53.30 seconds**. The first build failed a five-second SQLite restore-workflow timeout. The second failed two tests, including an overly strict concurrency assertion that expected quota exhaustion where the supported bounded-lock response was `STORAGE_BUSY`; the other diagnostic was not retained in the truncated tool output. Neither failed build is counted as a pass.
+
+Storage tests now have a **15-second overall scenario deadline**; the failed-restore case also documents its multiple worker startups and durable flushes. Runtime request deadlines, SQLite busy timeout and HTTP timing assertions remain unchanged. The competing-writer test still requires exactly one successful write, accepts either supported rejection reason, then explicitly retries after both settle: it must receive quota exhaustion, with the rejected digest absent before and after. Host cipherstore typecheck passed.
+
+The container drill mounts only a new builtin-only test helper and executes the **image's** service modules and backup/removal CLIs. It verifies wrong-plan refusal before audit creation, selective raw file/row absence, completed audit, retired HTTP GET **404** / PUT **410**, unrelated bytes and idempotent uploads, readiness, rejection of old archives before destination creation, a verified new backup and missing-policy startup refusal. Existing persistence/decryption, quota, graceful restart, incomplete-restore and non-root/read-only checks also passed. Filesystem finished at **08:00:40.942Z**, SQLite at **08:01:38.288Z**; both processes exited **0** after cleanup. The helper's synthetic envelopes are not a cryptographic report test; the outer drill separately encrypts and decrypts its persistence fixture.
+
+The native 64-KiB tmpfs probe passed against the same image's SQLite module: real capacity failure preserved its error, left the failed blob absent, and allowed a later small write. The exact-image Trivy scan exited **0** with zero findings for Alpine **3.24.1** (18 packages) and `app/package.json`, after refreshing its vulnerability database. It still warns that Alpine **3.24** is absent from its EOL list; no complete lifecycle-coverage claim follows. [Evidence and log hashes](evidence/cipherstore-retirement-runtime.json) preserve these results. CI's existing container jobs pick up the expanded drill, but no remote CI run is claimed. No production data, public service, wallet transaction or other runtime image was changed.
+
 ## Application regression refresh after escrow isolation -- 2026-09-10
 
 At application revision `29c5260`, `npm run validate` passed all six workspace builds and typechecks, then reported **325 passed / 1 failed** across **59 test files**. The failure was the SQLite retirement lifecycle's default **5-second test timeout**, not a failed data assertion. The command exited **1** and is not recorded as a successful consolidated run.

@@ -1,0 +1,87 @@
+{
+  "recordedAt": "2026-09-10T08:04:30.214583+00:00",
+  "sourceBaseRevision": "fe1b447",
+  "sourceDelta": "Test timeout/concurrency assertions and container drill changes recorded by the hashes below; no service runtime source changes in this turn.",
+  "imageId": "sha256:59c4d7d15c951aab200db198f1d7c49e154839823f9c5187382e111537ffc984",
+  "imageConfigId": "sha256:06940f61fc6fe13a8049b6a3ac7ebb94dec67025ed2fec30bf3dae5833fb129d",
+  "build": {
+    "exitCode": 0,
+    "tests": 46,
+    "files": 9,
+    "durationSeconds": 53.3,
+    "node": "24.20.0"
+  },
+  "priorBuildAttempts": [
+    {
+      "exitCode": 1,
+      "passed": 45,
+      "failed": 1,
+      "detail": "Failed SQLite restoration workflow exceeded default 5000 ms test timeout."
+    },
+    {
+      "exitCode": 1,
+      "passed": 44,
+      "failed": 2,
+      "detail": "Included a concurrency assertion that required capacity exhaustion but received the supported STORAGE_BUSY error. Full diagnostics for the other failure were not retained in the truncated tool output."
+    }
+  ],
+  "hostTypecheckExitCode": 0,
+  "filesystemContainer": {
+    "exitCode": 0,
+    "evidence": "cipherstore-filesystem-container-drill.json"
+  },
+  "sqliteContainer": {
+    "exitCode": 0,
+    "evidence": "cipherstore-sqlite-container-drill.json"
+  },
+  "retirementChecks": [
+    "wrong plan refused before audit creation",
+    "selected digest removed from raw adapter",
+    "completed private audit",
+    "retired GET 404 and PUT 410",
+    "retained bytes and idempotent upload preserved",
+    "readiness 200",
+    "old backup restore refused before destination creation",
+    "new backup verified with one blob",
+    "missing configured policy refuses CLI startup before creating store"
+  ],
+  "nativeCapacityProbe": {
+    "exitCode": 0,
+    "node": "24.20.0",
+    "runtimeCodeFromImage": true,
+    "tmpfsBytes": 65536,
+    "nativeCapacityErrorReported": true,
+    "failedWriteAbsent": true,
+    "laterSmallWriteRetained": true
+  },
+  "scan": {
+    "exitCode": 0,
+    "scannerImage": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+    "findings": 0,
+    "alpineVersion": "3.24.1",
+    "osPackages": 18,
+    "nodePackageFiles": 1,
+    "databaseUpdatedAt": "2026-09-10T08:02:39Z",
+    "warnings": [
+      "Alpine 3.24 is not on the scanner EOL list."
+    ]
+  },
+  "files": {
+    "cipherstore/package.json": "8dacc52e4bb877eff169b618feade4dd039b7ed40ad9968d1e9f18e30e9f9642",
+    "cipherstore/src/backup.test.ts": "944c60976cf829a83be90b40756a690ecae88a93664399a3437ce10bb07bfdc1",
+    "cipherstore/src/sqlite-storage.test.ts": "e45c8a91f0a438a314d47c87998088eafd32aac56829e29d1c87e076d32ce610",
+    "scripts/test-retirement-runtime.mjs": "9b6df98ff3adfb81ccf394bd1c8d93c6ab0a96d4016e0669e96f009c576018e4",
+    "scripts/test-cipherstore-container.mjs": "0bdc27235a4e4d14ecd84baf01c3f5a81ff4793ebf1e7d2c5b30cc9b631603a6",
+    ".compact/cipherstore-retirement-build.log": "930d4a3c25ca8cd8639726e34499811cf0f95f5bd435d49a00301268279e2524",
+    ".compact/security-scan-20260910/cipherstore-retirement-stdout.log": "94ade1d7c9be476b315b46e7513e4df5712b37ec16ad800f898c8c2b06d7613d",
+    ".compact/security-scan-20260910/cipherstore-retirement-stderr.log": "b4683e0b0803a898c121f9f476c5ca030d9e2dfd1eeeb2ef2dcabf85ab2b0ee0"
+  },
+  "limits": [
+    "Local synthetic data only; no production store or archive modified.",
+    "Container helper uses image modules for loopback HTTP and image CLIs for backup/removal; it does not validate a production policy bind mount.",
+    "Retirement payloads are synthetic envelope fixtures; the outer persistence drill separately encrypts and decrypts a report.",
+    "No physical-erasure, independent-operator or regional-replication claim.",
+    "No web/ingress/Prometheus rebuild or security clearance; no native-wallet or public deployment checks.",
+    "Scanner EOL warning prevents claiming complete OS lifecycle coverage."
+  ]
+}

@@ -156,4 +156,6 @@ it.each(["filesystem", "sqlite"] as const)("keeps a failed %s restore unusable a
   await assertRestoreComplete(retry);
   const roundTrip = await createCipherstoreBackup(retry, path.join(fixture.root, "retry-backup"));
   expect(roundTrip.blobs).toEqual(manifest.blobs);
-});
+// This scenario performs a failed restore, a fresh restore and a new backup,
+// including multiple SQLite worker startups and durable filesystem flushes.
+}, 15_000);

@@ -45,7 +45,15 @@ it("rolls back failed quota checks and serializes independent database connectio
   const results = await Promise.allSettled([first.put(digest, body), second.put("04".repeat(32), body)]);
   expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
   const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
-  expect(rejected.reason.message).toBe("STORAGE_CAPACITY_EXCEEDED");
+  // A competing transaction can exhaust the bounded busy wait before its quota
+  // check. Once both calls settle, an explicit retry must observe the full store.
+  expect(["STORAGE_BUSY", "STORAGE_CAPACITY_EXCEEDED"]).toContain(rejected.reason.message);
+  const rejectedIndex = results.findIndex((result) => result.status === "rejected");
+  const rejectedDigest = rejectedIndex === 0 ? digest : "04".repeat(32);
+  const rejectedStore = rejectedIndex === 0 ? first : second;
+  await expect(rejectedStore.read(rejectedDigest)).rejects.toMatchObject({ code: "ENOENT" });
+  await expect(rejectedStore.put(rejectedDigest, body)).rejects.toThrow("STORAGE_CAPACITY_EXCEEDED");
+  await expect(rejectedStore.read(rejectedDigest)).rejects.toMatchObject({ code: "ENOENT" });
   await first.close(); await second.close();
   const larger = make(directory, body.length * 2, 2);
   await larger.checkReadiness();

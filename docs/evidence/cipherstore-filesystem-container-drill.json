@@ -1,7 +1,7 @@
 {
-  "capturedAt": "2026-09-10T06:36:02.702Z",
+  "capturedAt": "2026-09-10T08:00:40.942Z",
   "backend": "filesystem",
-  "imageId": "sha256:16985c127ab5881dc8a36119d0da8cb0e530adfe232bf35ca62d7a51cd97373a",
+  "imageId": "sha256:59c4d7d15c951aab200db198f1d7c49e154839823f9c5187382e111537ffc984",
   "nonRoot": true,
   "readOnlyRoot": true,
   "metricsEnabled": true,
@@ -16,14 +16,10 @@
   "secondWriterRefused": true,
   "gracefulRestart": true,
   "persistedCiphertextDecrypted": true,
-  "priorAttempts": [
-    {
-      "exitCode": 1,
-      "stage": "PUT /v1/blobs/sha256:7ff8cedf16b4e105cff2a76df859fad318279dfccd04ccc4963aaa1a2c26ff75",
-      "error": "ECONNRESET before an HTTP response",
-      "countedAsPass": false,
-      "cause": "Not established; synchronous Docker calls blocked the HTTP client event loop. A separate short idle-connection probe did not reproduce the error.",
-      "changesBeforeSuccessfulRun": "Docker calls use awaited execFile instead of execFileSync; image, service deadlines, requests and retry policy unchanged."
-    }
-  ]
+  "retirement": {
+    "backend": "filesystem",
+    "node": "v24.20.0",
+    "retirementRuntimePassed": true,
+    "fixtureRemoved": true
+  }
 }

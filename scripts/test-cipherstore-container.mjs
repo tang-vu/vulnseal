@@ -6,6 +6,7 @@ import { createHash, randomUUID, webcrypto } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { createConnection } from "node:net";
 import { writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
 const args = process.argv.slice(2);
 if (args.some((arg) => !["--backend=filesystem", "--backend=sqlite", "--write-evidence"].includes(arg)) || args.filter((arg) => arg.startsWith("--backend=")).length > 1) throw new Error("Usage: test-cipherstore-container.mjs [--backend=filesystem|sqlite] [--write-evidence]");
@@ -15,6 +16,12 @@ const image = "vulnseal-cipherstore:local";
 const id = randomUUID(), name = `vulnseal-container-test-${id}`, volume = `${name}-data`;
 const label = `vulnseal.container-test=${id}`;
 const distro = process.env.VULNSEAL_DOCKER_WSL_DISTRO;
+let retirementDrill = fileURLToPath(new URL('./test-retirement-runtime.mjs', import.meta.url));
+if (distro) {
+  const match = /^([A-Za-z]):\\(.*)$/.exec(retirementDrill);
+  if (!match) throw new Error('Cannot translate retirement drill path for WSL');
+  retirementDrill = `/mnt/${match[1].toLowerCase()}/${match[2].replaceAll('\\', '/')}`;
+}
 const executable = distro ? "wsl.exe" : process.platform === "win32" ? "docker.exe" : "docker";
 const execute = promisify(execFile);
 // Keep the event loop available to observe HTTP socket closure during Docker work.
@@ -45,7 +52,7 @@ async function removeOwned(kind, target) {
 }
 try {
   await docker("volume", "create", "--label", label, volume);
-  await docker("run", "--detach", "--name", name, "--label", label, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--memory", "512m", "--pids-limit", "64", "--mount", `type=volume,source=${volume},target=/data`, "--publish", "127.0.0.1::8787", "--env", `CIPHERSTORE_BACKEND=${backend}`, "--env", "CIPHERSTORE_METRICS_ENABLED=1", "--env", "CIPHERSTORE_MAX_STORED_BLOBS=1", "--env", "CIPHERSTORE_REQUEST_TIMEOUT_MS=1000", imageId);
+  await docker("run", "--detach", "--name", name, "--label", label, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--memory", "512m", "--pids-limit", "64", "--mount", `type=volume,source=${volume},target=/data`, "--mount", `type=bind,source=${retirementDrill},target=/retirement-drill.mjs,readonly`, "--publish", "127.0.0.1::8787", "--env", `CIPHERSTORE_BACKEND=${backend}`, "--env", "CIPHERSTORE_METRICS_ENABLED=1", "--env", "CIPHERSTORE_MAX_STORED_BLOBS=1", "--env", "CIPHERSTORE_REQUEST_TIMEOUT_MS=1000", imageId);
   await live();
   const metrics = await request(`${await baseUrl()}/metrics`);
   assert.equal(metrics.status, 200);
@@ -57,6 +64,11 @@ try {
   assert.equal(inspection.HostConfig.ReadonlyRootfs, true);
   assert.match(await docker("exec", name, "id", "-u"), /^[1-9][0-9]*$/);
   assert.equal(await docker("exec", name, "node", "healthcheck.mjs"), "");
+  stage = "retirement runtime lifecycle";
+  const retirement = JSON.parse(await docker('exec', '--env', 'TMPDIR=/data', '--env', 'VULNSEAL_CIPHERSTORE_DIST=/app/dist', name, 'node', '/retirement-drill.mjs', backend));
+  assert.equal(retirement.backend, backend);
+  assert.equal(retirement.retirementRuntimePassed, true);
+  assert.equal(retirement.fixtureRemoved, true);
   stage = "incomplete restoration CLI guard";
   assert.equal(await docker("exec", name, "node", "--input-type=module", "-e", `
     import assert from 'node:assert/strict';
@@ -128,6 +140,7 @@ try {
   await docker("stop", "--time", "20", name);
   assert.equal(JSON.parse(await docker("inspect", name))[0].State.ExitCode, 0, "Final stop must close storage and release its lease");
   const evidence = { capturedAt: new Date().toISOString(), backend, imageId, nonRoot: true, readOnlyRoot: true, metricsEnabled: true, readyBeforeUpload: true, incompleteRestoreStartupRefused: true, incompleteRestoreBackupRefused: true, incompleteRestoreMarkerRetained: true, incompleteRestoreLeaseReleased: true, trickledUploadTerminated: true, quotaRejectsNewBlob: true, fullStoreRemainsReadable: true, secondWriterRefused: true, gracefulRestart: true, persistedCiphertextDecrypted: true };
+  evidence.retirement = retirement;
   if (args.includes("--write-evidence")) await writeFile(`docs/evidence/cipherstore-${backend}-container-drill.json`, JSON.stringify(evidence, null, 2) + "\n");
   process.stdout.write(JSON.stringify(evidence) + "\n");
 } catch (error) {
