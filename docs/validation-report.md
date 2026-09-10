@@ -1,5 +1,17 @@
 # Validation report
 
+## Connected role restoration consistency -- 2026-09-10
+
+Connected role restoration now verifies the ledger record's commitment against the saved report ID and recomputes its submission receipt from the commitment, ciphertext digest and researcher key. Existing ciphertext and researcher-authority checks remain in place. The generated public `pureCircuits` API does not export the internal receipt helper, so a local Compact-runtime implementation mirrors the retained source and is checked against an actual compiled `submitReport` simulation, including changed-input rejection.
+
+A ledger report missing despite a saved local finalization claim now prevents connected restoration and directs the user to offline backup/journal inspection. Merely prepared reports and uncertain attempts without saved finalization can still be restored when absent; this grants no safe-retry conclusion. A structured copy taken before wallet waits keeps the selected identity, reports and journal fixed even if the caller's object changes.
+
+The final focused run passed **27 tests in 3 files (80.34s)**, and web typecheck exited **0**. Coverage includes both roles' inconsistent commitments/receipts, absent reports with and without saved finalization, unchanged successful restoration, caller mutation during connection, and existing role-workspace regression tests. Initial development runs failed because the receipt helper was not a generated public export and because the simulator test used the wrong ledger accessor; they are not counted as passes. The final helper is validated against `getLedger()` from the compiled-contract simulator.
+
+All **8 role browser cases passed (46.0s)** on Chrome desktop/Pixel 7, with two workers and no automatic retries. These cover encrypted identity recovery, leave warnings, stalled injected wallet setup and invitation validation; they do not exercise a real connected Lace restore. `release:build` exited **0** after all six workspace builds and the fresh Compact source comparison at **2026-09-10T06:50:37.960Z**. Packaging verified **8 circuits, 62 files, 62,652,531 bytes**, retaining existing proving keys.
+
+No vault schema or contract source changed. These checks detect contradictions between local claims and the configured ledger source; they do not authenticate either, prove transaction finality/history, recover unknown deployment addresses or enable automatic retry. No new runtime image, public deployment or wallet transaction is claimed.
+
 ## Current ciphertext runtime and restoration guard -- 2026-09-10
 
 The ciphertext image now includes source revision `5d0d3df`, including native SQLite error handling and the incomplete-restoration guard. Docker build exited **0**, with **35 tests across 7 files passing on Alpine (16.30s)**. Image **sha256:16985c127ab5881dc8a36119d0da8cb0e530adfe232bf35ca62d7a51cd97373a** was used by exact ID for both container drills and the strict scan. Docker did not capture Git revision metadata; this is not signed build provenance.
