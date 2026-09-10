@@ -1,5 +1,13 @@
 # Validation report
 
+## Browser recovery of deployment checkpoints -- 2026-09-10
+
+`CI=1 npm run test:e2e -- e2e/deployment-input-recovery.spec.ts` exited **0**, with **2 tests passed in 1.2 minutes**, two workers and no retries. Desktop Chrome and Pixel 7 each imported a synthetic v12 vendor backup containing an uncertain constructor snapshot and an older unknown-input attempt. Both changed the reward draft and response window, verified all seven original checkpoint values remained intact, downloaded the updated backup, closed the tab and unlocked its encrypted browser copy. An isolated browser context then restored the actual downloaded file and verified the edited draft alongside the original checkpoint. Full decrypted-vault equality checks cover both journal entries and the unchanged absence of finalization.
+
+The separate wallet-free inspector showed the transaction identifier while omitting the constructor snapshot and working draft. Neither context made POST/PUT requests. This exercises production browser UI, crypto, IndexedDB and file handling; it does not exercise native Lace, wallet submission, ledger policy comparison or a binding between an observed address and a specific attempt. The test is included by the existing CI browser-suite glob. [Recovery design](adr/0025-deployment-input-checkpoints.md).
+
+After the browser server stopped, the normal web build and package check both exited **0**: **8 circuits, 62 files, 62,673,519 bytes**. The temporary E2E ciphertext-service URL was removed by that normal rebuild. Proving keys remain retained; no Docker image or public deployment was refreshed.
+
 ## Save deployment inputs before the wallet boundary -- 2026-09-10
 
 Role-vault v12 stores selected constructor digests and windows with each vendor deployment attempt, separately from editable program drafts. The workspace captures strings before invoking deployment and awaits their encrypted journal save in the before-submit hook. Save failure prevents the mocked wallet boundary from being reached. Legacy entries remain null; validation rejects foreign program IDs, malformed values and replacement of existing inputs. Draft edits and finalization preserve the recorded values. v1-v11 remain readable; older releases cannot read v12.
