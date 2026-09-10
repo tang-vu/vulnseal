@@ -49,6 +49,9 @@ jobs:
       - name: Production dependency audit
         run: npm run audit:prod
 
+      - name: Test retirement across filesystem and SQLite replicas
+        run: node scripts/test-retirement-lifecycle.mjs
+
       - name: Test release artifact rejection rules
         run: npm run test:release
 

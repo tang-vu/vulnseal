@@ -87,6 +87,10 @@ The service never owns report decryption keys and cannot promise that deleting a
 
 ## Evidence required before production claims
 
+The repeatable local drill is `node scripts/test-retirement-lifecycle.mjs` after `npm run build`. It accepts no operator data paths: it creates its own temporary filesystem/SQLite stores, encrypts synthetic reports, exercises actual HTTP replication and the compiled removal/backup CLIs, and closes services before deleting only its verified temporary directory. `--write-evidence` records the result in [retirement-lifecycle.json](evidence/retirement-lifecycle.json). CI now invokes it after the workspace build/test step.
+
+The drill demonstrates partial retirement explicitly: an unconfigured replica can still acknowledge an upload and return the old ciphertext after the other copy is removed. Once both stores are removed and restarted with the policy, neither accepts the retired upload; raw adapter reads also confirm row/file absence. Each retained copy decrypts, old archives are rejected before restore creates a destination, and newly verified backups contain only retained ciphertext. This establishes local composition of these controls, not independence of operators, deletion of production archives or physical erasure.
+
 A service agreement must identify its accountable operator, covered stores/regions, request authentication, retention duration and trigger, backup/snapshot expiry, response/completion targets, log retention and treatment of independent copies. These are deployment decisions; this repository has no values to infer for them.
 
 Required implementation evidence includes authorized selective removal for both backends, a protected retired-digest registry enforced by upload/backfill/restore, interrupted-operation recovery, and a drill covering multiple stores plus an older backup. Show selected data absent at every covered location, reintroduction refused, unrelated ciphertext verified, and partial failures reported without a global success claim. Use synthetic reports. Independent operational review and actual configured service evidence remain necessary.

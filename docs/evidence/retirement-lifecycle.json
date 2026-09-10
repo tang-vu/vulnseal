@@ -1,0 +1,35 @@
+{
+  "capturedAt": "2026-09-10T07:24:48.140Z",
+  "node": "v24.14.1",
+  "backends": [
+    "filesystem",
+    "sqlite"
+  ],
+  "replicatedEncryptedUpload": true,
+  "partialRetirementReported": true,
+  "unconfiguredReplicaRemainsReadable": true,
+  "bothRetiredUploadsRefused": true,
+  "bothUnderlyingCopiesAbsent": true,
+  "retainedCopiesDecrypted": true,
+  "oldBackupsRefusedBeforeDestination": true,
+  "newBackupsContainOnlyRetainedBlob": true,
+  "auditsCompleted": true,
+  "fixtureCleanupCompleted": true,
+  "fileHashes": {
+    "scripts/test-retirement-lifecycle.mjs": "8888106c2b88ebcb7edc3a3b84aa639d5d1a59beb255d9f9649e2735a094d310",
+    "api/dist/cipherstore-client.js": "0a190b43d46cbc94bcd774e495427e5f8a9a64ccfd3a6ee1d1de686b5c76b118",
+    "cipherstore/dist/server.js": "bd980a6dee28bdde696b43a930476afd7ef55d75b1a72cac46b91541b18d7de2",
+    "cipherstore/dist/filesystem-storage.js": "8317b04617204798e65bc6fd470c91ffc663ea5a10415bca3a5002881e47625e",
+    "cipherstore/dist/sqlite-storage.js": "99baf901422507201aa40e9bc4fd90f91865cd58f880687b09140acc5f33f6d4",
+    "cipherstore/dist/sqlite-worker.js": "b9bd189cb90e9bb23c0cde3225884ee7fb39f2386fbe6df05dabe0ff9810452f",
+    "cipherstore/dist/retirement-policy.js": "5977341b9fffb73aff2f943436c8ec3924dd26a4662615977764bf4d6da2ab09",
+    "cipherstore/dist/retire.js": "944f254fc056837f182575eab806e34f855478cc7b2f178666b967c2610c668a",
+    "cipherstore/dist/backup.js": "7eeb40053d7dbe12cef00ff5af834c1f98479f84540b4a88522d89cf01b4eb4d"
+  },
+  "limits": [
+    "Two local services and temporary stores, not independently operated regions.",
+    "Compiled HTTP server/adapters and administrative CLIs; no container, native wallet or physical-erasure proof.",
+    "The old backups were deliberately retained until fixture cleanup; policy refusal does not erase archives.",
+    "Recorded module hashes identify selected inputs, not complete build provenance or dependencies."
+  ]
+}

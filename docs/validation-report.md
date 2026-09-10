@@ -1,5 +1,15 @@
 # Validation report
 
+## Two-backend retirement lifecycle -- 2026-09-10
+
+The new `scripts/test-retirement-lifecycle.mjs` runs two loopback HTTP services with real filesystem/SQLite adapters and cooperative writer leases, the compiled replicated client, and the compiled retirement/backup CLIs. Synthetic AES-GCM ciphertext is uploaded to both stores and backed up before maintenance. The script accepts no operator store paths and verifies its generated temporary root before cleanup.
+
+After removing only the filesystem copy and configuring its policy, replication reports **1 of 2 acknowledgments** while the unconfigured SQLite replica remains readable. After removing SQLite and restarting both with the policy, the same upload reports **0 of 2 acknowledgments** and both underlying stores report absence. Every retained copy remains byte-identical and decrypts correctly; readiness succeeds. Both historical backup restores fail before creating a destination, and each new verified backup contains only the retained digest. Each administrative audit has a completion record.
+
+The final run exited **0** on Node **24.14.1**, captured at **2026-09-10T07:24:48.140Z**, after service shutdown and fixture cleanup. [Evidence](evidence/retirement-lifecycle.json) records selected compiled-module/script hashes and limits. An initial successful run preceded the added artifact hashes and startup-cleanup handling; both runs passed. `git diff --check` passed. CI now invokes this drill after building/testing the workspaces, but the edited workflow has not run remotely.
+
+This closes the missing local composition check across replicas and historical backups. It does not establish independent regional operation, erase old production archives, authenticate removal requests, prove physical erasure, or replace the remaining native-wallet/public-deployment gates. No application runtime code or release artifact changed, and no operator data was removed.
+
 ## Bind retirement approval to the store and inventory -- 2026-09-10
 
 Removal plans now include the canonical store path, backend, selected/present digests, a hash of all committed blob names and a `planDigest` over that scope. CLI and library apply require this reviewed plan digest; the previous policy-only hash is insufficient. Validation happens under the directory lease before creating an audit or deleting. Changing the target store or even adding an unrelated blob invalidates the plan. Audits preserve the checked scope and digest.
