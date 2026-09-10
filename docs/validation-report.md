@@ -1,5 +1,13 @@
 # Validation report
 
+## Application regression refresh after escrow isolation -- 2026-09-10
+
+At application revision `29c5260`, `npm run validate` passed all six workspace builds and typechecks, then reported **325 passed / 1 failed** across **59 test files**. The failure was the SQLite retirement lifecycle's default **5-second test timeout**, not a failed data assertion. The command exited **1** and is not recorded as a successful consolidated run.
+
+The six offline retirement scenarios now have an explicit **15-second aggregate test timeout** because they repeatedly start/close SQLite workers and flush stores/audits. All assertions and service/request deadlines remain unchanged. After this test-only correction, cipherstore typecheck exited **0** and its complete suite passed **46 tests / 9 files in 27.51 seconds**. The other workspaces passed shared **13**, contract **25**, API **34**, integration **9**, and web **199** tests. This yields **326 passing application tests across the initial run and corrected workspace rerun**, not a new all-green `validate` invocation. No unrelated suites were repeated.
+
+The fresh web build passed `node scripts/check-web-release.mjs --write-manifest`: **8 circuits, 62 files, 62,654,013 bytes**, exit **0**. [Evidence](evidence/regression-29c5260.json) preserves the failed first result, correction, individual counts and limits. This run did not repeat browser E2E, rebuild/rescan containers, generate proving keys, execute native-wallet transactions or validate a public deployment. The earlier isolated escrow result remains separate below.
+
 ## Isolated escrow compatibility check -- 2026-09-10
 
 `node experiments/escrow/check.mjs` compiled a separate prototype with Compact **0.31.1**, `--skip-zk`, then executed its fresh bindings with the pinned runtime. The run exited **0**, **4 tests passed, 0 skipped**, at **2026-09-10T07:40:36.936Z** after temporary-output cleanup. [Evidence](evidence/escrow-compatibility.json) records the source, binding and test hashes. Earlier compile attempts exposed an integer-width issue and an undisclosed public amount; both were corrected before the successful run.

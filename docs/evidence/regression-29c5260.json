@@ -1,0 +1,49 @@
+{
+  "recordedAt": "2026-09-10T07:46:57Z",
+  "applicationRevision": "29c5260",
+  "node": "24.14.1",
+  "initialValidation": {
+    "command": "npm run validate",
+    "exitCode": 1,
+    "workspaceBuildsPassed": 6,
+    "workspaceTypechecksPassed": 6,
+    "workspaces": {
+      "shared": { "testsPassed": 13, "filesPassed": 1, "durationSeconds": 0.688 },
+      "contract": { "testsPassed": 25, "filesPassed": 2, "durationSeconds": 70.09 },
+      "api": { "testsPassed": 34, "filesPassed": 4, "durationSeconds": 3.50 },
+      "cipherstore": { "testsPassed": 45, "testsFailed": 1, "filesPassed": 8, "filesFailed": 1, "durationSeconds": 28.51 },
+      "integration": { "testsPassed": 9, "filesPassed": 3, "durationSeconds": 3.02 },
+      "web": { "testsPassed": 199, "filesPassed": 40, "durationSeconds": 82.36 }
+    },
+    "failure": "SQLite retirement lifecycle scenario exceeded the default 5000 ms test timeout."
+  },
+  "correction": {
+    "file": "cipherstore/src/retire.test.ts",
+    "change": "Explicit 15000 ms aggregate timeout for six offline scenarios that repeatedly open workers and fsync stores/audits; assertions and runtime deadlines unchanged.",
+    "typecheckCommand": "npm run typecheck -w @vulnseal/cipherstore",
+    "typecheckExitCode": 0,
+    "testCommand": "npm run test:run -w @vulnseal/cipherstore",
+    "testExitCode": 0,
+    "testsPassed": 46,
+    "filesPassed": 9,
+    "durationSeconds": 27.51
+  },
+  "combinedResult": {
+    "testsPassedAcrossInitialRunAndCorrectedWorkspaceRerun": 326,
+    "files": 59,
+    "singleSuccessfulValidateInvocation": false
+  },
+  "releasePackaging": {
+    "command": "node scripts/check-web-release.mjs --write-manifest",
+    "exitCode": 0,
+    "circuits": 8,
+    "files": 62,
+    "bytes": 62654013
+  },
+  "limits": [
+    "Escrow experiment's four tests are recorded separately and are not included in the 326 application tests.",
+    "No new browser E2E, native Lace, network transaction, Docker build/scan or public-host validation in this regression run.",
+    "Packaging uses retained proving keys and the existing source-check evidence; this is not fresh key generation.",
+    "Known security findings and roadmap/deployment gates remain open."
+  ]
+}

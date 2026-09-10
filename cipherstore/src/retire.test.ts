@@ -16,6 +16,10 @@ vi.mock("node:fs/promises", async (importOriginal) => {
   return { ...actual, open: vi.fn(actual.open) };
 });
 
+// These offline workflows repeatedly start SQLite workers and fsync stores and
+// audits. Bound the whole scenario separately from HTTP/request deadlines.
+const offlineWorkflowTimeout = 15_000;
+
 it.each(["filesystem", "sqlite"] as const)("binds %s apply to the reviewed store and inventory before creating an audit", async (backend) => {
   const root = await mkdtemp(path.join(tmpdir(), "vulnseal-retire-scope-"));
   const first = path.join(root, "first"), second = path.join(root, "second"), audit = path.join(root, "audit.jsonl");
@@ -41,7 +45,7 @@ it.each(["filesystem", "sqlite"] as const)("binds %s apply to the reviewed store
   const result = await retireCiphertext(first, policy, audit, fresh.planDigest);
   expect(result.removed).toBe(1);
   expect((await retireCiphertext(second, policy)).present).toEqual([digest]);
-});
+}, offlineWorkflowTimeout);
 
 it.each(["filesystem", "sqlite"] as const)("leaves an incomplete audit after a %s removal fault and supports an explicit new attempt", async (backend) => {
   const root = await mkdtemp(path.join(tmpdir(), "vulnseal-retire-failure-")), directory = path.join(root, "store"), audit = path.join(root, "audit.jsonl");
@@ -74,7 +78,7 @@ it.each(["filesystem", "sqlite"] as const)("leaves an incomplete audit after a %
   } finally { if (storage instanceof SqliteCiphertextStorage) await storage.close(); }
   const release = await acquireDirectoryLease(directory); await release();
   expect(await retireCiphertext(directory, policy, path.join(root, "retry.jsonl"), (await retireCiphertext(directory, policy)).planDigest)).toMatchObject({ applied: true, present: [second], removed: 1 });
-});
+}, offlineWorkflowTimeout);
 
 it.each(["filesystem", "sqlite"] as const)("previews and removes only retired %s blobs, audits results and rejects resurrection", async (backend) => {
   const root = await mkdtemp(path.join(tmpdir(), "vulnseal-retire-")), directory = path.join(root, "store");
@@ -117,4 +121,4 @@ it.each(["filesystem", "sqlite"] as const)("previews and removes only retired %s
   expect(await readdir(root)).not.toContain("resurrected");
   const remaining = await createCipherstoreBackup(directory, path.join(root, "new-backup"));
   expect(remaining.blobs.map((entry) => entry.digest)).toEqual([hash(retained)]);
-});
+}, offlineWorkflowTimeout);
