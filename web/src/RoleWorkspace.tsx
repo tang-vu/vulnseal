@@ -24,7 +24,7 @@ import { ReportEffectCheck } from "./ReportEffectCheck.js";
 import { TransactionCheck } from "./TransactionCheck.js";
 import { RecoveryJournal } from "./RecoveryJournal.js";
 import { LocalRoleStorage } from "./LocalRoleStorage.js";
-import { submissionWait, SubmissionConfirmationTimeout } from "./submission-wait.js";
+import { submissionWait } from "./submission-wait.js";
 
 const env = validateEnvironment(import.meta.env);
 const blank: VulnerabilityReport = { schemaVersion: 1, title: "", affectedAsset: "", weakness: "", summary: "", reproductionSteps: [], impact: "", suggestedRemediation: "", researcherContact: "", attachments: [] };
@@ -64,7 +64,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const confirmationWait = useRef<ReturnType<typeof submissionWait> | undefined>(undefined);
   const [recoveryRequired, setRecoveryRequired] = useState(false);
   const requireJournal = () => {
-    if (recoveryRequired) throw new Error("This session stopped waiting for a transaction. Reconcile its saved identifier before restoring a fresh session; transactions remain disabled here.");
+    if (recoveryRequired) throw new Error("This session lost transaction confirmation. Reconcile its saved identifier before restoring a fresh session; transactions remain disabled here.");
     if (currentVault.current) assertSubmissionCapacity(currentVault.current);
     if (!persistJournal.current) throw new Error("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
   };
@@ -74,7 +74,8 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
     const wait = submissionWait(); confirmationWait.current = wait;
     try { return await wait.run(action); }
     catch (cause) {
-      if (cause instanceof SubmissionConfirmationTimeout) { setRecoveryRequired(true); setSession(undefined); setSnapshot(undefined); }
+      // Once the durable hook returned, a generic SDK/transport error cannot prove non-submission.
+      if (wait.transactionId !== undefined) { setRecoveryRequired(true); setSession(undefined); setSnapshot(undefined); }
       throw cause;
     } finally { confirmationWait.current = undefined; submissionIntent.current = undefined; submissionNotes.current = null; retestChoice.current = null; retestPatch.current = undefined; deploymentInputs.current = undefined; }
   };
@@ -233,7 +234,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
         setVault(restored); setSaved(restored); setSession(joined?.session); setSnapshot(joined?.snapshot); setSelectedId(restored.reports[0]?.reportId ?? "");
       })} />
       {vault && <section className="form-panel"><h2>Submission journal</h2>
-        {recoveryRequired && <p>This session stopped waiting for confirmation. Transactions remain disabled. Keep your backup and use the journal checks to investigate the saved identifier before restoring a fresh session. A timeout does not prove failure.</p>}
+        {recoveryRequired && <p>This session lost confirmation after saving a transaction checkpoint. Transactions remain disabled. Keep your backup and use the journal checks to investigate the saved identifier before restoring a fresh session. An error or timeout does not prove the transaction failed.</p>}
         <p>Real role submissions require encrypted browser autosave. The transaction identifier is saved before calling the wallet. A recorded attempt is not proof of broadcast, success or finality; check the wallet or indexer before retrying after an interruption.</p>
         <p>Submission journal: {vault.submissionAttempts?.length ?? 0} of {MAX_SUBMISSION_ATTEMPTS} attempts retained.</p>
         {(vault.submissionAttempts?.length ?? 0) >= MAX_SUBMISSION_ATTEMPTS && <p>The submission journal is full. Keep an encrypted backup. New transactions cannot start; existing reports and journal checks remain available. No history is removed automatically.</p>}

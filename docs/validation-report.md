@@ -1,5 +1,15 @@
 # Validation report
 
+## Lock role transactions after post-checkpoint errors -- 2026-09-10
+
+The role workspace previously disabled its active session only on the confirmation deadline. An ordinary SDK/transport failure after the encrypted before-submit checkpoint left that session available despite an unknown transaction outcome. The wait now retains its checkpoint identifier after closing, and every submission error with that identifier disables further transactions and reconnect shortcuts in the active session. The vault, original error, journal and backup access remain available. Errors before the checkpoint retain the existing refresh/retry flow; storage failure still prevents the wallet boundary.
+
+The focused wait, deployment, deployment-timeout and role-workspace regression run passed **27 tests / 5 files in 78.31 seconds**, exit **0**. The deployment error case verifies that a second click cannot call the mocked wallet and that reconnect is unavailable; the storage-failure case verifies no uncertainty lock or saved attempt. Additional report-error cases cover both sides of the checkpoint. Their first focused run exposed an incorrect test expectation: before-checkpoint errors already clear the ledger snapshot, so the user must explicitly refresh before the triage button returns. The test was corrected to exercise that refresh instead of expecting an immediate action button.
+
+The corrected report cases passed **2 tests / 1 file in 13.97 seconds**, exit **0**, with the other 18 tests deliberately skipped by the name filter. The saved attempt retains its identifier and no finalization; backup access remains usable after the post-checkpoint failure.
+
+The final normal web build (including TypeScript checking) and package check exited **0**, producing **8 circuits, 62 files, 62,673,882 bytes** with retained proving keys and existing unchanged-contract source evidence. No native-wallet or browser E2E validation was run for this change. The active-session lock is not durable cross-session retry reconciliation; reopening a backup is not proof that resubmission is safe. [Behavior and limits](adr/0012-submission-journal.md#errors-after-a-checkpoint).
+
 ## Browser recovery of deployment checkpoints -- 2026-09-10
 
 `CI=1 npm run test:e2e -- e2e/deployment-input-recovery.spec.ts` exited **0**, with **2 tests passed in 1.2 minutes**, two workers and no retries. Desktop Chrome and Pixel 7 each imported a synthetic v12 vendor backup containing an uncertain constructor snapshot and an older unknown-input attempt. Both changed the reward draft and response window, verified all seven original checkpoint values remained intact, downloaded the updated backup, closed the tab and unlocked its encrypted browser copy. An isolated browser context then restored the actual downloaded file and verified the edited draft alongside the original checkpoint. Full decrypted-vault equality checks cover both journal entries and the unchanged absence of finalization.

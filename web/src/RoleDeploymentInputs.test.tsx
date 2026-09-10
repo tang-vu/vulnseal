@@ -43,12 +43,22 @@ it.each([false, true])("saves selected deployment inputs before the wallet bound
   expect(mocks.selected).toBeDefined();
   expect(mocks.wallet).toHaveBeenCalledTimes(rejectCheckpoint ? 0 : 1);
   const latest = mocks.saved.at(-1)!;
-  if (rejectCheckpoint) expect(latest.submissionAttempts).toHaveLength(0);
+  if (rejectCheckpoint) {
+    expect(latest.submissionAttempts).toHaveLength(0);
+    expect(screen.queryByText(/This session lost confirmation/)).not.toBeInTheDocument();
+  }
   else {
     expect(latest.version).toBe(12);
     expect(latest.submissionAttempts).toHaveLength(1);
     expect(latest.submissionAttempts![0]).toMatchObject({ transactionId, intent: { circuit: "constructor", reportId: null }, deployment: mocks.selected });
     expect(latest.submissionAttempts![0]!.finalization).toBeNull();
     expect(screen.getByText("Deployment inputs saved with this attempt")).toBeInTheDocument();
+    expect(screen.getByText(/This session lost confirmation/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Reports" }));
+    const deploy = screen.getByRole("button", { name: "Connect Lace and deploy program" });
+    expect(deploy).toBeDisabled();
+    await user.click(deploy);
+    expect(mocks.wallet).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", { name: "Connect Lace and verify program" })).not.toBeInTheDocument();
   }
 }, 15_000);

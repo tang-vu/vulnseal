@@ -12,12 +12,15 @@ export class SubmissionConfirmationTimeout extends Error {
 export function submissionWait() {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let closed = false;
+  let checkpointId: string | undefined;
   let reject!: (error: Error) => void;
   const timeout = new Promise<never>((_resolve, fail) => { reject = fail; });
   return {
+    get transactionId() { return checkpointId; },
     checkpoint(transactionId: string) {
       if (closed) throw new Error("Submission wait is closed. No transaction was sent by this checkpoint.");
       if (timer !== undefined) throw new Error("A transaction is already being observed");
+      checkpointId = transactionId;
       timer = setTimeout(() => reject(new SubmissionConfirmationTimeout(transactionId)), SUBMISSION_CONFIRMATION_TIMEOUT_MS);
     },
     async run<T>(action: () => Promise<T>): Promise<T> {

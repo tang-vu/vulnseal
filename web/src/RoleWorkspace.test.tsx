@@ -46,6 +46,33 @@ const restore = async (role: "researcher" | "vendor", status: number, journalCou
 };
 
 describe("independent role workspace", () => {
+  it.each([false, true])("blocks report transactions only when an SDK error follows a saved checkpoint (%s)", async (afterCheckpoint) => {
+    const { user, session } = await restore("vendor", 0);
+    session.execute.mockImplementationOnce(async () => {
+      if (afterCheckpoint) await mocks.join.mock.calls.at(-1)![1](roleTransactionId);
+      throw new Error("Controlled SDK transport failure");
+    });
+    await user.click(screen.getByRole("button", { name: "Begin triage" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Controlled SDK transport failure");
+    const saved = await decryptRoleVault(vi.mocked(writeStoredRole).mock.calls.at(-1)![2], "Workspace journal password");
+    expect(saved.submissionAttempts ?? []).toHaveLength(afterCheckpoint ? 1 : 0);
+    if (afterCheckpoint) {
+      expect(screen.getByText(/This session lost confirmation/)).toBeInTheDocument();
+      expect(saved.submissionAttempts![0]!.transactionId).toBe(roleTransactionId);
+      expect(saved.submissionAttempts![0]!.finalization ?? null).toBeNull();
+      expect(screen.queryByRole("button", { name: "Begin triage" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Connect Lace and verify program" })).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Save role backup" }));
+      expect(screen.getByRole("button", { name: "Download single-role backup" })).toBeEnabled();
+    } else {
+      expect(screen.queryByText(/This session lost confirmation/)).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Reports" }));
+      await user.click(screen.getByRole("button", { name: "Refresh ledger" }));
+      expect(screen.getByRole("button", { name: "Begin triage" })).toBeEnabled();
+    }
+    expect(session.execute).toHaveBeenCalledOnce();
+    expect(session.readPublicState).toHaveBeenCalledTimes(afterCheckpoint ? 0 : 1);
+  }, 15_000);
   it.each(["resolve", "reject"])("keeps the journal accessible after confirmation timeout and ignores late %s", async (outcome) => {
     const { user, session } = await restore("vendor", 0);
     const checkpoint = mocks.join.mock.calls.at(-1)![1] as (id: string) => Promise<void>;

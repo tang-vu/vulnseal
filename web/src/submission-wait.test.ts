@@ -34,7 +34,9 @@ it("returns timely results, preserves failures and clears deadlines", async () =
   await expect(success.run(async () => { success.checkpoint("id"); return "finalized"; })).resolves.toBe("finalized");
   const failure = submissionWait(), error = new Error("Wallet refused");
   await expect(failure.run(async () => { failure.checkpoint("id"); throw error; })).rejects.toBe(error);
+  expect(failure.transactionId).toBe("id");
   const beforeCheckpoint = submissionWait();
   await expect(beforeCheckpoint.run(() => { throw error; })).rejects.toBe(error);
+  expect(beforeCheckpoint.transactionId).toBeUndefined();
   expect(vi.getTimerCount()).toBe(0);
 });

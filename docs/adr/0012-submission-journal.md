@@ -22,6 +22,12 @@ An entry means the app saved an intention to call the wallet. A crash between th
 
 Users can reopen the encrypted browser copy or export its encrypted file and inspect identifiers in the wallet/indexer. Automatic transaction lookup, finality reconciliation, circuit/report association, terminal outcome records and safe resubmission policy are still required. A later failure cannot erase the already-persisted identifier. Clearing browser data, eviction or device loss still requires an independent downloaded backup, which may predate the most recent attempt. Native Lace interruption/recovery has not been established by mocked provider tests.
 
+## Errors after a checkpoint
+
+The active role session disables further transactions when any submission action fails after its durable checkpoint, including an ordinary SDK/transport error as well as the confirmation deadline. The checkpoint identifier remains available after the wait closes. The workspace clears the connected session and ledger view while retaining the vault, journal and backup controls; it does not replace the original error or record a failed/finalized outcome. Reconnect and deployment-address shortcuts stay unavailable in that session.
+
+Errors before the checkpoint do not trigger this uncertainty lock. In particular, a rejected encrypted save prevents the wallet callback from proceeding. A post-checkpoint error could also be a wallet rejection or a failed reauthorization before submission; the generic exception alone cannot establish that, so the same conservative lock applies. Reopening a workspace is not reconciliation or permission to retry. Durable cross-session retry policy and native-wallet interruption evidence remain open.
+
 ## Operation context extension
 
 [ADR 0017](0017-submission-intent-context.md) extends new entries with local circuit/report intent in payload version 5, while preserving unknown intent for older entries. This does not authenticate transaction contents or make retries safe.
