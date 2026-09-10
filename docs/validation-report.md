@@ -1,5 +1,15 @@
 # Validation report
 
+## Interleaved report lifecycle model -- 2026-09-10
+
+`contract/src/test/interleaved-lifecycle.test.ts` adds three reproducible schedules (seeds `0x125af`, `0x78bc1`, `0xd3e91`) over five reports with distinct researcher secrets and preimages. Three reports each fail retesting twice, replace the patch twice, then pass, authorize payout and close. Two reports are rejected and closed. The scheduler selects among unfinished reports, exercising different global sequence orderings against the compiled circuits.
+
+Each successful edge is preceded by a wrong-participant attempt and a full public projection comparison after rejection. Retests after replacement also reject the previous actual patch commitment. Successful edges check an independent status table, global/report sequence values, all fields outside that command's permitted changes, every unrelated report, receipt count and distinct authorization receipts. Terminal close, payout and duplicate-submission attempts are rejected. Across the three schedules this covers 15 submissions, 108 valid transitions and 171 rejected calls. The projection includes program fields, all report records, receipt cardinality and membership for recorded receipt values.
+
+This supplements the existing exhaustive single-edge actor/state matrix with longer interleavings. It is a fixed seeded suite, not exhaustive scheduling, formal verification or network transaction concurrency. It exercises Wave 1's existing replacement behavior; no contract, generated binding, proving key or payout-transfer behavior is changed. The initial focused run passed **3 tests in 19.36 seconds** before strengthening preservation checks to all fields outside each command's allowed changes.
+
+The final complete contract suite passed **28 tests / 3 files in 71.29 seconds**, exit **0**, including the strengthened seeded cases, existing actor/state matrix and lifecycle tests. Contract TypeScript checking also exited **0**. CI's existing `npm run validate` discovers the new test automatically; no remote CI result is claimed. Since only tests/docs changed, no web artifact or runtime image was rebuilt.
+
 ## Recover newer edits after an unconfirmed autosave -- 2026-09-10
 
 The storage panel now clears the preceding success message when another storage action, changed-vault save or explicit checkpoint starts. Previously the old revision's saved message remained visible alongside pending or failed persistence, making the current draft's status unclear. Save gates and vault contents are unchanged by this display fix.

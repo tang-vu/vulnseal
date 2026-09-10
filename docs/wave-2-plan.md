@@ -15,6 +15,8 @@ An isolated [escrow compatibility experiment](../experiments/escrow/README.md) c
 - Replicate ciphertext across at least two adapters and test withholding/corruption behavior.
 - Expand property/state-model tests and adversarial integration cases.
 
+The Wave 1 simulator suite now also runs three deterministic interleavings of five reports, including two failed-retest/replacement cycles before payout authorization, rejected-report closure, wrong-participant and stale-patch attempts, and terminal replay rejection. These strengthen the existing baseline's isolation/history invariants; they do not implement the expanded Wave 2 contract, payment, dispute or append-only update features.
+
 ## Exit evidence
 
 A new Preprod contract address and transaction references for the expanded workflow, independently queryable final state, test-token balance deltas, all Wave 1 regression checks, dispute/escrow negative tests, threat-model delta, and an explicit Wave 1 → Wave 2 comparison. No payment claim without a verifiable transfer.

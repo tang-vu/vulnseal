@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Contract tests now exercise seeded multi-report interleavings across repeated failed retests and replacement patches, preserving unrelated reports and fields, sequence counters and distinct payout-authorization receipts. These are compiled-circuit simulator checks of the existing workflow, not payment transfers, network concurrency or Wave 2 completion.
+
 - Encrypted browser storage opens and transactions have separate 15-second application deadlines, cleanup and late-result rejection. Tests include a real committed IndexedDB write with delayed completion: timeout remains an unconfirmed outcome and does not imply rollback. Autosave stops on failure while preserving the live vault for export. Physical-device eviction, browser suspension and encryption duration remain separate limits.
 
 - Deployment-policy comparison additionally checks eight SDK-exposed verifier keys against release reference files, reporting changed keys and missing/unexpected entrypoints. Captured-fixture unit and desktop/mobile browser checks pass, including a changed key. This establishes byte equality for the exposed version, not authenticated source-to-key generation, all-version identity or safe transaction retry; the current Docker image predates this addition.
