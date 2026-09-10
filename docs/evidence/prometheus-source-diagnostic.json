@@ -1,0 +1,89 @@
+{
+  "recordedAt": "2026-09-10T15:52:15.896144+00:00",
+  "applicationRevision": "f7fb5b6851cf7f357858f034c94237346a820d0a",
+  "diagnosticImageId": "sha256:f3160b5732015f6e9d6893240b1000b129473d962cf3f9996e9d22d97e8f33c4",
+  "runtimeImageId": "sha256:9716ce24565dad60ce6e2e3660e21c1268f457ee2aebddf0bc40ea4b19a04296",
+  "build": {
+    "command": "docker build --target source-check -f infra/prometheus.Dockerfile -t vulnseal-prometheus-source-check:local .",
+    "exitCode": 0,
+    "rawLogSha256": "682f42765e2e77c6ba2bc9c5b5fd9d3c708de6a3500b7629ff2fa3b725239cb7",
+    "dockerfileSha256": "ec5190b393fcd37871064aff27c4df4bd333c88930b7780cef0923911b984162",
+    "sourceRevision": "d7598b7141418fa35be2b5ec5d0fefb634199610",
+    "moduleFiles": {
+      "go.mod": {
+        "sha256": "954827b34e0b3f4bdb8b7f3ad4b1bb32bea24e38a8ba861ce7e3bc7682af0e3b",
+        "matchesRetainedRuntimeBuildEvidence": true
+      },
+      "go.sum": {
+        "sha256": "6e7cc3705901562aedc7d0c05a864860740a3df1cfe0c55d259aedfbaf759ea6",
+        "matchesRetainedRuntimeBuildEvidence": true
+      }
+    },
+    "binaries": {
+      "prometheus": {
+        "sha256": "cda84e80b5b3b70cea360554526a4c3fa455950297e198b491c1ff765953dffe",
+        "matchesPreviouslyInspectedRuntimeBinary": true,
+        "priorEvidence": "docs/evidence/go-binary-diagnostic.json"
+      },
+      "promtool": {
+        "sha256": "c0fef9ae421d8a6bad3522434e73b516e8ba9d1ee3d22c78370c286c74d69f46",
+        "matchesPreviouslyInspectedRuntimeBinary": true,
+        "priorEvidence": "docs/evidence/go-binary-diagnostic.json"
+      }
+    }
+  },
+  "scan": {
+    "command": "timeout 900 govulncheck -tags netgo,builtinassets -show verbose,traces ./cmd/prometheus ./cmd/promtool",
+    "mode": "source",
+    "govulncheck": "v1.8.0",
+    "go": "go1.27.1",
+    "cgoEnabled": false,
+    "rootPackages": [
+      "github.com/prometheus/prometheus/cmd/prometheus",
+      "github.com/prometheus/prometheus/cmd/promtool"
+    ],
+    "modulesScanned": 240,
+    "exitCode": 0,
+    "symbolFindings": 0,
+    "importedPackageFindings": 0,
+    "requiredModuleFindings": [
+      {
+        "id": "GO-2026-5932",
+        "module": "golang.org/x/crypto",
+        "version": "v0.56.0"
+      },
+      {
+        "id": "GO-2022-0646",
+        "module": "github.com/aws/aws-sdk-go",
+        "version": "v1.55.8"
+      },
+      {
+        "id": "GO-2022-0635",
+        "module": "github.com/aws/aws-sdk-go",
+        "version": "v1.55.8"
+      }
+    ],
+    "startedAt": "2026-09-10T15:50:01.795493522Z",
+    "finishedAt": "2026-09-10T15:50:34.424742656Z",
+    "oomKilled": false,
+    "memoryLimitGiB": 8,
+    "goMemoryLimitGiB": 6,
+    "cpuLimit": 4,
+    "pidLimit": 512,
+    "rawLogSha256": "f039f68f81c117ef5adfdd7dae5d71127c055547bdbf3cd6d96bb326af77f0da",
+    "rawStateSha256": "93c5dd23d8bf76deed0d98157e239adee420e96db7d08649695cb19397a7b1d5"
+  },
+  "cleanupCompleted": true,
+  "strictRuntimeSecurityGatePassed": false,
+  "limits": [
+    "No known vulnerable call/import was reported under these source build settings; this is not a runtime security certification or audit.",
+    "Reflection/unsafe and conservative-call limitations still apply; other tags, dependency or vulnerability database changes require reassessment.",
+    "The runtime image/tag was not replaced, and the strict Trivy gate retains its two UNKNOWN findings; no suppression or exception was added.",
+    "No public monitoring deployment, operator SLO verification or production readiness is established."
+  ],
+  "references": [
+    "https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck",
+    "https://pkg.go.dev/vuln/GO-2022-0646",
+    "https://pkg.go.dev/vuln/GO-2022-0635"
+  ]
+}

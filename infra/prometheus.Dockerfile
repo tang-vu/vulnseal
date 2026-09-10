@@ -20,6 +20,16 @@ RUN go list -mod=readonly -tags netgo,builtinassets -deps ./cmd/prometheus ./cmd
 FROM scratch AS build-evidence
 COPY --from=build /build/go.mod /build/go.sum /out/packages.txt /
 
+# Optional source diagnostic; shares the exact runtime source and build tags.
+FROM golang:1.27.1-alpine@sha256:cf6fca6641884b8433441b2b0652976f975e1d0fdd26d177eaaf8596087f3125 AS govulncheck
+ENV GOTOOLCHAIN=local
+RUN go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+
+FROM build AS source-check
+COPY --from=govulncheck /go/bin/govulncheck /usr/local/bin/govulncheck
+ENTRYPOINT ["govulncheck", "-tags", "netgo,builtinassets", "-show", "verbose,traces"]
+CMD ["./cmd/prometheus", "./cmd/promtool"]
+
 FROM build AS runtime-files
 RUN mkdir -p /runtime-data/prometheus \
  && printf 'nobody:x:65534:65534:Prometheus:/prometheus:/bin/false\n' > /runtime-data/passwd \

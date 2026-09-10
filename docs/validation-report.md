@@ -1,5 +1,13 @@
 # Validation report
 
+## Refine Prometheus findings with matching source and binary evidence -- 2026-09-10
+
+An optional `source-check` target in the existing Prometheus Dockerfile reuses the actual build stage and scans both command roots with their `netgo,builtinassets` tags using pinned govulncheck 1.8.0. The diagnostic build exited **0**. Both resolved module files and both rebuilt binary SHA-256 values match the retained evidence for current runtime image `9716ce24565dad60ce6e2e3660e21c1268f457ee2aebddf0bc40ea4b19a04296`.
+
+The bounded source scan exited **0** after checking **240 modules** and Go 1.27.1: **0 symbol findings**, **0 imported-package findings**, and **3 required-module findings** (GO-2026-5932, GO-2022-0646, GO-2022-0635). It finished without OOM; ownership-checked container cleanup completed, and the final label query was empty. [Machine-readable source/binary diagnostic evidence](evidence/prometheus-source-diagnostic.json), [method and limitations](go-vulnerability-checks.md#prometheus-and-promtool-source-analysis).
+
+This refines the earlier stripped-binary module fallback; it does not certify runtime safety. The runtime tag was not replaced and the strict Trivy gate remains failed with two UNKNOWN findings. No suppression, public monitoring deployment or production-readiness claim was added.
+
 ## Refine the remaining Caddy finding with source analysis -- 2026-09-10
 
 A dedicated diagnostic Dockerfile now prepares the same Caddy source/module graph, CEL compatibility patch, pinned Go 1.27.1 image and CGO-disabled configuration as the runtime build, with govulncheck 1.8.0. Its build exited **0**. Source scanning exited **0** after checking **158 modules** and the Go standard library: **0 symbol findings**, **0 imported-package findings**, and **1 required-module finding, GO-2026-5932**, in x/crypto v0.56.0. No fixed version was reported.

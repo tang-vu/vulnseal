@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Prometheus/promtool now have a source diagnostic using their actual runtime build stage and tags. Both rebuilt binary hashes and module files match prior runtime evidence. The 240-module scan reports no vulnerable symbols/imported packages and three required-module advisories only; runtime Trivy findings remain unsuppressed. See [source evidence](evidence/prometheus-source-diagnostic.json).
+
 - Caddy source analysis under the runtime Go/module/patch configuration reports no vulnerable symbols or imported packages; GO-2026-5932 remains a required-module finding only. The diagnostic checked 158 modules and exited 0, with owned cleanup confirmed. This narrows the earlier stripped-binary fallback but does not waive the still-failing Trivy gate; see [source evidence](evidence/caddy-source-diagnostic.json).
 
 - Combined recovery now guards delayed file reads and exports against panel unmount, rechecks whether restoration is still allowed, and prevents overlapping forms synchronously. Failed download attempts keep retry input and clean temporary download resources. Component boundary tests and desktop/mobile backup round trips pass; already invoked parent restoration is not canceled by this panel guard.
