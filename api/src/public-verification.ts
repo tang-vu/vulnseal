@@ -28,6 +28,8 @@ export const publicReceiptLink = (base: string, receipt: PublicReceipt): string 
 
 export const projectPublicLedger = (state: Ledger) => ({
   programId: bytesToHex(state.programId),
+  scopeDigest: bytesToHex(state.scopeDigest), responsePolicyDigest: bytesToHex(state.responsePolicyDigest),
+  rewardPolicyDigest: bytesToHex(state.rewardPolicyDigest), disclosurePolicyDigest: bytesToHex(state.disclosurePolicyDigest),
   responseDays: String(state.responseDays), disclosureDays: String(state.disclosureDelayDays),
   reports: [...state.reports].map(([id, report]) => ({
     reportId: bytesToHex(id), ciphertextDigest: bytesToHex(report.ciphertextDigest),

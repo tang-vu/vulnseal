@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { assertBytes32, sha256, utf8 } from "@vulnseal/shared";
+import { assertBytes32, bytesToHex, hexToBytes, sha256, utf8 } from "@vulnseal/shared";
 import type { ProgramConstructor } from "./types.js";
 
 export type ProgramPolicy = {
@@ -37,4 +37,24 @@ export async function programConstructor(programId: Uint8Array, input: ProgramPo
     digest({ disclosureDays: policy.disclosureDays }),
   ]);
   return { programId: id, scopeDigest, responsePolicyDigest, rewardPolicyDigest, disclosurePolicyDigest, responseDays: BigInt(policy.responseDays), disclosureDelayDays: BigInt(policy.disclosureDays) };
+}
+
+export type ObservedProgramPolicy = {
+  readonly programId: string;
+  readonly scopeDigest: string; readonly responsePolicyDigest: string;
+  readonly rewardPolicyDigest: string; readonly disclosurePolicyDigest: string;
+  readonly responseDays: string; readonly disclosureDays: string;
+};
+
+/** Compare exact policy content with an already observed program, without fetching. */
+export async function compareProgramPolicy(input: ProgramPolicy, observed: ObservedProgramPolicy) {
+  const snapshot = { ...observed };
+  const expected = await programConstructor(hexToBytes(snapshot.programId), input);
+  const expectedFields = {
+    scopeDigest: bytesToHex(expected.scopeDigest), responsePolicyDigest: bytesToHex(expected.responsePolicyDigest),
+    rewardPolicyDigest: bytesToHex(expected.rewardPolicyDigest), disclosurePolicyDigest: bytesToHex(expected.disclosurePolicyDigest),
+    responseDays: String(expected.responseDays), disclosureDays: String(expected.disclosureDelayDays),
+  };
+  const fields = (Object.keys(expectedFields) as (keyof typeof expectedFields)[]).map(field => ({ field, expected: expectedFields[field], observed: snapshot[field], matches: expectedFields[field] === snapshot[field] }));
+  return { programId: snapshot.programId, matches: fields.every(field => field.matches), fields };
 }

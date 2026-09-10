@@ -9,7 +9,7 @@ import type { PublicVerification } from "./public-verification.js";
 afterEach(() => { cleanup(); vi.resetAllMocks(); window.location.hash = ""; });
 const address = "ab".repeat(32);
 const receipt = JSON.stringify({ kind: "vulnseal-public-receipt", version: 1, network: "preprod", contractAddress: address, reportId: "cd".repeat(32), ciphertextDigest: "ef".repeat(32) });
-const verified: PublicVerification = { contractAddress: address, programId: "01".repeat(32), reports: [], responseDays: "7", disclosureDays: "30", checkedAt: "now", blockHeight: 1, blockHash: "02".repeat(32), finalizedHead: 2, indexerUrl: "https://example.test" };
+const verified: PublicVerification = { scopeDigest: "03".repeat(32), responsePolicyDigest: "04".repeat(32), rewardPolicyDigest: "05".repeat(32), disclosurePolicyDigest: "06".repeat(32), contractAddress: address, programId: "01".repeat(32), reports: [], responseDays: "7", disclosureDays: "30", checkedAt: "now", blockHeight: 1, blockHash: "02".repeat(32), finalizedHead: 2, indexerUrl: "https://example.test" };
 
 it("aborts a canceled lookup and keeps a replacement pending when the old result arrives", async () => {
   let first!: (value: PublicVerification) => void, second!: (value: PublicVerification) => void;

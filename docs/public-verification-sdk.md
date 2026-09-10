@@ -12,6 +12,18 @@ Available functions:
 | `verifyPublicReceipt(text, endpoints, signal?)` | Also require the receipt's report and ciphertext digest to match the observed contract; return `{ receipt, report, verification }`. |
 | `projectPublicLedger(ledger)` | Project an already-decoded ledger without network access. |
 
+The public projection includes `scopeDigest`, `responsePolicyDigest`, `rewardPolicyDigest` and `disclosurePolicyDigest` alongside program ID and windows. To compare supplied policy content locally:
+
+```ts
+import { compareProgramPolicy, validateProgramPolicy } from "@vulnseal/api/program-policy";
+const policy = validateProgramPolicy(JSON.parse(publicPolicyText));
+const comparison = await compareProgramPolicy(policy, observation);
+```
+
+Here `observation` is a `verifyPublicContract` result. This comparison makes no network request and leaves endpoint/identity trust unchanged. [Policy format and exact hashing](program-policy-sdk.md).
+
+The browser's **Program policy commitments** panel displays the four digests and both windows after public lookup. **Compare public program policy** accepts a JSON file with exactly `name`, `primaryScope`, `additionalScope`, `responseDays`, `disclosureDays` and `rewardPolicy`. Obtain the public text from the program through an agreed channel; digests cannot recover it. The file is capped at 2 MiB before reading, and the policy validator applies its own field limits. File contents are processed locally, never uploaded. Replacing the input or observation discards the old comparison. Name is uncommitted display metadata; even an all-fields match does not establish ownership or permission.
+
 For example, after building the workspace dependencies:
 
 ```js

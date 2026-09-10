@@ -2,6 +2,8 @@
 
 `@vulnseal/api/program-policy` exposes `ProgramPolicy`, `validateProgramPolicy(input)` and asynchronous `programConstructor(programId, policy)`. The web application re-exports this constructor preparation instead of maintaining its own hashing implementation. The package remains private to this workspace and is not a published npm release.
 
+`compareProgramPolicy(policy, observed)` compares policy content with an already observed program without fetching. Pass the result of `verifyPublicContract` as `observed`; the result contains that observation's program ID, six per-field comparisons (`expected`, `observed`, `matches`) and an overall `matches` flag. It compares all four digests and both windows. Name is excluded, and the comparison does not establish which program the publisher intended, authenticate its contract/operator or prove testing permission. Validate the chosen contract/network independently. The observation is copied before asynchronous hashing.
+
 `validateProgramPolicy` accepts exactly name, primaryScope, additionalScope, responseDays, disclosureDays and rewardPolicy. Text fields have a 64 KiB UTF-8 bound; only additionalScope may be blank. Response windows are 2, 7 or 14 days and disclosure windows are 30, 60 or 90 days, matching the current UI. These are the policy helper's supported choices; the low-level contract constructor has its own numeric constraints.
 
 The helper preserves exact policy text. The web form trims and normalizes to NFC before calling it; a Node integration should make any desired normalization explicit before retaining its policy. Hash inputs retain the existing JSON key order and SHA-256 encoding:

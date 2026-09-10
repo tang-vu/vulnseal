@@ -1,5 +1,15 @@
 # Validation report
 
+## Compare public program policy content -- 2026-09-10
+
+Public state projection now includes all four policy digests. The SDK `compareProgramPolicy` compares supplied exact policy text with an already observed program across four digests and both windows, returning individual differences without fetching. Public lookup displays those fields and accepts a bounded public policy JSON file for local comparison. Invalid/private fields fail validation; replacement input and changed observations clear the previous match, and superseded file reads are ignored. Name remains outside the current contract commitments.
+
+The API build passed and **37 API tests / 2 files passed in 2.19 seconds**, including each of the six independent mismatch fields, caller mutation during comparison and the existing public receipt/finality suite. The final **13 web tests / 3 files passed in 4.08 seconds**, covering policy match/mismatch/private input, superseded file reads, observation replacement and existing public lookup. An initial typecheck identified an old typed mock missing the four newly required public digest fields; the fixture was updated and subsequent browser/normal builds include successful TypeScript checks.
+
+Chrome desktop and Pixel 7 first passed **10 E2E cases in 51.9 seconds**, two workers and no retries, covering policy comparison plus existing public lookup. After adding observation-change invalidation, the final policy-only browser run passed **2 cases**, again without retries. These tests execute the compiled constructor locally, serialize its public state, and serve it through synthetic indexer/RPC responses. The browser matches the original policy, detects changed reward text, rejects an extra private field, and makes no additional POST or policy-content upload beyond the four public lookup calls. Changing the selected contract removes the comparison panel. This is synthetic finality, not a real deployment or authenticated program identity.
+
+The compiled Node public-verification example also exited **0**. The final normal web build with TypeScript checking and release package check exited **0**: **8 circuits, 69 files, 64,081,592 bytes**. Logs: `.compact/public-policy-api-tests.log`, `.compact/public-policy-web-tests-final.log`, `.compact/public-policy-browser.log`, `.compact/public-policy-browser-final.log`, `.compact/public-policy-node-example.log` and `.compact/public-policy-release.log`. No image, public host or proving material was refreshed. [API and UI usage](public-verification-sdk.md).
+
 ## Complete local regression at 1d95c1b -- 2026-09-10
 
 Starting from clean application revision `1d95c1b6972c7acdac5ba096941175cc6d57403c` on Node **24.14.1**, one `npm run validate` invocation exited **0**. All **six workspace builds and six typechecks** passed, followed by **496 tests across 76 files**: shared 13, contract 28, API 71, ciphertext service 49, integration 9 and web 326. This includes the shared SDK entrypoints, GitHub scope/release imports, reviewed invitation links and workspace navigation changes since the previous full regression.

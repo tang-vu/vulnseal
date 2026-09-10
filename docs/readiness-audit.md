@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Public lookup now exposes four program-policy digests and both windows, and compares supplied public policy JSON locally with six separate match results. The shared SDK comparison preserves exact-text semantics and clears stale UI comparisons when the observation/input changes. This compares source-reported commitments, not publisher identity, permission or authenticated deployed state.
+
 - Program constructor preparation now has a typed API entrypoint shared with the web app. It validates/copies policy and identity before asynchronous hashing, preserves the existing exact-text digest format and includes an offline example executing the compiled constructor and checking all seven fields plus owner authority. Provider provisioning, durable recovery integration and native-wallet deployment remain separate SDK/release requirements. See [program policy SDK](program-policy-sdk.md).
 
 - Vendors with saved contract coordinates can share public invitation links into the independent researcher workspace. Link/file selection shows program details before explicit wallet connection, rejects private/duplicate fields and ignores superseded file reads. This supplies a reviewed entry into submission, not an embedded widget or authenticated invitation. See [invitation links](program-invitation-links.md).

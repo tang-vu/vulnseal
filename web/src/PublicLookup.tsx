@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { publicStatusLabel } from "@vulnseal/shared";
 import { parsePublicReceipt, publicHex, publicReceiptLink, verifyPublicContract, type PublicVerification } from "./public-verification.js";
 import { workflowStatement } from "./workflow.js";
+import { PublicPolicyCheck } from "./PublicPolicyCheck.js";
 
 import { publicEndpoints } from "./public-endpoints.js";
 
@@ -65,6 +66,7 @@ export function PublicLookup() {
     {working && <div role="status" className="operation-notice">{operation === "receipt" ? "Reading public receipt…" : "Checking indexer state and RPC finality…"}</div>}
     {result && <>
       <section className="panel"><h2>Finalized public state</h2><p>Contract block {result.blockHeight} · finalized head {result.finalizedHead}</p><p>Checked {result.checkedAt}. This is a snapshot; load again to refresh.</p><p className="public-value">Source: {result.indexerUrl}</p><p className="public-value">Contract: {result.contractAddress}</p><p className="public-value">Program: {result.programId}</p><p>{result.reports.length} report(s) in this contract.</p></section>
+      <PublicPolicyCheck observed={result} />
       {reports.slice(0, 100).map((report) => <section className="panel" key={report.reportId}>
         <h2>{publicStatusLabel[report.status]}</h2><p>{workflowStatement[report.status]}</p>
         <dl>{Object.entries({ "Report commitment": report.reportId, "Ciphertext digest": report.ciphertextDigest, "Patch commitment": report.patchCommitment, "Retest commitment": report.retestCommitment, "Payout authorization": report.payoutReceipt }).map(([label, value]) => <div key={label}><dt>{label}</dt><dd className="public-value"><code>{/^0+$/.test(value) ? "Not recorded" : value}</code></dd></div>)}</dl>
