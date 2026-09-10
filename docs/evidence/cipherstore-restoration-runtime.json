@@ -1,0 +1,68 @@
+{
+  "recordedAt": "2026-09-10T06:38:12.813820+00:00",
+  "sourceRevision": "5d0d3df",
+  "imageId": "sha256:16985c127ab5881dc8a36119d0da8cb0e530adfe232bf35ca62d7a51cd97373a",
+  "imageConfigId": "sha256:0135b6eb58c9c4fbd39c9c8781dc862f49b97dd3e791a8e49df12559966e5933",
+  "build": {
+    "exitCode": 0,
+    "tests": 35,
+    "files": 7,
+    "durationSeconds": 16.3,
+    "gitRevisionMetadataCaptured": false
+  },
+  "nativeCapacityProbe": {
+    "exitCode": 0,
+    "node": "v24.20.0",
+    "module": "file:///app/dist/sqlite-storage.js",
+    "runtimeCodeFromImage": true,
+    "tmpfsBytes": 65536,
+    "attemptedBlobBytes": 131072,
+    "logicalQuotaBytes": 1048576,
+    "nativeCapacityErrorReported": true,
+    "failedWriteAbsent": true,
+    "laterSmallWriteRetained": true,
+    "probeSha256": "fb5369e341ad721d2336e3a714ccada428b779b993a23320b7714dbed7071bb9"
+  },
+  "scan": {
+    "scannerImage": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+    "command": "sh scripts/scan-container.sh sha256:16985c127ab5881dc8a36119d0da8cb0e530adfe232bf35ca62d7a51cd97373a",
+    "exitCode": 0,
+    "findings": [],
+    "targets": [
+      {
+        "type": "alpine",
+        "version": "3.24.1",
+        "packages": 18,
+        "findings": 0
+      },
+      {
+        "type": "node-pkg",
+        "file": "app/package.json",
+        "findings": 0
+      }
+    ],
+    "warnings": [
+      "Alpine 3.24 is not on the scanner EOL list."
+    ],
+    "outputWrapperNote": "The scan and raw log capture completed; printing the Unicode table through Windows cp1252 then failed. Both saved streams were subsequently read without re-running the scan.",
+    "stdout": {
+      "path": ".compact/security-scan-20260910/cipherstore-restore-stdout.log",
+      "sha256": "e565b211fffddfb13b5b4956b371b327a24486194f3ab5ceea3ba3e3813bb839"
+    },
+    "stderr": {
+      "path": ".compact/security-scan-20260910/cipherstore-restore-stderr.log",
+      "sha256": "691a952d94549a44c5b2c7d9eba3d5c2dd1a0da4eb86bb1d1171927e58e6de84"
+    }
+  },
+  "drillEvidence": [
+    "cipherstore-filesystem-container-drill.json",
+    "cipherstore-sqlite-container-drill.json"
+  ],
+  "ownedDrillContainersAndVolumesRemaining": 0,
+  "limits": [
+    "Controlled incomplete markers and unit-injected restore failures, not a process-kill restore or physical power-loss drill.",
+    "Native capacity probe uses Linux tmpfs, not physical disk exhaustion.",
+    "Zero reported runtime findings do not establish OS support coverage, host security or independent audit.",
+    "No public deployment, native-wallet transaction, remote CI execution or full-project security clearance."
+  ]
+}

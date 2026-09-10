@@ -1,5 +1,17 @@
 # Validation report
 
+## Current ciphertext runtime and restoration guard -- 2026-09-10
+
+The ciphertext image now includes source revision `5d0d3df`, including native SQLite error handling and the incomplete-restoration guard. Docker build exited **0**, with **35 tests across 7 files passing on Alpine (16.30s)**. Image **sha256:16985c127ab5881dc8a36119d0da8cb0e530adfe232bf35ca62d7a51cd97373a** was used by exact ID for both container drills and the strict scan. Docker did not capture Git revision metadata; this is not signed build provenance.
+
+The container drill now runs both the service and backup CLIs against a controlled marked directory. Both refuse it, preserve the marker, release the lease and create no database or backup destination. The filesystem run passed at **06:36:02.702 UTC**, and SQLite at **06:37:07.981 UTC**, both exit **0** after cleanup. Each also checked quota rejection, retained reads, a second-writer refusal, continuous-upload deadlines, graceful restart and exact ciphertext decryption. An ownership-filtered check found no remaining drill containers or volumes. Existing CI jobs invoke this expanded script; no remote CI run is claimed.
+
+The initial filesystem attempt failed with **ECONNRESET at PUT** before receiving an HTTP response. Docker calls in the harness were synchronous and blocked the HTTP client's event loop; they now use awaited `execFile`. The image, service deadlines and retry policy did not change before the successful explicit rerun. The failure's exact cause remains unproven: a separate short idle-connection probe did not reproduce it. No failed attempt is counted as successful, and the earlier SQLite attempt recorded in the historical section below remains a separate unresolved observation.
+
+The native SQLITE_FULL probe also exited **0** against this image's own `/app/dist/sqlite-storage.js`, with only the probe script mounted read-only. With **64 KiB** tmpfs and **1 MiB** logical quota, a **128 KiB** write failed with the capacity error and left no row; a subsequent small write remained readable. This advances the earlier mounted-code probe to the built runtime, without claiming physical disk or power-loss coverage.
+
+Strict Trivy scanning exited **0**, with no reported findings in the Alpine and node-pkg targets, and again warned that Alpine 3.24 was absent from its EOL list. The raw logs were saved completely; a Windows cp1252 error subsequently prevented printing the Unicode table, so the saved logs were read separately without rerunning the scanner. [Runtime evidence](evidence/cipherstore-restoration-runtime.json) records image/config IDs, checks, log hashes and limits. This does not clear the separate web/Prometheus security gates or establish production readiness. No web artifact, public deployment or wallet transaction changed.
+
 ## Incomplete restoration startup guard -- 2026-09-10
 
 Filesystem and SQLite restoration now leave a flushed `.vulnseal-restore-incomplete` marker until copying and SQLite closure succeed. Service CLI startup and backup creation refuse marked directories; backup refusal happens before creating a destination. Failure cleanup retains the marker and releases the cooperative lease when possible. Existing destinations remain protected against overwrite; recovery requires an explicit restore into a new directory. Library embedders must call the exported `assertRestoreComplete` themselves before serving restored data.
