@@ -4,7 +4,7 @@ import ReactDOM from "react-dom/client";
 import { AppBoundary, AppLoading } from "./AppBoundary.js";
 import "./styles.css";
 
-const roleMode = window.location.hash === "#roles";
+const roleMode = window.location.hash === "#roles" || window.location.hash.startsWith("#roles?");
 const Workspace = lazy(async () => {
   await import("./globals.js");
   const { setNetworkId } = await import("@midnight-ntwrk/midnight-js-network-id");

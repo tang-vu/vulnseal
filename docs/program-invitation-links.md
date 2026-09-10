@@ -1,0 +1,13 @@
+# Public program invitation links
+
+A vendor workspace with a saved contract address exposes **Share public program invitation** under Reports. Select and copy that URL for a program website or an agreed communication channel. It preserves the current hosted release directory and contains only network, contract address and program ID in the fragment. Credentials, query parameters and any previous fragment are removed. Offline-restored vendors can share saved coordinates; this does not verify that the program still exists or that the backup is current.
+
+Opening the link loads the independent role workspace and displays the invitation for review. The researcher can also paste a link into **Program invitation URL** or select a public JSON invitation file. Selecting a new source replaces the old selection; a late file read cannot override a newer link. Both sources use the existing strict public invitation schema. Extra or duplicate link fields, private file fields, invalid identifiers/networks, URL credentials/query parameters and oversized inputs are rejected before joining.
+
+The review shows network, contract address and program ID. Loading/reviewing an invitation does not connect Lace, request ledger data or submit a report. **Connect Lace and join as researcher** explicitly starts the existing wallet/network/program checks and creates researcher authority only for that selected invitation. After successful joining, save the encrypted role backup before preparing reports. Confirm the program through an agreed channel: the link itself proves neither vendor ownership nor permission to test.
+
+The current entrypoint chooses its workspace on page load. Open invitation links as a full navigation or in a new tab; changing only the hash of an already running workspace does not replace its active identity. Invites can target HTTP localhost for development or HTTPS hosted releases. No public hosting deployment is implied by generating a link.
+
+The link is public and can appear in browser history or be read by scripts on the hosting page. Private disclosures, keys, notes and recovery data must never be placed in it. A fragment is not sent as part of the HTTP request target. Pasting a link from another host extracts its coordinates locally; it does not fetch that host or authenticate its identity.
+
+This is a shareable entry into the existing submission workspace. An embeddable submission widget, published SDK and authenticated public history remain separate Wave 3 deliverables. Browser tests use synthetic saved invitations and a connector stub; they do not establish a native Lace lifecycle.

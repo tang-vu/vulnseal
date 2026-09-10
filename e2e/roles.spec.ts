@@ -56,8 +56,8 @@ test("researcher invitations reject private fields and require a real wallet bef
   await page.goto("/#roles");
   const invitation = { format: "vulnseal-program-invitation", version: 1, network: "preprod", contractAddress: "ab".repeat(32), programId: "12".repeat(32) };
   await page.getByLabel("Public program invitation").setInputFiles({ name: "invalid.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ ...invitation, actorSecret: "45".repeat(32) })) });
-  await page.getByRole("button", { name: "Connect Lace and join as researcher" }).click();
   await expect(page.getByRole("alert")).toHaveText("Unsupported role document");
+  await expect(page.getByRole("button", { name: "Connect Lace and join as researcher" })).toBeDisabled();
   await page.getByLabel("Public program invitation").setInputFiles({ name: "public.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(invitation)) });
   await page.getByRole("button", { name: "Connect Lace and join as researcher" }).click();
   await expect(page.getByRole("alert")).toContainText("Install or enable Midnight Lace in this browser profile and allow access to this site");

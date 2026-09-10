@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { GitHubReleaseImport } from "./GitHubReleaseImport.js";
+import { ProgramInvitationJoin } from "./ProgramInvitationJoin.js";
+import { programInvitationLink } from "./program-invitation-link.js";
 import { GitHubScopeImport } from "./GitHubScopeImport.js";
 import { DeploymentPolicyCheck } from "./DeploymentPolicyCheck.js";
 import { JournalEntries } from "./JournalEntries.js";
@@ -15,7 +17,7 @@ import { createVulnSealPrivateState, pureCircuits } from "@vulnseal/contract";
 import { bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, randomBytes, sealReport, sha256, utf8, validateEnvironment, type VulnerabilityReport } from "@vulnseal/shared";
 import { initializeBrowserProviders } from "./midnight/browser-providers.js";
 import { defaultProgramDraft, captureDeploymentInputs, programConstructor, readProgramForm, type SavedDeploymentInputs, type ProgramDraft } from "./program.js";
-import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, MAX_SUBMISSION_ATTEMPTS, assertSubmissionCapacity, parseInvitation, validateRoleVault, withDeploymentInputs, withProgramDraft, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withSubmissionNotes, withRetestChoice, withFinalizedSubmission, type ReportNotes, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
+import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, MAX_SUBMISSION_ATTEMPTS, assertSubmissionCapacity, validateRoleVault, withDeploymentInputs, withProgramDraft, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withSubmissionNotes, withRetestChoice, withFinalizedSubmission, type ReportNotes, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
 import { joinRoleVault } from "./role-network.js";
 import { HandoffPanel } from "./HandoffPanel.js";
 import { validateDisclosure, type Disclosure, type RecipientKeys } from "./handoff.js";
@@ -110,7 +112,6 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const [keys, setKeys] = useState<RecipientKeys>();
   const [retainedKeys, setRetainedKeys] = useState<RecipientKeys>();
   const [file, setFile] = useState<File>();
-  const [invitationFile, setInvitationFile] = useState<File>();
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [address, setAddress] = useState("");
@@ -248,11 +249,10 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
           <section className="form-panel"><h2>Create a vendor identity</h2><label>Workspace network<select value={network} onChange={(event) => setNetwork(event.target.value)}><option value="preprod">Preprod</option><option value="local">Local Midnight</option></select></label>
             <button className="primary-button" onClick={() => { setVault(withProgramDraft({ version: 1, role: "vendor", network, programId: bytesToHex(randomBytes(32)), actorSecret: bytesToHex(randomBytes(32)), contractAddress: null, reports: [] }, defaultProgramDraft)); setTab("backup"); }}>Prepare vendor identity</button><p>First save its encrypted backup, then deploy a program.</p>
           </section>
-          <form className="form-panel" onSubmit={(event) => form(event, async () => {
-            const invitation = parseInvitation(await readFile(invitationFile, 4096));
+          <ProgramInvitationJoin onJoin={invitation => run(async () => {
             const created: RoleVault = { version: 1, role: "researcher", network: invitation.network, contractAddress: invitation.contractAddress, programId: invitation.programId, actorSecret: bytesToHex(randomBytes(32)), reports: [] };
             const joined = await joinRoleVault(created, recordSubmission); setVault(created); setSession(joined.session); setSnapshot(joined.snapshot); setTab("backup");
-          })}><h2>Join as researcher</h2><p>Get a public program invitation from the vendor and confirm its contract address through your agreed channel.</p><label>Public program invitation<input type="file" accept=".json,application/json" required onChange={(event) => setInvitationFile(event.target.files?.[0])} /></label><button className="primary-button">Connect Lace and join as researcher</button></form>
+          })} />
           <form className="form-panel" onSubmit={(event) => form(event, async () => {
             const restored = await decryptRoleVault(await readFile(file, MAX_ROLE_BACKUP_BYTES), password);
             const joined = restored.contractAddress && !offlineRestore ? await joinRoleVault(restored, recordSubmission) : undefined;
@@ -297,7 +297,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
             const updated = await validateRoleVault({ ...vault, contractAddress: vault.contractAddress ?? address.trim().toLowerCase() });
             const joined = await joinRoleVault(updated, recordSubmission); setVault(updated); setSession(joined.session); setSnapshot(joined.snapshot);
           })}><h2>Reconnect an existing program</h2><p>For a pre-deployment backup, enter the address from your finalized deployment receipt. The vendor key must match.</p>{!vault.contractAddress && <label>Existing contract address<input value={address} required onChange={(event) => setAddress(event.target.value)} /></label>}<button className="secondary-button">Connect Lace and verify program</button></form>}
-          {vault.contractAddress && tab === "reports" && <section className="form-panel"><h2>Program reports</h2>{session && <button className="secondary-button" onClick={() => run(load)}>Refresh ledger</button>}{session && vault.role === "vendor" && <button className="secondary-button" onClick={() => download(JSON.stringify({ format: "vulnseal-program-invitation", version: 1, network: vault.network, contractAddress: vault.contractAddress, programId: vault.programId }), "vulnseal-program-invitation.json")}>Download public program invitation</button>}
+          {vault.contractAddress && tab === "reports" && <section className="form-panel"><h2>Program reports</h2>{session && <button className="secondary-button" onClick={() => run(load)}>Refresh ledger</button>}{session && vault.role === "vendor" && <button className="secondary-button" onClick={() => download(JSON.stringify({ format: "vulnseal-program-invitation", version: 1, network: vault.network, contractAddress: vault.contractAddress, programId: vault.programId }), "vulnseal-program-invitation.json")}>Download public program invitation</button>}{vault.role === "vendor" && <label>Share public program invitation<input className="public-value" readOnly value={programInvitationLink(window.location.href, { format: "vulnseal-program-invitation", version: 1, network: vault.network, contractAddress: vault.contractAddress, programId: vault.programId })} onFocus={event => event.currentTarget.select()} /></label>}
             <SavedReportSelector reports={vault.reports} selectedId={selectedId} onChange={(id) => { setSelectedId(id); setReceipt(undefined); }} />
             {chosen && <><p className="public-value">Report: {chosen.reportId}</p><SelectedRoleReport key={chosen.reportId} disclosure={chosen} /><p>{snapshot ? status ?? "Prepared locally; absent from the current ledger snapshot" : "Refresh ledger state before continuing. A prior transaction may still require reconciliation."}</p>
               <section aria-label="Saved ciphertext storage"><h3>Store this encrypted report</h3><p>Save an encrypted role backup first, then upload the exact saved ciphertext. You can repeat this upload after a storage failure or restore; its report ID, encryption key and content address stay the same. Only ciphertext is sent. This action does not connect Lace or submit a transaction.</p>

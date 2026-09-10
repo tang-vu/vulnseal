@@ -1,5 +1,15 @@
 # Validation report
 
+## Reviewed public invitation links -- 2026-09-10
+
+Vendor workspaces with saved contract coordinates now expose a public link preserving the hosted release directory. The role entrypoint recognizes its fragment and reviews network/contract/program before an explicit join. Pasted links and public files share strict invitation validation; extra/duplicate fields, URL credentials/query fields, private file data and oversized inputs cannot enable joining. Editing the source clears its prior review, and superseded file reads cannot replace newer selections. Existing file-based joining now also shows that review.
+
+**32 tests / 3 files passed in 86.94 seconds**, exit **0**, covering link round trips/rejections, component selection and the existing role workspace suite. The late-file test was subsequently strengthened to flush its resolved promise through React before inspecting the final selection; all **3 component tests** passed again. TypeScript checking passed, including the final normal build.
+
+Chrome desktop and Pixel 7 project runs passed **12 E2E cases in 1.1 minutes as reported**, two workers and no retries. Tests restore a synthetic vendor backup offline, extract its generated public link, open it in an isolated default browser context, verify all three coordinates, assert no wallet connection or indexer/RPC request during review, and then explicitly reach a connector stub that stops joining. The source pages follow each project's device configuration; the isolated recipient context uses Playwright defaults. Invalid deep links remain in role mode and recover through valid file selection. Existing file rejection, wallet setup timeout, encrypted identity backup and close-warning cases also pass. No native-wallet lifecycle or hosted deployment is claimed.
+
+The final normal web build and release package check exited **0**: **8 circuits, 69 files, 64,065,614 bytes**. Local logs: `.compact/invitation-tests.log`, `.compact/invitation-component-final.log`, `.compact/invitation-browser.log`, `.compact/invitation-release-build.log`. No container image or proving material was refreshed. This is a shareable reviewed entry into submission; the embeddable widget and authenticated timelines remain open. [Usage and limits](program-invitation-links.md).
+
 ## Reject malformed finalized-head evidence -- 2026-09-10
 
 The shared public verifier now validates the RPC finalized-head hash before requesting its header or the contract block hash. It requires 32 hexadecimal bytes and normalizes accepted bare/prefixed values to lowercase with an `0x` prefix. Previously a null, non-string or malformed head could still produce an accepted observation when subsequent synthetic RPC responses supplied a sufficient height and matching block hash.

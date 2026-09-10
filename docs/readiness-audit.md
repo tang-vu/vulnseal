@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Vendors with saved contract coordinates can share public invitation links into the independent researcher workspace. Link/file selection shows program details before explicit wallet connection, rejects private/duplicate fields and ignores superseded file reads. This supplies a reviewed entry into submission, not an embedded widget or authenticated invitation. See [invitation links](program-invitation-links.md).
+
 - The public verifier and bounded JSON reader now live behind API package entrypoints shared with the web app. Typed receipt-to-report comparison is callable directly from Node, with an offline captured-state example and public-only input/link validation. This remains source-trusting current-state comparison; an embeddable submission widget and authenticated public timelines are not implemented by this extraction.
 
 - Undeployed vendor drafts can explicitly import public GitHub repository scope, optionally pinned to the reported HEAD SHA. Saved vendor reports can append published release/tag-commit references to private notes without replacing existing text. Bounded credential-free lookup, cancellation/report switching and encrypted file recovery have client/component and desktop/mobile checks; live Chrome client probes also passed. GitHub App integration and independent object/ownership/asset verification remain separate requirements.
