@@ -7,6 +7,8 @@ import { acquireDirectoryLease } from "./directory-lease.js";
 
 export * from "./server.js";
 export * from "./directory-lease.js";
+export * from "./storage.js";
+export * from "./filesystem-storage.js";
 
 const isEntrypoint = process.argv[1] !== undefined &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

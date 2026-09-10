@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHash, randomUUID } from "node:crypto";
-import { link, mkdir, open, readFile, unlink } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import path from "node:path";
-import { checkCapacity, withDirectoryWrite } from "./capacity.js";
+import { FilesystemCiphertextStorage } from "./filesystem-storage.js";
+import { storageErrorCode as errorCode, type CiphertextStorage } from "./storage.js";
 
 const MAX_CIPHERTEXT_BYTES = 5 * 1024 * 1024;
 const MEDIA_TYPE = "application/vnd.vulnseal.ciphertext+json";
@@ -11,6 +10,8 @@ const digestPattern = /^\/v1\/blobs\/sha256:([0-9a-f]{64})$/;
 
 export type CipherstoreOptions = {
   readonly dataDirectory: string;
+  /** Optional trusted adapter; its constructor owns storage quota configuration. */
+  readonly storage?: CiphertextStorage;
   readonly allowedOrigin?: string;
   readonly maxStoredBytes?: number;
   readonly maxStoredBlobs?: number;
@@ -77,32 +78,7 @@ export const validateEnvelope = (bytes: Uint8Array): void => {
   }
 };
 
-const errorCode = (error: unknown): string | undefined =>
-  error !== null && typeof error === "object" && "code" in error ? String(error.code) : undefined;
-
-/** Publish only a complete, flushed blob, without replacing a concurrent writer. */
-const storeImmutable = async (filename: string, body: Uint8Array): Promise<boolean> => {
-  const temporary = `${filename}.${randomUUID()}.tmp`;
-  const file = await open(temporary, "wx", 0o600);
-  try {
-    try {
-      await file.writeFile(body);
-      await file.sync();
-    } finally { await file.close(); }
-    try {
-      await link(temporary, filename);
-      return true;
-    } catch (error) {
-      if (errorCode(error) !== "EEXIST") throw error;
-      const existing = await readFile(filename);
-      if (!existing.equals(Buffer.from(body))) throw new Error("IMMUTABLE_CONFLICT");
-      return false;
-    }
-  } finally { await unlink(temporary); }
-};
-
 export const createCipherstoreServer = (options: CipherstoreOptions) => {
-  const dataDirectory = path.resolve(options.dataDirectory);
   const maxStoredBytes = options.maxStoredBytes ?? 1024 * 1024 * 1024;
   const maxStoredBlobs = options.maxStoredBlobs ?? 10_000;
   const maxConcurrentUploads = options.maxConcurrentUploads ?? 16;
@@ -114,6 +90,7 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
     if (!Number.isSafeInteger(limit) || limit < 0) throw new Error("Cipherstore limits must be nonnegative safe integers");
   }
   if (maxConcurrentUploads < 1) throw new Error("Cipherstore upload concurrency must be positive");
+  const storage = options.storage ?? new FilesystemCiphertextStorage(options.dataDirectory, maxStoredBytes, maxStoredBlobs);
   let activeUploads = 0;
   let activeRequests = 0, abortedResponses = 0;
   const completed = [0, 0, 0, 0, 0];
@@ -138,18 +115,7 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
   let readiness: Promise<void> | undefined;
   const checkReadiness = (): Promise<void> => {
     if (readiness) return readiness;
-    const work = withDirectoryWrite(dataDirectory, async () => {
-      await mkdir(dataDirectory, { recursive: true });
-      await checkCapacity(dataDirectory, 1, maxStoredBytes, maxStoredBlobs);
-      const probe = path.join(dataDirectory, `.readiness-${randomUUID()}.tmp`);
-      const bytes = Buffer.from("vulnseal-storage-probe");
-      try {
-        await storeImmutable(probe, bytes);
-        if (!(await readFile(probe)).equals(bytes)) throw new Error("READINESS_PROBE_MISMATCH");
-      } finally {
-        try { await unlink(probe); } catch (error) { if (errorCode(error) !== "ENOENT") throw error; }
-      }
-    });
+    const work = storage.checkReadiness();
     readiness = work;
     void work.finally(() => { if (readiness === work) readiness = undefined; }).catch(() => {});
     return work;
@@ -194,7 +160,6 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
       return;
     }
     const hexDigest = match[1];
-    const filename = path.join(dataDirectory, `${hexDigest}.ciphertext.json`);
     const uploading = request.method === "PUT";
     if (uploading && activeUploads >= maxConcurrentUploads) {
       response.setHeader("retry-after", "1"); request.resume();
@@ -202,7 +167,7 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
     }
     if (uploading) activeUploads++;
     try {
-      await mkdir(dataDirectory, { recursive: true });
+      await storage.prepare();
       if (request.method === "PUT") {
         if (request.headers["content-type"]?.split(";")[0]?.trim().toLowerCase() !== MEDIA_TYPE) {
           json(response, 415, { error: "ciphertext_media_type_required" });
@@ -215,21 +180,13 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
           json(response, 422, { error: "content_digest_mismatch" });
           return;
         }
-        const stored = await withDirectoryWrite(dataDirectory, async () => {
-          try {
-            const existing = await readFile(filename);
-            if (!existing.equals(Buffer.from(body))) throw new Error("IMMUTABLE_CONFLICT");
-            return false;
-          } catch (error) { if (errorCode(error) !== "ENOENT") throw error; }
-          await checkCapacity(dataDirectory, body.byteLength, maxStoredBytes, maxStoredBlobs);
-          return storeImmutable(filename, body);
-        });
+        const stored = await storage.put(hexDigest, body);
         json(response, stored ? 201 : 200, { address: `sha256:${hexDigest}`, stored });
         return;
       }
       if (request.method === "GET") {
         try {
-          const body = await readFile(filename);
+          const body = await storage.read(hexDigest);
           if (createHash("sha256").update(body).digest("hex") !== hexDigest) {
             json(response, 500, { error: "stored_blob_corrupted" });
             return;

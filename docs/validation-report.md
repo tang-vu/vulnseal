@@ -1,5 +1,13 @@
 # Validation report
 
+## Extract the ciphertext storage adapter boundary -- 2026-09-10
+
+Filesystem publication, quota checks and readiness probes now live in `FilesystemCiphertextStorage`, behind the trusted `CiphertextStorage` interface. The HTTP layer keeps envelope/address validation, corruption detection, limits and error mapping. The default CLI/backup/deployment path continues to use the filesystem implementation and its directory lease. The new adapter methods reject malformed digest keys before deriving filesystem paths. This is preparation for another persistent backend, not completion of one; [adapter responsibilities](cipherstore-adapters.md) document quota ownership and lifecycle limits.
+
+All **23 cipherstore tests across 5 files passed (5.89s)**, including the existing concurrency, capacity, readiness, transport, lease and backup cases plus injected-adapter HTTP validation/error handling and invalid-key tests. Cipherstore typecheck and build passed. The desktop/Pixel 7 two-store browser suite passed **4 cases in 50.7s**, exit **0**, with no automatic retries, verifying identical ciphertext, partial-write blocking, corrupt-replica rejection and backfill through the refactored default backend.
+
+The normal release build then passed: source comparison **05:48:35.835 UTC**, six workspace builds, **8 circuits, 62 files, 62,649,560 bytes**, retained proving keys. No Docker rebuild/security rescan, external backend, public deployment or native-wallet test occurred. Cross-adapter replication and the second backend's transaction/backup/shutdown behavior remain open.
+
 ## Consolidated regression baseline -- 2026-09-10
 
 At application revision **d744aba**, `npm run validate` exited **0**: all six workspace builds/typechecks and **294 tests across 53 files** passed, including **194 web tests across 39 files**. The separate release/environment/compiler checks passed **16 tests**. The full Chrome desktop/Pixel 7 suite passed **78 cases in 4.1 minutes**, and the separate two-store replication suite passed **4 cases in 48.6 seconds**. Both browser commands used two CI workers, no automatic retries, and exited **0**; no code or timeout changes were needed in this consolidated run.

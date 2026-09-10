@@ -1,0 +1,11 @@
+# Ciphertext storage adapter boundary
+
+`createCipherstoreServer` accepts an optional trusted `CiphertextStorage` instance. Without one, it constructs `FilesystemCiphertextStorage` from the existing data-directory and quota options. The CLI, backup commands and Compose deployment still use the filesystem backend. This is an internal extension point, not an HTTP-selectable backend or a completed second adapter.
+
+The HTTP layer retains envelope validation, SHA-256 address verification before writes and after reads, request/upload limits, CORS, metrics and response error mapping. An adapter owns initialization, exact-byte reads, atomic immutable writes with quota checks, and a write/read readiness probe. Identical retries must succeed even when the store is full; conflicts must never overwrite existing bytes. Missing reads use `ENOENT`, conflicts use `IMMUTABLE_CONFLICT`, and quota failures use `STORAGE_CAPACITY_EXCEEDED`. Other failures remain generic HTTP errors.
+
+For an injected adapter, configure its quotas when constructing it; the server's `maxStoredBytes` and `maxStoredBlobs` configure only its default filesystem adapter. Adapter lifecycle and cross-process exclusion belong to the embedding application. The standard CLI continues to acquire its directory lease before listening and release it only after HTTP operations drain.
+
+The extracted filesystem adapter retains temporary-file flushing, atomic no-overwrite hard-link publication, the shared per-directory write queue, capacity accounting, identical-retry behavior and probe cleanup. Its public read/write methods validate the digest before deriving a path. Existing on-disk filenames and offline backup format are unchanged.
+
+A second persistent backend still needs its own transaction/locking and quota implementation, shutdown handling, migration/backup/recovery rules, and actual cross-adapter failure drills. SQLite is a candidate, but Node's built-in database API is synchronous and marked active development in the [documentation for the installed Node version](https://github.com/nodejs/node/blob/v24.14.1/doc/api/sqlite.md); it should not be inserted into HTTP handlers without addressing blocking and lifecycle behavior. No SQLite backend has been added by this refactor.
