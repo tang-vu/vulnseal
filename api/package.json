@@ -50,6 +50,10 @@
     "./program-policy": {
       "types": "./dist/program-policy.d.ts",
       "import": "./dist/program-policy.js"
+    },
+    "./program-invitation": {
+      "types": "./dist/program-invitation.d.ts",
+      "import": "./dist/program-invitation.js"
     }
   },
   "dependencies": {

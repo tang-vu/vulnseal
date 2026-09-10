@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- An embeddable submission entry now renders public program coordinates and opens invitation review in a separate VulnSeal tab. Vendor workspaces generate escaped embed code with a fallback link. The built widget uses only two small public modules; desktop/mobile checks cover actual cross-origin hosting, no opener access, invalidation and disabled JavaScript. Caddy's narrow module CORS was also checked locally with mounted current artifacts. Native-wallet completion through this entry and a refreshed distributable image/public host remain open. See [embedding instructions](submission-widget.md).
+
 - Vendor workspaces now export public policy JSON only after a public lookup matches the saved program ID and all six committed fields. The exact public text is previewed before download; missing drafts, mismatch, cancellation and input replacement cannot produce a matched export. A desktop/mobile journey restores a vendor backup, downloads the reviewed policy and compares it in an isolated verifier. This is a source-trusting file handoff, not signed policy publication or proof of ownership.
 
 - Public lookup now exposes four program-policy digests and both windows, and compares supplied public policy JSON locally with six separate match results. The shared SDK comparison preserves exact-text semantics and clears stale UI comparisons when the observation/input changes. This compares source-reported commitments, not publisher identity, permission or authenticated deployed state.

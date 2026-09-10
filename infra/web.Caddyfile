@@ -18,5 +18,8 @@
 	# Routes use URL fragments; missing files must stay 404, including proving assets.
 	@binary path *.prover *.verifier *.bzkir
 	header @binary Content-Type application/octet-stream
+	# Public, credential-free modules for the cross-origin submission entry widget.
+	@widget path /assets/submission-widget.js /assets/program-invitation-*.js
+	header @widget Access-Control-Allow-Origin "*"
 	file_server
 }

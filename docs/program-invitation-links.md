@@ -10,4 +10,4 @@ The entrypoint chooses its workspace on page load. When a link changes the fragm
 
 The link is public and can appear in browser history or be read by scripts on the hosting page. Private disclosures, keys, notes and recovery data must never be placed in it. A fragment is not sent as part of the HTTP request target. Pasting a link from another host extracts its coordinates locally; it does not fetch that host or authenticate its identity.
 
-This is a shareable entry into the existing submission workspace. An embeddable submission widget, published SDK and authenticated public history remain separate Wave 3 deliverables. Browser tests use synthetic saved invitations and a connector stub; they do not establish a native Lace lifecycle.
+This is a shareable entry into the existing submission workspace. Websites can now use the [submission entry widget](submission-widget.md) to open the same reviewed flow. A published SDK, authenticated public history and native Lace completion remain separate Wave 3 deliverables. Browser tests use synthetic saved invitations and a connector stub; they do not establish a native Lace lifecycle.

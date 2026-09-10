@@ -11,6 +11,12 @@ export default defineConfig({
   cacheDir: "./.vite",
   plugins: [react(), wasm(), {
     name: "vulnseal-public-environment",
+    configurePreviewServer(server) {
+      server.middlewares.use((request, response, next) => {
+        if (/^\/assets\/(?:submission-widget|program-invitation-[A-Za-z0-9_-]+)\.js$/.test((request.url ?? "").split("?")[0]!)) response.setHeader("Access-Control-Allow-Origin", "*");
+        next();
+      });
+    },
     configResolved(config) {
       // Validate Vite's effective values after mode-specific files and shell
       // overrides have been applied, before any output is emitted or served.
@@ -31,7 +37,9 @@ export default defineConfig({
     sourcemap: true,
     chunkSizeWarningLimit: 900,
     rollupOptions: {
+      input: { index: fileURLToPath(new URL("./index.html", import.meta.url)), "submission-widget": fileURLToPath(new URL("./src/submission-widget.ts", import.meta.url)) },
       output: {
+        entryFileNames: chunk => chunk.name === "submission-widget" ? "assets/submission-widget.js" : "assets/[name]-[hash].js",
         manualChunks(id) {
           if (id.includes("onchain-runtime-v3")) return "midnight-wasm";
           if (id.includes("@midnight-ntwrk")) return "midnight-sdk";

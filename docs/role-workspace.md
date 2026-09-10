@@ -1,5 +1,7 @@
 # Use independent browser roles
 
+Vendors with a saved contract address can expand **Embed report entry on your website** under Reports and copy the [submission widget code](submission-widget.md). It contains public program coordinates and opens private reporting in a separate VulnSeal tab.
+
 Vendors can [review and download their public program policy](public-policy-sharing.md) from Reports. The saved draft must match the observed program ID, four policy digests and both windows before export is enabled. Researchers can compare the resulting file in the public verifier.
 
 Vendors with saved contract coordinates can [share a public program invitation link](program-invitation-links.md) from Reports. Researchers open the link or import a public invitation file, review the network/contract/program, then explicitly connect Lace. Opening a link does not join or submit automatically.

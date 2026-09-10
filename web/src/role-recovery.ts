@@ -11,7 +11,7 @@ export type SavedFinalization = { readonly blockHeight: string; readonly recorde
 export type SubmissionAttempt = { readonly transactionId: string; readonly recordedAt: string; readonly intent?: SubmissionIntent | null; readonly finalization?: SavedFinalization | null; readonly notes?: ReportNotes | null; readonly retestPassed?: boolean | null; readonly retestPatchCommitment?: string | null; readonly deployment?: SavedDeploymentInputs | null };
 export type ReportNotes = { readonly reportId: string; readonly text: string; readonly tier: string };
 export type RoleVault = { readonly version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12; readonly role: ActorRole; readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly actorSecret: string; readonly reports: readonly Disclosure[]; readonly submissionAttempts?: readonly SubmissionAttempt[]; readonly draft?: VulnerabilityReport | null; readonly attachmentDraft?: AttachmentDraft | null; readonly reportNotes?: readonly ReportNotes[]; readonly programDraft?: ProgramDraft | null };
-export type ProgramInvitation = { readonly format: "vulnseal-program-invitation"; readonly version: 1; readonly network: string; readonly contractAddress: string; readonly programId: string };
+export { parseInvitation, type ProgramInvitation } from "@vulnseal/api/program-invitation";
 export const MAX_ROLE_BACKUP_BYTES = 32 * 1024 * 1024;
 export const MAX_SUBMISSION_ATTEMPTS = 200;
 export const assertSubmissionCapacity = (vault: RoleVault): void => {
@@ -128,12 +128,6 @@ export const withSubmissionNotes = async (vault: RoleVault, transactionId: strin
   });
 };
 
-export const parseInvitation = (serialized: string): ProgramInvitation => {
-  if (utf8(serialized).length > 4096) throw new Error("Program invitation is too large");
-  const value = object(JSON.parse(serialized), ["format", "version", "network", "contractAddress", "programId"]);
-  if (value.format !== "vulnseal-program-invitation" || value.version !== 1) throw new Error("Not a public program invitation");
-  return { format: "vulnseal-program-invitation", version: 1, network: network(value.network), contractAddress: hex(value.contractAddress), programId: hex(value.programId) };
-};
 /** Record the explicit button choice; never infer old choices from ledger status. */
 export const withRetestChoice = async (vault: RoleVault, transactionId: string, passed: boolean, patchCommitment?: string): Promise<RoleVault> => {
   const entry = vault.submissionAttempts?.find((item) => item.transactionId === transactionId);
