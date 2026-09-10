@@ -10,6 +10,8 @@ The extracted filesystem adapter retains temporary-file flushing, atomic no-over
 
 ## SQLite backend
 
+The compiled `SqliteCiphertextStorage` adapter also works when imported by Node scripts invoked through `--eval` or stdin with the CLI option `--input-type=module` (including its separate-argument spelling). Its worker loads a file, so the adapter removes that input-only option from the worker's inherited execution arguments while preserving the others. Regression tests spawn real child processes, write/read a fixture, close the adapter, and reopen it to verify persistence and idempotence. Build the service before running these compiled-entrypoint tests: `npm run build -w @vulnseal/cipherstore`.
+
 `SqliteCiphertextStorage` uses a dedicated worker and a `ciphertext.sqlite` database. Database operations run synchronously inside that worker, not on the HTTP event loop. The [installed Node API](https://github.com/nodejs/node/blob/v24.14.1/doc/api/sqlite.md) remains experimental/active development; keep that limitation in deployment decisions.
 
 Writes use `BEGIN IMMEDIATE`, compare an existing blob before quota checks, and commit with `synchronous=FULL` and DELETE journaling. Quotas count ciphertext payload bytes and blob rows, not database/journal overhead or free disk space. A readiness transaction checks headroom and writes, reads and removes a probe. Reads retain the HTTP layer's digest verification. Pending worker calls are capped at 128; lock waits use a one-second SQLite busy timeout. These limits do not interrupt stalled filesystem I/O or bound OS failure recovery.

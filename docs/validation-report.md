@@ -1,5 +1,13 @@
 # Validation report
 
+## SQLite adapter from Node stdin/eval -- 2026-09-10
+
+Three real child-process regressions reproduced `ERR_INPUT_TYPE_NOT_ALLOWED` with the previously compiled adapter: Node `--eval` with `--input-type=module`, eval with `--input-type module`, and module stdin. The worker loads a file but inherited the host's input-only flag. The adapter now explicitly supplies execution arguments with just that option/value removed; other options are preserved.
+
+After rebuilding, all three compiled-entrypoint tests passed. Each creates a private synthetic fixture, checks readiness and exact bytes, closes/reopens the adapter, verifies the repeated write is idempotent, and removes its own temporary directory after canonical boundary checks. The complete cipherstore suite then passed **49 tests / 10 files in 32.43 seconds**, exit **0**, on Node **24.14.1**. The TypeScript build also exited **0**. These tests deliberately use subprocesses rather than mutating `process.execArgv` in-process.
+
+This change affects worker startup, not storage authorization, quotas, transactions or retry policy. The existing runtime image `sha256:59c4d7d15c951aab200db198f1d7c49e154839823f9c5187382e111537ffc984` predates this fix; its earlier container/security evidence is not evidence for the changed worker startup. No image rebuild, network deployment, native-wallet run or unrelated application test rerun was performed for this change.
+
 ## Retirement controls in the current runtime image -- 2026-09-10
 
 The rebuilt ciphertext image is **`sha256:59c4d7d15c951aab200db198f1d7c49e154839823f9c5187382e111537ffc984`**, using Node **24.20.0**. Its final build exited **0**, with **46 tests / 9 files in 53.30 seconds**. The first build failed a five-second SQLite restore-workflow timeout. The second failed two tests, including an overly strict concurrency assertion that expected quota exhaustion where the supported bounded-lock response was `STORAGE_BUSY`; the other diagnostic was not retained in the truncated tool output. Neither failed build is counted as a pass.

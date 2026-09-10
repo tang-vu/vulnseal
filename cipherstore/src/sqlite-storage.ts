@@ -14,7 +14,11 @@ export class SqliteCiphertextStorage implements CiphertextStorage {
   constructor(directory: string, maxBytes: number, maxBlobs: number) {
     for (const limit of [maxBytes, maxBlobs]) if (!Number.isSafeInteger(limit) || limit < 0) throw new Error("Cipherstore limits must be nonnegative safe integers");
     // Source tests use Node 24's native type stripping; production uses compiled JS.
-    this.worker = new Worker(new URL(`./sqlite-worker.${import.meta.url.endsWith(".ts") ? "ts" : "js"}`, import.meta.url), { workerData: { directory: path.resolve(directory), maxBytes, maxBlobs } });
+    // The worker loads a file even when its host runs stdin/eval. Node rejects
+    // --input-type for file entrypoints. Preserve other host runtime options.
+    const execArgv = process.execArgv.filter((arg, index, args) =>
+      arg !== "--input-type" && !arg.startsWith("--input-type=") && args[index - 1] !== "--input-type");
+    this.worker = new Worker(new URL(`./sqlite-worker.${import.meta.url.endsWith(".ts") ? "ts" : "js"}`, import.meta.url), { execArgv, workerData: { directory: path.resolve(directory), maxBytes, maxBlobs } });
     this.worker.on("message", ({ id, result, error }: { id: number; result?: unknown; error?: { message: string; code?: string } }) => {
       const request = this.pending.get(id); if (!request) return;
       this.pending.delete(id);
