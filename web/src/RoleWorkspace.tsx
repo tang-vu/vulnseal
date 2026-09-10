@@ -11,8 +11,8 @@ import type { PublicContractSnapshot, TransactionEvidence } from "@vulnseal/api/
 import { createVulnSealPrivateState, pureCircuits } from "@vulnseal/contract";
 import { bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, randomBytes, sealReport, sha256, utf8, validateEnvironment, type VulnerabilityReport } from "@vulnseal/shared";
 import { initializeBrowserProviders } from "./midnight/browser-providers.js";
-import { defaultProgramDraft, programConstructor, readProgramForm, type ProgramDraft } from "./program.js";
-import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, MAX_SUBMISSION_ATTEMPTS, assertSubmissionCapacity, parseInvitation, validateRoleVault, withProgramDraft, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withSubmissionNotes, withRetestChoice, withFinalizedSubmission, type ReportNotes, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
+import { defaultProgramDraft, captureDeploymentInputs, programConstructor, readProgramForm, type SavedDeploymentInputs, type ProgramDraft } from "./program.js";
+import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, MAX_SUBMISSION_ATTEMPTS, assertSubmissionCapacity, parseInvitation, validateRoleVault, withDeploymentInputs, withProgramDraft, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withSubmissionNotes, withRetestChoice, withFinalizedSubmission, type ReportNotes, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
 import { joinRoleVault } from "./role-network.js";
 import { HandoffPanel } from "./HandoffPanel.js";
 import { validateDisclosure, type Disclosure, type RecipientKeys } from "./handoff.js";
@@ -60,6 +60,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const retestChoice = useRef<boolean | null>(null);
   const submissionNotes = useRef<ReportNotes | null>(null);
   const submissionIntent = useRef<SubmissionIntent | undefined>(undefined);
+  const deploymentInputs = useRef<SavedDeploymentInputs | undefined>(undefined);
   const confirmationWait = useRef<ReturnType<typeof submissionWait> | undefined>(undefined);
   const [recoveryRequired, setRecoveryRequired] = useState(false);
   const requireJournal = () => {
@@ -67,22 +68,24 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
     if (currentVault.current) assertSubmissionCapacity(currentVault.current);
     if (!persistJournal.current) throw new Error("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
   };
-  const duringSubmission = async <T,>(intent: SubmissionIntent, action: () => Promise<T>, notes: ReportNotes | null = null, passed: boolean | null = null, patch?: string): Promise<T> => {
+  const duringSubmission = async <T,>(intent: SubmissionIntent, action: () => Promise<T>, context: { notes?: ReportNotes; passed?: boolean | null; patch?: string | undefined; deployment?: SavedDeploymentInputs } = {}): Promise<T> => {
     if (submissionIntent.current) throw new Error("Another submission is active");
-    submissionIntent.current = intent; submissionNotes.current = notes; retestChoice.current = passed; retestPatch.current = patch;
+    submissionIntent.current = intent; submissionNotes.current = context.notes ?? null; retestChoice.current = context.passed ?? null; retestPatch.current = context.patch; deploymentInputs.current = context.deployment;
     const wait = submissionWait(); confirmationWait.current = wait;
     try { return await wait.run(action); }
     catch (cause) {
       if (cause instanceof SubmissionConfirmationTimeout) { setRecoveryRequired(true); setSession(undefined); setSnapshot(undefined); }
       throw cause;
-    } finally { confirmationWait.current = undefined; submissionIntent.current = undefined; submissionNotes.current = null; retestChoice.current = null; retestPatch.current = undefined; }
+    } finally { confirmationWait.current = undefined; submissionIntent.current = undefined; submissionNotes.current = null; retestChoice.current = null; retestPatch.current = undefined; deploymentInputs.current = undefined; }
   };
   const recordSubmission = async (transactionId: string) => {
     const current = currentVault.current, persist = persistJournal.current;
     if (!current || !persist) throw new Error("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
     if (current.submissionAttempts?.some((entry) => entry.transactionId === transactionId)) throw new Error("This transaction is already recorded. Reconcile its identifier before trying again.");
     if (!submissionIntent.current) throw new Error("Submission intent is missing. No transaction was sent.");
+    if (submissionIntent.current.circuit === "constructor" && !deploymentInputs.current) throw new Error("Deployment inputs are missing. No transaction was sent.");
     let updated = await withSubmissionAttempt(current, transactionId, submissionIntent.current);
+    if (deploymentInputs.current) updated = await withDeploymentInputs(updated, transactionId, deploymentInputs.current);
     if (submissionNotes.current) updated = await withSubmissionNotes(updated, transactionId, submissionNotes.current);
     if (retestChoice.current !== null) updated = await withRetestChoice(updated, transactionId, retestChoice.current, retestPatch.current);
     await persist(updated);
@@ -176,7 +179,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
     const command = typeof input === "function" ? await input() : input;
     setSnapshot(undefined); setReceipt(undefined);
     const id = command.kind === "submitReport" ? pureCircuits.deriveReportCommitment(Uint8Array.from(command.report.programId), Uint8Array.from(command.report.canonicalDigest), Uint8Array.from(command.report.salt)) : command.reportId;
-    const result = await duringSubmission({ circuit: command.kind, reportId: bytesToHex(id) }, () => session.execute(command), { reportId: bytesToHex(id), text: detail, tier }, command.kind === "submitRetest" ? command.passed : null, command.kind === "submitRetest" ? bytesToHex(command.patchCommitment) : undefined); setReceipt(result);
+    const result = await duringSubmission({ circuit: command.kind, reportId: bytesToHex(id) }, () => session.execute(command), { notes: { reportId: bytesToHex(id), text: detail, tier }, passed: command.kind === "submitRetest" ? command.passed : null, patch: command.kind === "submitRetest" ? bytesToHex(command.patchCommitment) : undefined }); setReceipt(result);
     let updated = currentVault.current!;
     try {
       updated = await withFinalizedSubmission(updated, result);
@@ -268,7 +271,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
               requireJournal();
               const providers = await initializeBrowserProviders(vault.network, recordSubmission);
               const constructor = await programConstructor(hexToBytes(vault.programId), policy);
-              const deployed = await duringSubmission({ circuit: "constructor", reportId: null }, () => VulnSealApi.deploy(providers, createVulnSealPrivateState(hexToBytes(vault.actorSecret)), constructor));
+              const deployed = await duringSubmission({ circuit: "constructor", reportId: null }, () => VulnSealApi.deploy(providers, createVulnSealPrivateState(hexToBytes(vault.actorSecret)), constructor), { deployment: captureDeploymentInputs(constructor) });
               setReceipt(deployed.evidence); setTab("backup");
               let updated = await validateRoleVault({ ...currentVault.current!, contractAddress: deployed.api.contractAddress });
               try {

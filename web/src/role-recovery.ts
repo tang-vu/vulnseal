@@ -5,12 +5,12 @@ import { base64UrlToBytes, bytesToBase64Url, randomBytes, utf8, type Vulnerabili
 import { validateDisclosure, type Disclosure } from "./handoff.js";
 
 import { validateAttachmentDraft, type AttachmentDraft } from "./attachment-draft.js";
-import { validateProgramDraft, type ProgramDraft } from "./program.js";
+import { validateProgramDraft, validateDeploymentInputs, type SavedDeploymentInputs, type ProgramDraft } from "./program.js";
 export type SubmissionIntent = { readonly circuit: "constructor"; readonly reportId: null } | { readonly circuit: RoleCommand["kind"]; readonly reportId: string };
 export type SavedFinalization = { readonly blockHeight: string; readonly recordedAt: string };
-export type SubmissionAttempt = { readonly transactionId: string; readonly recordedAt: string; readonly intent?: SubmissionIntent | null; readonly finalization?: SavedFinalization | null; readonly notes?: ReportNotes | null; readonly retestPassed?: boolean | null; readonly retestPatchCommitment?: string | null };
+export type SubmissionAttempt = { readonly transactionId: string; readonly recordedAt: string; readonly intent?: SubmissionIntent | null; readonly finalization?: SavedFinalization | null; readonly notes?: ReportNotes | null; readonly retestPassed?: boolean | null; readonly retestPatchCommitment?: string | null; readonly deployment?: SavedDeploymentInputs | null };
 export type ReportNotes = { readonly reportId: string; readonly text: string; readonly tier: string };
-export type RoleVault = { readonly version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11; readonly role: ActorRole; readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly actorSecret: string; readonly reports: readonly Disclosure[]; readonly submissionAttempts?: readonly SubmissionAttempt[]; readonly draft?: VulnerabilityReport | null; readonly attachmentDraft?: AttachmentDraft | null; readonly reportNotes?: readonly ReportNotes[]; readonly programDraft?: ProgramDraft | null };
+export type RoleVault = { readonly version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12; readonly role: ActorRole; readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly actorSecret: string; readonly reports: readonly Disclosure[]; readonly submissionAttempts?: readonly SubmissionAttempt[]; readonly draft?: VulnerabilityReport | null; readonly attachmentDraft?: AttachmentDraft | null; readonly reportNotes?: readonly ReportNotes[]; readonly programDraft?: ProgramDraft | null };
 export type ProgramInvitation = { readonly format: "vulnseal-program-invitation"; readonly version: 1; readonly network: string; readonly contractAddress: string; readonly programId: string };
 export const MAX_ROLE_BACKUP_BYTES = 32 * 1024 * 1024;
 export const MAX_SUBMISSION_ATTEMPTS = 200;
@@ -46,7 +46,7 @@ export const withSubmissionAttempt = async (vault: RoleVault, transactionId: str
   assertSubmissionCapacity(vault);
   return validateRoleVault({
   ...vault, version: vault.version >= 6 ? vault.version : 5, draft: vault.draft ?? null, reportNotes: vault.reportNotes ?? [],
-  submissionAttempts: [...(vault.submissionAttempts ?? []).map((entry) => ({ ...entry, intent: entry.intent ?? null })), { transactionId, recordedAt, intent, ...(vault.version >= 6 ? { finalization: null } : {}), ...(vault.version >= 8 ? { notes: null } : {}), ...(vault.version >= 9 ? { retestPassed: null } : {}), ...(vault.version >= 10 ? { retestPatchCommitment: null } : {}) }],
+  submissionAttempts: [...(vault.submissionAttempts ?? []).map((entry) => ({ ...entry, intent: entry.intent ?? null })), { transactionId, recordedAt, intent, ...(vault.version >= 6 ? { finalization: null } : {}), ...(vault.version >= 8 ? { notes: null } : {}), ...(vault.version >= 9 ? { retestPassed: null } : {}), ...(vault.version >= 10 ? { retestPatchCommitment: null } : {}), ...(vault.version >= 12 ? { deployment: null } : {}) }],
   });
 };
 const timestamp = (value: unknown): string => {
@@ -87,9 +87,19 @@ const validateDraft = (input: unknown): VulnerabilityReport => {
   return draft;
 };
 export const withRoleDraft = (vault: RoleVault, draft: VulnerabilityReport | null): RoleVault => ({ ...vault, version: vault.version >= 4 ? vault.version : 3, submissionAttempts: vault.submissionAttempts ?? [], draft });
+/** Preserve the selected constructor inputs for one attempt, never the mutable draft. */
+export const withDeploymentInputs = async (vault: RoleVault, transactionId: string, input: SavedDeploymentInputs): Promise<RoleVault> => {
+  const deployment = validateDeploymentInputs(input);
+  const entry = vault.submissionAttempts?.find((item) => item.transactionId === transactionId);
+  if (vault.role !== "vendor" || entry?.intent?.circuit !== "constructor") throw new Error("Deployment inputs require a vendor constructor intent");
+  if (deployment.programId !== vault.programId) throw new Error("Saved deployment inputs name another program");
+  if (entry.deployment && Object.keys(deployment).some((key) => entry.deployment![key as keyof SavedDeploymentInputs] !== deployment[key as keyof SavedDeploymentInputs])) throw new Error("Saved deployment inputs cannot be replaced");
+  return validateRoleVault({ ...vault, version: 12, programDraft: vault.programDraft ?? null, draft: vault.draft ?? null, attachmentDraft: vault.attachmentDraft ?? null, reportNotes: vault.reportNotes ?? [],
+    submissionAttempts: vault.submissionAttempts!.map((item) => ({ ...item, intent: item.intent ?? null, finalization: item.finalization ?? null, notes: item.notes ?? null, retestPassed: item.retestPassed ?? null, retestPatchCommitment: item.retestPatchCommitment ?? null, deployment: item.transactionId === transactionId ? deployment : item.deployment ?? null })) });
+};
 export const withProgramDraft = (vault: RoleVault, input: ProgramDraft): RoleVault => {
   if (vault.role !== "vendor") throw new Error("Only vendor workspaces can hold a program draft");
-  return { ...vault, version: 11, programDraft: validateProgramDraft(input), draft: vault.draft ?? null, attachmentDraft: vault.attachmentDraft ?? null, reportNotes: vault.reportNotes ?? [],
+  return { ...vault, version: vault.version >= 11 ? vault.version : 11, programDraft: validateProgramDraft(input), draft: vault.draft ?? null, attachmentDraft: vault.attachmentDraft ?? null, reportNotes: vault.reportNotes ?? [],
     submissionAttempts: (vault.submissionAttempts ?? []).map((entry) => ({ ...entry, intent: entry.intent ?? null, finalization: entry.finalization ?? null, notes: entry.notes ?? null, retestPassed: entry.retestPassed ?? null, retestPatchCommitment: entry.retestPatchCommitment ?? null })) };
 };
 export const withAttachmentDraft = (vault: RoleVault, input: AttachmentDraft): RoleVault => {
@@ -131,14 +141,15 @@ export const withRetestChoice = async (vault: RoleVault, transactionId: string, 
   if (entry.retestPassed != null && entry.retestPassed !== passed) throw new Error("Saved retest choice cannot be replaced");
   const patch = patchCommitment === undefined ? undefined : hex(patchCommitment);
   if (patch !== undefined && entry.retestPatchCommitment != null && entry.retestPatchCommitment !== patch) throw new Error("Saved retest patch cannot be replaced");
-  const version = vault.version === 11 ? 11 : patch !== undefined || vault.version >= 10 ? 10 : 9;
+  const version = vault.version >= 11 ? vault.version : patch !== undefined || vault.version >= 10 ? 10 : 9;
   return validateRoleVault({ ...vault, version, draft: vault.draft ?? null, attachmentDraft: vault.attachmentDraft ?? null, reportNotes: vault.reportNotes ?? [],
     submissionAttempts: vault.submissionAttempts!.map((item) => ({ ...item, intent: item.intent ?? null, finalization: item.finalization ?? null, notes: item.notes ?? null, retestPassed: item.transactionId === transactionId ? passed : item.retestPassed ?? null, ...(version >= 10 ? { retestPatchCommitment: item.transactionId === transactionId ? patch ?? item.retestPatchCommitment ?? null : item.retestPatchCommitment ?? null } : {}) })),
   });
 };
 export const validateRoleVault = async (input: unknown): Promise<RoleVault> => {
   const version = (input as { version?: unknown } | null)?.version;
-  const programDrafted = version === 11;
+  const deploymentContext = version === 12;
+  const programDrafted = version === 11 || deploymentContext;
   const retestPatch = version === 10 || programDrafted;
   const retestIntent = version === 9 || retestPatch;
   const historicalNotes = version === 8 || retestIntent;
@@ -149,20 +160,23 @@ export const validateRoleVault = async (input: unknown): Promise<RoleVault> => {
   const drafted = version === 3 || noted;
   const journaled = version === 2 || drafted;
   const value = object(input, ["version", "role", "network", "contractAddress", "programId", "actorSecret", "reports", ...(journaled ? ["submissionAttempts"] : []), ...(drafted ? ["draft"] : []), ...(noted ? ["reportNotes"] : []), ...(pendingAttachment ? ["attachmentDraft"] : []), ...(programDrafted ? ["programDraft"] : [])]);
-  if ((value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== 7 && value.version !== 8 && value.version !== 9 && value.version !== 10 && value.version !== 11) || !["vendor", "researcher"].includes(String(value.role)) || !Array.isArray(value.reports) || value.reports.length > 100) throw new Error("Invalid role backup");
+  if ((value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== 7 && value.version !== 8 && value.version !== 9 && value.version !== 10 && value.version !== 11 && value.version !== 12) || !["vendor", "researcher"].includes(String(value.role)) || !Array.isArray(value.reports) || value.reports.length > 100) throw new Error("Invalid role backup");
   const attempts: SubmissionAttempt[] = [];
   if (journaled) {
     if (!Array.isArray(value.submissionAttempts) || value.submissionAttempts.length > MAX_SUBMISSION_ATTEMPTS) throw new Error("Invalid submission journal");
     const ids = new Set<string>();
     for (const item of value.submissionAttempts) {
-      const entry = object(item, ["transactionId", "recordedAt", ...(contextual ? ["intent"] : []), ...(receipted ? ["finalization"] : []), ...(historicalNotes ? ["notes"] : []), ...(retestIntent ? ["retestPassed"] : []), ...(retestPatch ? ["retestPatchCommitment"] : [])]);
+      const entry = object(item, ["transactionId", "recordedAt", ...(contextual ? ["intent"] : []), ...(receipted ? ["finalization"] : []), ...(historicalNotes ? ["notes"] : []), ...(retestIntent ? ["retestPassed"] : []), ...(retestPatch ? ["retestPatchCommitment"] : []), ...(deploymentContext ? ["deployment"] : [])]);
       if (typeof entry.transactionId !== "string" || !/^(?:[a-f0-9]{64}|[a-f0-9]{66})$/.test(entry.transactionId)) throw new Error("Invalid role identifier");
       const transactionId = entry.transactionId;
       if (ids.has(transactionId) || typeof entry.recordedAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(entry.recordedAt) || !Number.isFinite(Date.parse(entry.recordedAt))) throw new Error("Invalid submission journal entry");
       const finalization = receipted && entry.finalization !== null ? validateFinalization(entry.finalization) : null;
       if (finalization && (!entry.intent || value.contractAddress === null)) throw new Error("Saved finalization requires a deployed contract and recorded intent");
       if (retestIntent && entry.retestPassed !== null && typeof entry.retestPassed !== "boolean") throw new Error("Invalid saved retest choice");
-      ids.add(transactionId); attempts.push({ transactionId, recordedAt: entry.recordedAt, ...(contextual ? { intent: entry.intent === null ? null : validateIntent(entry.intent, value.role) } : {}), ...(receipted ? { finalization } : {}), ...(historicalNotes ? { notes: entry.notes === null ? null : validateReportNotes(entry.notes) } : {}), ...(retestIntent ? { retestPassed: entry.retestPassed as boolean | null } : {}), ...(retestPatch ? { retestPatchCommitment: entry.retestPatchCommitment === null ? null : hex(entry.retestPatchCommitment) } : {}) });
+      if (deploymentContext && entry.deployment !== null && (value.role !== "vendor" || (entry.intent as SubmissionIntent | null)?.circuit !== "constructor")) throw new Error("Deployment inputs require a vendor constructor intent");
+      const deployment = deploymentContext && entry.deployment !== null ? validateDeploymentInputs(entry.deployment) : null;
+      if (deployment && deployment.programId !== value.programId) throw new Error("Saved deployment inputs name another program");
+      ids.add(transactionId); attempts.push({ transactionId, recordedAt: entry.recordedAt, ...(contextual ? { intent: entry.intent === null ? null : validateIntent(entry.intent, value.role) } : {}), ...(receipted ? { finalization } : {}), ...(historicalNotes ? { notes: entry.notes === null ? null : validateReportNotes(entry.notes) } : {}), ...(retestIntent ? { retestPassed: entry.retestPassed as boolean | null } : {}), ...(retestPatch ? { retestPatchCommitment: entry.retestPatchCommitment === null ? null : hex(entry.retestPatchCommitment) } : {}), ...(deploymentContext ? { deployment } : {}) });
     }
   }
   if (drafted && value.draft !== null && value.role !== "researcher") throw new Error("Only researcher workspaces can hold an authoring draft");

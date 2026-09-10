@@ -3,8 +3,36 @@ import { describe, expect, it } from "vitest";
 import { decryptRoleVault, encryptRoleVault, parseInvitation, validateRoleVault, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withFinalizedSubmission, type RoleVault } from "./role-recovery.js";
 import { recoveryFixture } from "./test/recovery-fixture.js";
 import { withSubmissionNotes, withRetestChoice } from "./role-recovery.js";
-import { withProgramDraft } from "./role-recovery.js";
-import { defaultProgramDraft } from "./program.js";
+import { withDeploymentInputs, withProgramDraft } from "./role-recovery.js";
+import { captureDeploymentInputs, defaultProgram, defaultProgramDraft, programConstructor } from "./program.js";
+import { hexToBytes } from "@vulnseal/shared";
+
+it("keeps exact deployment inputs immutable through draft edits, finalization and another attempt", async () => {
+  const original = await roleFixture("vendor"), transactionId = "12".repeat(32);
+  const constructor = await programConstructor(hexToBytes(original.programId), defaultProgram);
+  const inputs = captureDeploymentInputs(constructor);
+  const selected = inputs.scopeDigest;
+  constructor.scopeDigest.fill(0);
+  expect(inputs.scopeDigest).toBe(selected); // Captured bytes cannot alias the SDK's mutable buffers.
+  let vault = await withDeploymentInputs(await withSubmissionAttempt(original, transactionId, { circuit: "constructor", reportId: null }), transactionId, inputs);
+  vault = withProgramDraft(vault, { ...defaultProgramDraft, rewardPolicy: "Later edited policy" });
+  vault = await withFinalizedSubmission(vault, { circuit: "constructor", txId: transactionId, blockHeight: "100" });
+  vault = await withSubmissionAttempt(vault, "34".repeat(32), { circuit: "constructor", reportId: null });
+  expect(vault.version).toBe(12);
+  expect(vault.submissionAttempts![0]!.deployment).toEqual(inputs);
+  expect(vault.submissionAttempts![1]!.deployment).toBeNull();
+  expect(await decryptRoleVault(await encryptRoleVault(vault, "Deployment input recovery password"), "Deployment input recovery password")).toEqual(vault);
+  await expect(withDeploymentInputs(vault, transactionId, { ...inputs, responseDays: "14" })).rejects.toThrow("cannot be replaced");
+  await expect(withDeploymentInputs(vault, "34".repeat(32), { ...inputs, programId: "ff".repeat(32) })).rejects.toThrow("another program");
+  await expect(withDeploymentInputs(vault, "34".repeat(32), { ...inputs, responseDays: "18446744073709551616" })).rejects.toThrow("window");
+  await expect(withDeploymentInputs(vault, "34".repeat(32), { ...inputs, disclosureDelayDays: "01" })).rejects.toThrow("window");
+  await expect(withDeploymentInputs(vault, "34".repeat(32), { ...inputs, scopeDigest: "invalid" })).rejects.toThrow("digest");
+  await expect(validateRoleVault({ ...vault, version: 11 })).rejects.toThrow("Unsupported role document");
+  const researcher = await roleFixture();
+  await expect(withDeploymentInputs(researcher, transactionId, inputs)).rejects.toThrow("vendor constructor");
+  const reportAttempt = await withSubmissionAttempt(original, "ab".repeat(32), { circuit: "beginTriage", reportId: original.reports[0]!.reportId });
+  await expect(withDeploymentInputs(reportAttempt, "ab".repeat(32), inputs)).rejects.toThrow("vendor constructor");
+});
 
 it("round-trips incomplete vendor policy text and preserves it through journal updates", async () => {
   const original = await roleFixture("vendor");

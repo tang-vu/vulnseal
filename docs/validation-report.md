@@ -1,5 +1,13 @@
 # Validation report
 
+## Save deployment inputs before the wallet boundary -- 2026-09-10
+
+Role-vault v12 stores selected constructor digests and windows with each vendor deployment attempt, separately from editable program drafts. The workspace captures strings before invoking deployment and awaits their encrypted journal save in the before-submit hook. Save failure prevents the mocked wallet boundary from being reached. Legacy entries remain null; validation rejects foreign program IDs, malformed values and replacement of existing inputs. Draft edits and finalization preserve the recorded values. v1-v11 remain readable; older releases cannot read v12.
+
+Focused recovery/workspace/deployment tests passed **40 tests / 5 files in 78.62 seconds**, exit **0**, including the existing finalized-deployment address-save and indexer-failure regressions. After strengthening the new test to inspect the decrypted durable record inside the callback before the wallet boundary, its two cases passed again: **2 tests / 1 file in 11.94 seconds**, exit **0**. This is an overlapping rerun, not 42 distinct tests. An initial standalone typecheck rejected an unsupported Testing Library `exact` role option; removing that option fixed the test type, and the subsequent normal web build (including TypeScript checking) exited **0**.
+
+The normal web build and package check produced **8 circuits, 62 files, 62,673,519 bytes**, exit **0**, with retained proving keys and existing unchanged-contract source evidence. No browser E2E, native Lace, Docker image or public-host validation was performed for this change. Saved inputs are local selected intent, not authenticated transaction contents, confirmation or safe-retry reconciliation. [Design and migration limits](adr/0025-deployment-input-checkpoints.md).
+
 ## Persist vendor program drafts -- 2026-09-10
 
 Role-vault v11 retains incomplete vendor program fields as bounded raw strings, and the deployment form now updates that vault directly. New vendor identities start with a draft; edits participate in encrypted autosave/file export and invalidate the latest-backup transaction gate until saved. v1-v10 remain readable. Tests preserve existing journal/finalization and retest-patch fields across v11 updates and reject invalid roles, schemas, field types and oversized values.

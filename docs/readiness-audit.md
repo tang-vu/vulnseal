@@ -23,6 +23,8 @@ The startup error screen also offers export-only access to encrypted browser cop
 
 ## Work still required
 
+Deployment attempts now preserve selected constructor inputs in encrypted v12 checkpoints before the wallet boundary, independently of editable drafts. Save failure blocks the callback; old attempts remain unknown. This is local recovery evidence, not authenticated transaction argument reconciliation or native-wallet release validation. See [ADR-0025](adr/0025-deployment-input-checkpoints.md).
+
 Vendor workspace program fields now persist as a bounded v11 encrypted draft instead of being discarded when the form unmounts. Autosave and file recovery preserve incomplete text and selected windows; existing journal helpers retain the new version and prior evidence. New Chrome desktop/mobile checks exercise both browser-copy unlock and actual file restore without network writes. Draft text is not authenticated deployed policy or constructor-argument reconciliation; native deployment and older-release rollback compatibility remain separate concerns. See [ADR-0024](adr/0024-vendor-program-drafts.md).
 
 The combined demo now retains its leave warning after successful sealing and for edited private draft fields, loaded receiving keys and program material. Untouched defaults and fully reverted drafts avoid the warning when nothing else is held. Actual Chrome desktop/mobile close dialogs allow cancelling without losing the draft/report and still allow an explicit close. This improves accidental-close protection, not automatic persistence or crash recovery; unfinished child-form coverage and the durable demo journal remain incomplete.

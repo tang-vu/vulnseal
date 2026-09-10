@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { sha256, utf8 } from "@vulnseal/shared";
+import { bytesToHex, sha256, utf8 } from "@vulnseal/shared";
 import type { ProgramConstructor } from "@vulnseal/api/types";
 
 export const defaultProgram = {
@@ -12,6 +12,24 @@ export const defaultProgram = {
 };
 
 export type ProgramPolicy = typeof defaultProgram;
+export type SavedDeploymentInputs = { readonly [K in keyof ProgramConstructor]: string };
+const deploymentFields = ["programId", "scopeDigest", "responsePolicyDigest", "responseDays", "rewardPolicyDigest", "disclosurePolicyDigest", "disclosureDelayDays"] as const;
+export const validateDeploymentInputs = (input: unknown): SavedDeploymentInputs => {
+  if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).sort().join() !== [...deploymentFields].sort().join()) throw new Error("Invalid saved deployment inputs");
+  const value = input as SavedDeploymentInputs;
+  for (const field of deploymentFields) {
+    const text = value[field];
+    if (typeof text !== "string") throw new Error("Invalid saved deployment input");
+    if (field === "responseDays" || field === "disclosureDelayDays") {
+      if (!/^(0|[1-9][0-9]{0,19})$/.test(text) || BigInt(text) > 18446744073709551615n) throw new Error("Invalid saved deployment window");
+    } else if (!/^[a-f0-9]{64}$/.test(text)) throw new Error("Invalid saved deployment digest");
+  }
+  return { ...value };
+};
+export const captureDeploymentInputs = (input: ProgramConstructor): SavedDeploymentInputs => validateDeploymentInputs({
+  programId: bytesToHex(input.programId), scopeDigest: bytesToHex(input.scopeDigest), responsePolicyDigest: bytesToHex(input.responsePolicyDigest), responseDays: input.responseDays.toString(),
+  rewardPolicyDigest: bytesToHex(input.rewardPolicyDigest), disclosurePolicyDigest: bytesToHex(input.disclosurePolicyDigest), disclosureDelayDays: input.disclosureDelayDays.toString(),
+});
 export type ProgramDraft = { readonly [K in keyof ProgramPolicy]: string };
 export const defaultProgramDraft: ProgramDraft = { ...defaultProgram, responseDays: String(defaultProgram.responseDays), disclosureDays: String(defaultProgram.disclosureDays) };
 /** Preserve incomplete text exactly; deployment validation is a separate step. */
