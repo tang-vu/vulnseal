@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Program constructor preparation now has a typed API entrypoint shared with the web app. It validates/copies policy and identity before asynchronous hashing, preserves the existing exact-text digest format and includes an offline example executing the compiled constructor and checking all seven fields plus owner authority. Provider provisioning, durable recovery integration and native-wallet deployment remain separate SDK/release requirements. See [program policy SDK](program-policy-sdk.md).
+
 - Vendors with saved contract coordinates can share public invitation links into the independent researcher workspace. Link/file selection shows program details before explicit wallet connection, rejects private/duplicate fields and ignores superseded file reads. This supplies a reviewed entry into submission, not an embedded widget or authenticated invitation. See [invitation links](program-invitation-links.md).
 
 - The public verifier and bounded JSON reader now live behind API package entrypoints shared with the web app. Typed receipt-to-report comparison is callable directly from Node, with an offline captured-state example and public-only input/link validation. This remains source-trusting current-state comparison; an embeddable submission widget and authenticated public timelines are not implemented by this extraction.

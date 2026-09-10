@@ -2,6 +2,8 @@
 
 `RoleSession` keeps one actor secret and a fixed role. Use separate providers and encrypted authority storage for independent users. The dedicated [role workspace](role-workspace.md) uses this API; the original combined-role demo remains separate.
 
+To create a program, use the shared [program policy SDK](program-policy-sdk.md) to prepare constructor inputs, then compose `VulnSealApi.deploy` with encrypted authority/checkpoint persistence before attaching a vendor session. Its offline compiled-constructor example requires no wallet or network.
+
 ```ts
 import { RoleSession } from "@vulnseal/api/role-session";
 

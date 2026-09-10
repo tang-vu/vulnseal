@@ -52,6 +52,9 @@ jobs:
       - name: Exercise public verification SDK from Node without network
         run: node examples/public-verification-fixture.mjs
 
+      - name: Exercise program policy SDK against the compiled constructor without network
+        run: node examples/program-constructor.mjs
+
       - name: Production dependency audit
         run: npm run audit:prod
 

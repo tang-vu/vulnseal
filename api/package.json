@@ -46,6 +46,10 @@
     "./bounded-json": {
       "types": "./dist/bounded-json.d.ts",
       "import": "./dist/bounded-json.js"
+    },
+    "./program-policy": {
+      "types": "./dist/program-policy.d.ts",
+      "import": "./dist/program-policy.js"
     }
   },
   "dependencies": {

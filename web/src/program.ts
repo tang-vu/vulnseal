@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { bytesToHex, sha256, utf8 } from "@vulnseal/shared";
+import { bytesToHex, utf8 } from "@vulnseal/shared";
 import type { ProgramConstructor } from "@vulnseal/api/types";
 
 export const defaultProgram = {
@@ -11,7 +11,8 @@ export const defaultProgram = {
   rewardPolicy: "P1 · Critical — Tier 4\nP2 · High — Tier 3\nP3 · Medium — Tier 2\nP4 · Low — Tier 1",
 };
 
-export type ProgramPolicy = typeof defaultProgram;
+import type { ProgramPolicy } from "@vulnseal/api/program-policy";
+export { programConstructor, type ProgramPolicy } from "@vulnseal/api/program-policy";
 export type SavedDeploymentInputs = { readonly [K in keyof ProgramConstructor]: string };
 const deploymentFields = ["programId", "scopeDigest", "responsePolicyDigest", "responseDays", "rewardPolicyDigest", "disclosurePolicyDigest", "disclosureDelayDays"] as const;
 export const validateDeploymentInputs = (input: unknown): SavedDeploymentInputs => {
@@ -53,17 +54,6 @@ export const readProgramForm = (form: FormData): ProgramPolicy => {
     name: field("name"), primaryScope: field("primaryScope"), additionalScope: field("additionalScope", false),
     responseDays, disclosureDays, rewardPolicy: field("rewardPolicy"),
   };
-};
-
-export const programConstructor = async (programId: Uint8Array, policy: ProgramPolicy): Promise<ProgramConstructor> => {
-  const digest = (value: unknown) => sha256(utf8(JSON.stringify(value)));
-  const [scopeDigest, responsePolicyDigest, rewardPolicyDigest, disclosurePolicyDigest] = await Promise.all([
-    digest({ primaryScope: policy.primaryScope, additionalScope: policy.additionalScope }),
-    digest({ responseDays: policy.responseDays }),
-    digest({ rewardPolicy: policy.rewardPolicy }),
-    digest({ disclosureDays: policy.disclosureDays }),
-  ]);
-  return { programId, scopeDigest, responsePolicyDigest, rewardPolicyDigest, disclosurePolicyDigest, responseDays: BigInt(policy.responseDays), disclosureDelayDays: BigInt(policy.disclosureDays) };
 };
 
 export const severityLabel = (tier: number): string => `P${5 - tier}`;

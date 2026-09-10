@@ -1,5 +1,15 @@
 # Validation report
 
+## Shared program policy SDK and compiled-constructor example -- 2026-09-10
+
+`@vulnseal/api/program-policy` now exports the policy type, strict runtime policy validation and constructor preparation. The web re-exports this implementation. Preparation keeps the previous JSON key order and exact text hashing, checks supported UI windows/text bounds and captures a copy of the policy/32-byte ID before asynchronous hashing. This also prevents a caller changing the ID or window while the digest operations are pending. Name remains display metadata outside the current constructor commitments.
+
+The API build exited **0** and **12 tests passed in 604 ms**, including fixed JSON hash vectors using Node crypto, caller mutation after starting preparation, invalid runtime policy fields/windows and invalid ID types/lengths. **40 web tests / 3 files passed in 36.99 seconds**, exit **0**, covering recovery, role recovery and mocked application network behavior. Chrome desktop and Pixel 7 passed **8 E2E cases in 1.1 minutes as reported**, two workers and no retries, for scope import/pinning with encrypted recovery and historical deployment-policy comparison/deadlines.
+
+`node examples/program-constructor.mjs` exited **0** using the built package export. It disables fetch, creates ephemeral random authority, executes the compiled Compact constructor locally and checks all seven inputs, the derived owner key and an empty report map. Output excludes the secret and explicitly says offline/no deployment. CI is configured to run the example after workspace validation; no remote CI result, proof generation or native-wallet deployment is claimed. [SDK usage, deployment composition and responsibilities](program-policy-sdk.md).
+
+The final normal web build with TypeScript checking and release package check exited **0**: **8 circuits, 69 files, 64,071,430 bytes**. Local regression logs: `.compact/program-policy-web-tests.log`, `.compact/program-policy-browser.log` and `.compact/program-policy-release.log`. No container image, public host or proving material was refreshed.
+
 ## Preserve live work during fragment navigation -- 2026-09-10
 
 Changing the fragment of a running tab previously left the original workspace displayed under a different invitation/receipt URL. The bootstrap now detects that navigation, restores the original URL without reloading and offers the requested destination in a new tab with `noopener noreferrer`. Dismissal preserves the current workspace; another fragment request replaces the pending destination. The notice lives outside the lazily loaded workspace and does not recreate its identity or draft.
