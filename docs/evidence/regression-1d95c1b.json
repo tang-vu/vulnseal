@@ -1,0 +1,94 @@
+{
+  "recordedAt": "2026-09-10T13:39:23.959991+00:00",
+  "applicationRevision": "1d95c1b6972c7acdac5ba096941175cc6d57403c",
+  "node": "24.14.1",
+  "validate": {
+    "command": "npm run validate",
+    "exitCode": 0,
+    "workspaceBuildsPassed": 6,
+    "workspaceTypechecksPassed": 6,
+    "workspaces": {
+      "shared": {
+        "files": 1,
+        "tests": 13,
+        "durationSeconds": 0.639
+      },
+      "contract": {
+        "files": 3,
+        "tests": 28,
+        "durationSeconds": 70.8
+      },
+      "api": {
+        "files": 7,
+        "tests": 71,
+        "durationSeconds": 3.42
+      },
+      "cipherstore": {
+        "files": 10,
+        "tests": 49,
+        "durationSeconds": 30.45
+      },
+      "integration": {
+        "files": 3,
+        "tests": 9,
+        "durationSeconds": 3.17
+      },
+      "web": {
+        "files": 52,
+        "tests": 326,
+        "durationSeconds": 89.53
+      }
+    },
+    "tests": 496,
+    "files": 76,
+    "rawLogSha256": "0dd051866d926b0f17ae8bc7bfdf3c91d077f60ecd420ceeaa86875d370a0d0f"
+  },
+  "browser": {
+    "command": "CI=1 npm run test:e2e",
+    "exitCode": 0,
+    "passed": 112,
+    "failed": 0,
+    "durationAsReported": "5.4m",
+    "workers": 2,
+    "automaticRetries": 0,
+    "singleSuccessfulFullSuiteInvocation": true,
+    "rawLogSha256": "6aa2296863c80c550dc7a58c76ef143b6873daa63fd53ed4d51523b14da20aed"
+  },
+  "offlineExamples": [
+    {
+      "command": "node examples/public-verification-fixture.mjs",
+      "exitCode": 0,
+      "mode": "offline fixture; RPC finality simulated",
+      "rawLogSha256": "f464dd4295f7c323702160fe1fa5268881e71d3b6f9674ad90053b91fd1b9bab"
+    },
+    {
+      "command": "node examples/program-constructor.mjs",
+      "exitCode": 0,
+      "mode": "offline compiled constructor; no deployment",
+      "rawLogSha256": "904c1d30e54cf28a59c5ed4ade39c2070c7895ce0de80b6eda1dce38cf583b0f"
+    }
+  ],
+  "releasePackaging": {
+    "commands": [
+      "npm run build -w @vulnseal/web",
+      "node scripts/check-web-release.mjs --write-manifest"
+    ],
+    "exitCodes": [
+      0,
+      0
+    ],
+    "circuits": 8,
+    "files": 69,
+    "bytes": 64071430,
+    "manifestWritten": true,
+    "normalEnvironmentRestoredAfterE2E": true,
+    "rawLogSha256": "a1cb785da4ea567056119b9e3c13902ab36670b68fbf93de31f8c1b70ff6e0b6",
+    "provingKeysRegenerated": false
+  },
+  "limits": [
+    "Local builds/tests do not establish native Lace compatibility, fresh proving-key generation, public hosting, authenticated deployment or external CI.",
+    "No container build or security rescan is included; existing unresolved findings remain open.",
+    "Separate replication browser configurations, standalone tooling checks and the isolated escrow experiment are outside this run.",
+    "Browser tests use local services, synthetic/captured data and injected faults where specified; no new network transaction or test-token transfer is established."
+  ]
+}

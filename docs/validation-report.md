@@ -1,5 +1,15 @@
 # Validation report
 
+## Complete local regression at 1d95c1b -- 2026-09-10
+
+Starting from clean application revision `1d95c1b6972c7acdac5ba096941175cc6d57403c` on Node **24.14.1**, one `npm run validate` invocation exited **0**. All **six workspace builds and six typechecks** passed, followed by **496 tests across 76 files**: shared 13, contract 28, API 71, ciphertext service 49, integration 9 and web 326. This includes the shared SDK entrypoints, GitHub scope/release imports, reviewed invitation links and workspace navigation changes since the previous full regression.
+
+The complete ordinary Playwright suite then ran once with `CI=1`, two workers and no automatic retries. All **112 desktop/mobile cases passed in 5.4 minutes as reported**, exit **0**. The two Node SDK examples also exited **0** against the built packages: public receipt comparison uses captured state/simulated RPC, and program preparation executes the compiled constructor offline with ephemeral authority. Neither example performs a network transaction.
+
+After E2E, the normal web build and release package check both exited **0**, restoring the ordinary build configuration: **8 circuits, 69 files, 64,071,430 bytes**. [Machine-readable evidence](evidence/regression-1d95c1b.json) records per-workspace results, commands, application revision and raw-log SHA-256 values. The logs remain local in `.compact/`.
+
+This is current local regression evidence, not completion of the full product roadmap. No native Lace ceremony, fresh proving-key generation, external CI, public-host validation or container/security refresh is included. Separate replication browser configurations, standalone tooling suites and the escrow experiment remain outside this invocation. Their historical evidence and unresolved deployment/security gates remain separate.
+
 ## Shared program policy SDK and compiled-constructor example -- 2026-09-10
 
 `@vulnseal/api/program-policy` now exports the policy type, strict runtime policy validation and constructor preparation. The web re-exports this implementation. Preparation keeps the previous JSON key order and exact text hashing, checks supported UI windows/text bounds and captures a copy of the policy/32-byte ID before asynchronous hashing. This also prevents a caller changing the ID or window while the digest operations are pending. Name remains display metadata outside the current constructor commitments.
