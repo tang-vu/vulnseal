@@ -1,5 +1,13 @@
 # Validation report
 
+## Consolidated regression at 0adfc97 -- 2026-09-10
+
+With a clean worktree at **`0adfc97c8a50566f362ec5530fa3981e94b5000e`**, Node **24.14.1**, one `npm run validate` invocation exited **0**: all six workspace builds/typechecks and **398 tests across 67 files** passed. Counts were shared 13, contract 28, API 42, cipherstore 49, integration 9 and web 257. The contract suite took **89.34 seconds** and web **91.80 seconds**; [machine-readable evidence](evidence/regression-0adfc97.json) records all workspace durations and log hashes.
+
+The ordinary production-browser suite then exited **0** in one invocation: **94 passed, zero failed**, **5.0 minutes as reported**, two workers, no automatic retries. Both Chrome desktop and Pixel 7 covered the complete ordinary suite, including recent deployment verifier checks, storage deadlines and post-timeout backup recovery. This is a new full-suite result; the earlier `af11da5` run's failures and separate correction remain historical evidence.
+
+After E2E, the normal web build with TypeScript checking and release package check both exited **0**, restoring the normal environment and producing **8 circuits, 69 files, 64,019,245 bytes**. No application source changed during these checks. Existing generated-source-map and Node SQLite experimental warnings remain; they did not fail the commands. This run excludes separate replication configurations, standalone tooling checks and the isolated escrow experiment. No container/security gate, external CI, fresh proving keys, native wallet, new network transaction or production-host claim is made.
+
 ## Interleaved report lifecycle model -- 2026-09-10
 
 `contract/src/test/interleaved-lifecycle.test.ts` adds three reproducible schedules (seeds `0x125af`, `0x78bc1`, `0xd3e91`) over five reports with distinct researcher secrets and preimages. Three reports each fail retesting twice, replace the patch twice, then pass, authorize payout and close. Two reports are rejected and closed. The scheduler selects among unfinished reports, exercising different global sequence orderings against the compiled circuits.

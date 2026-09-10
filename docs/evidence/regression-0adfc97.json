@@ -1,0 +1,80 @@
+{
+  "recordedAt": "2026-09-10T10:27:29.919805+00:00",
+  "applicationRevision": "0adfc97c8a50566f362ec5530fa3981e94b5000e",
+  "node": "24.14.1",
+  "validate": {
+    "command": "npm run validate",
+    "exitCode": 0,
+    "workspaceBuildsPassed": 6,
+    "workspaceTypechecksPassed": 6,
+    "workspaces": {
+      "shared": {
+        "files": 1,
+        "tests": 13,
+        "durationSeconds": 0.7
+      },
+      "contract": {
+        "files": 3,
+        "tests": 28,
+        "durationSeconds": 89.34
+      },
+      "api": {
+        "files": 5,
+        "tests": 42,
+        "durationSeconds": 3.8
+      },
+      "cipherstore": {
+        "files": 10,
+        "tests": 49,
+        "durationSeconds": 30.49
+      },
+      "integration": {
+        "files": 3,
+        "tests": 9,
+        "durationSeconds": 3.25
+      },
+      "web": {
+        "files": 45,
+        "tests": 257,
+        "durationSeconds": 91.8
+      }
+    },
+    "tests": 398,
+    "files": 67,
+    "rawLogSha256": "80f6ae999ae302a1f041c4c8ef7342e0dedfbc6ec28871495e4cb992d8d4ecc2"
+  },
+  "browser": {
+    "command": "CI=1 npm run test:e2e",
+    "exitCode": 0,
+    "passed": 94,
+    "failed": 0,
+    "durationAsReported": "5.0m",
+    "workers": 2,
+    "automaticRetries": 0,
+    "singleSuccessfulFullSuiteInvocation": true,
+    "rawLogSha256": "8150527fea99cd8ea7a56d5557e6e8ceeaf60cf650cd14de0d01fc10bd19c572"
+  },
+  "releasePackaging": {
+    "commands": [
+      "npm run build -w @vulnseal/web",
+      "node scripts/check-web-release.mjs --write-manifest"
+    ],
+    "exitCodes": [
+      0,
+      0
+    ],
+    "circuits": 8,
+    "files": 69,
+    "bytes": 64019245,
+    "manifestWritten": true,
+    "normalEnvironmentRestoredAfterE2E": true,
+    "rawLogSha256": "251d56a2481828737ecda28417be2a814a66c6966607b5a3a52d2e6dea6d2e6a",
+    "provingKeysRegenerated": false
+  },
+  "limits": [
+    "Local builds/tests do not establish native Lace compatibility, fresh proving-key generation, public hosting, authenticated deployment or external CI.",
+    "No container build or security rescan is included; existing unresolved findings remain open.",
+    "Separate replication browser configurations, standalone tooling checks and the isolated escrow experiment are outside this run.",
+    "Browser tests use local services, synthetic/captured data and injected faults where specified; no new network transaction or test-token transfer is established."
+  ]
+}
