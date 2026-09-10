@@ -38,7 +38,11 @@ function capacity(connection: DatabaseSync, incoming: number): void {
 function transaction<T>(connection: DatabaseSync, action: () => T): T {
   connection.exec("BEGIN IMMEDIATE");
   try { const result = action(); connection.exec("COMMIT"); return result; }
-  catch (error) { connection.exec("ROLLBACK"); throw error; }
+  catch (error) {
+    // SQLite can already have rolled back (for example on a full database).
+    if (connection.isTransaction) connection.exec("ROLLBACK");
+    throw error;
+  }
 }
 port.on("message", ({ id, operation, digest, body }: { id: number; operation: string; digest?: string; body?: Uint8Array }) => {
   try {
@@ -82,7 +86,10 @@ port.on("message", ({ id, operation, digest, body }: { id: number; operation: st
     }
     port.postMessage({ id, result });
   } catch (error) {
-    const cause = error as Error & { code?: string };
-    port.postMessage({ id, error: { message: cause.message, code: cause.code } });
+    const cause = error as Error & { code?: string; errcode?: number };
+    // SQLite's low byte is the primary code, including extended BUSY/FULL errors.
+    const primary = cause.code === "ERR_SQLITE_ERROR" && Number.isInteger(cause.errcode) ? cause.errcode! & 0xff : undefined;
+    const message = primary === 5 || primary === 6 ? "STORAGE_BUSY" : primary === 13 ? "STORAGE_CAPACITY_EXCEEDED" : cause.message;
+    port.postMessage({ id, error: { message, code: cause.code } });
   }
 });

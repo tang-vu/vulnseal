@@ -1,0 +1,24 @@
+{
+  "capturedAt": "2026-09-10T06:20:19.624076+00:00",
+  "harnessImageId": "sha256:111a0bc29720ae851f2c18c15b10517c23b39b964614d6cfcba6b4936f96c643",
+  "runtimeCode": "Current compiled cipherstore/dist mounted read-only; not a rebuild of the harness image.",
+  "tmpfsBytes": 65536,
+  "attemptedBlobBytes": 131072,
+  "logicalQuotaBytes": 1048576,
+  "exitCode": 0,
+  "result": {
+    "node": "v24.20.0",
+    "nativeCapacityErrorReported": true,
+    "failedWriteAbsent": true,
+    "laterSmallWriteRetained": true
+  },
+  "fileHashes": {
+    "cipherstore/dist/sqlite-storage.js": "85e0fdbb72bd829fcb4189e10b66bbc6dbc784b4b704354edae6d9a91096ce1d",
+    "cipherstore/dist/sqlite-worker.js": "5cd972fdf2bcd136aa2d5c27ead7ee17ff4c10c7c6889e17adc6d3733a25f432",
+    "scripts/test-sqlite-full.mjs": "fb5369e341ad721d2336e3a714ccada428b779b993a23320b7714dbed7071bb9"
+  },
+  "limits": [
+    "Tests native SQLite capacity on Linux tmpfs, not physical disk exhaustion or power loss.",
+    "No production image rebuild, runtime rescan or remote CI execution."
+  ]
+}

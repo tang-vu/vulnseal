@@ -209,6 +209,10 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
       if (code === "PAYLOAD_TOO_LARGE") json(response, 413, { error: "payload_too_large" });
       else if (code === "INVALID_ENVELOPE") json(response, 400, { error: "invalid_ciphertext_envelope" });
       else if (code === "IMMUTABLE_CONFLICT") json(response, 409, { error: "immutable_blob_conflict" });
+      else if (code === "STORAGE_BUSY") {
+        response.setHeader("retry-after", "1");
+        json(response, 503, { error: "storage_temporarily_busy" });
+      }
       else if (code === "STORAGE_CAPACITY_EXCEEDED" || ["ENOSPC", "EDQUOT"].includes(errorCode(error) ?? "")) json(response, 507, { error: "storage_capacity_exceeded" });
       else json(response, 500, { error: "storage_unavailable" });
     } finally {

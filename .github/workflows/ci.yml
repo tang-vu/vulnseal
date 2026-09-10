@@ -86,6 +86,13 @@ jobs:
         run: node scripts/test-cipherstore-container.mjs
       - name: Verify SQLite container persistence, capacity and restart
         run: node scripts/test-cipherstore-container.mjs --backend=sqlite
+      - name: Verify native SQLite full-database recovery
+        run: >-
+          docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges:true
+          --memory 512m --pids-limit 64 --tmpfs /data:rw,noexec,nosuid,size=64k,mode=1777
+          --mount type=bind,source=${{ github.workspace }}/scripts/test-sqlite-full.mjs,target=/probe/scripts/test-sqlite-full.mjs,readonly
+          --env VULNSEAL_SQLITE_MODULE=file:///app/dist/sqlite-storage.js
+          --entrypoint node vulnseal-cipherstore:local /probe/scripts/test-sqlite-full.mjs
       - name: Reject runtime vulnerabilities and end-of-life OS
         run: sh scripts/scan-container.sh
       - name: Verify internal metrics collection and alert rules

@@ -3,6 +3,7 @@ import { mkdtemp, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, expect, it } from "vitest";
 import { SqliteCiphertextStorage } from "./sqlite-storage.js";
 import { createCipherstoreServer, MEDIA_TYPE } from "./server.js";
@@ -75,4 +76,42 @@ it("rejects foreign database files without replacing their bytes", async () => {
   await expect(store.prepare()).rejects.toThrow();
   expect(await readFile(filename)).toEqual(original);
   await expect(store.read("../outside")).rejects.toThrow("INVALID_STORAGE_DIGEST");
+});
+
+it("reports an actual database lock as retryable HTTP unavailability without writing", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "vulnseal-sqlite-busy-http-"));
+  const storage = make(directory); await storage.prepare();
+  server = createCipherstoreServer({ dataDirectory: directory, storage });
+  await new Promise<void>((resolve) => server!.listen(0, "127.0.0.1", resolve));
+  const address = server.address(); if (!address || typeof address === "string") throw new Error("No TCP address");
+  const base = `http://127.0.0.1:${address.port}`, url = `${base}/v1/blobs/sha256:${digest}`;
+  const blocker = new DatabaseSync(path.join(directory, "ciphertext.sqlite"));
+  blocker.exec("BEGIN IMMEDIATE");
+  const put = () => fetch(url, { method: "PUT", headers: { "content-type": MEDIA_TYPE }, body });
+  try {
+    const pending = put();
+    // The worker's lock wait must not block the server's main HTTP event loop.
+    expect((await fetch(`${base}/healthz`, { signal: AbortSignal.timeout(500) })).status).toBe(200);
+    const response = await pending;
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("1");
+    expect(await response.json()).toEqual({ error: "storage_temporarily_busy" });
+  } finally { blocker.exec("ROLLBACK"); blocker.close(); }
+  expect((await fetch(url)).status).toBe(404);
+  expect((await put()).status).toBe(201);
+  expect(await (await fetch(url)).text()).toBe(body.toString());
+});
+
+it("preserves the original error when SQLite has already rolled back the transaction", async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), "vulnseal-sqlite-auto-rollback-"));
+  const storage = make(directory); await storage.prepare();
+  const control = new DatabaseSync(path.join(directory, "ciphertext.sqlite"));
+  try {
+    control.exec("CREATE TRIGGER stop_write BEFORE INSERT ON blobs BEGIN SELECT RAISE(ROLLBACK, 'controlled rollback'); END");
+    await expect(storage.put(digest, body)).rejects.toThrow("controlled rollback");
+    await expect(storage.read(digest)).rejects.toMatchObject({ code: "ENOENT" });
+    control.exec("DROP TRIGGER stop_write");
+    expect(await storage.put(digest, body)).toBe(true);
+    expect(Buffer.from(await storage.read(digest))).toEqual(body);
+  } finally { control.close(); }
 });

@@ -1,5 +1,13 @@
 # Validation report
 
+## SQLite lock and native capacity error recovery -- 2026-09-10
+
+SQLite lock/queue pressure now produces **HTTP 503 with Retry-After: 1**, while native SQLITE_FULL produces the existing capacity error mapped to **HTTP 507**. Extended error codes are classified by their primary byte. The worker does not retry writes. Transaction cleanup now checks `isTransaction` before rollback: SQLite can already have rolled back, and the previous unconditional rollback could replace the original failure with a secondary error.
+
+All **33 cipherstore tests across 7 files passed (12.11s)**; build/typecheck passed. A real second database connection held a write lock: HTTP upload returned 503, liveness remained available during the pending upload, the requested blob was absent after lock release, and an explicit retry then stored the exact bytes. A trigger-induced automatic rollback retained its original error, left no blob and allowed a later successful write after removing the test trigger. Existing crash, backup and adapter regressions also passed.
+
+A separate Docker test limited `/data` tmpfs to **64 KiB** while the adapter's logical quota was **1 MiB**. A **128 KiB** write produced native capacity failure and left no row; a subsequent small write/read succeeded. The final probe exited **0** on Node **24.20.0** and used current compiled code mounted read-only into the prior runtime image. [Evidence](evidence/sqlite-native-full.json) identifies the harness image and mounted-code hashes. This is not a newly built or rescanned production image, nor a physical disk exhaustion/power-loss test. CI now runs the probe against its freshly built image; the edited workflow has not run remotely. No web artifact or wallet operation changed.
+
 ## SQLite container and process-crash recovery checks -- 2026-09-10
 
 The current ciphertext image built with **exit 0**, including **29 tests across 6 files on Alpine (9.95s)**. Exact image: **sha256:111a0bc29720ae851f2c18c15b10517c23b39b964614d6cfcba6b4936f96c643**. Docker warned that Git revision metadata was not captured. Two additional process-crash tests were added after the build context was captured and passed separately on host Node **24.14.1**: **2 tests, 4.80s**. They are not included in the image-build test count.
