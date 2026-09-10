@@ -1,5 +1,19 @@
 # Validation report
 
+## Public GitHub repository scope import -- 2026-09-10
+
+Undeployed vendor drafts now offer a read-only public repository lookup and a separate action to replace primary scope. Other draft fields stay intact and normal encrypted persistence applies. The client restricts input/endpoint identity, omits credentials/body/referrer, refuses redirects and non-public/mismatched metadata, and bounds the complete request to 15 seconds and received JSON to 256 KiB. Cancellation, input changes and unmount discard late results. Enter in the lookup input is handled locally so it cannot submit the surrounding deployment form.
+
+The final focused run passed **26 tests / 2 files in 5.08 seconds**, exit **0**, covering URL/metadata rejection, HTTP errors, oversized/invalid responses, stalled-body timeout, cancellation, explicit apply and late-result handling. The earlier initial client-only run passed 20 tests; the intermediate combined 26-test run passed before the final unmount/Enter handling adjustments.
+
+Chrome desktop and Pixel 7 passed **2 E2E cases in 43.2 seconds**, two workers, no retries. Pressing Enter performs the mocked public GET without changing scope; only the apply button changes it. Requests carry no authorization, cookie or body, private reward prose remains unchanged, and the encrypted backup restores the selected scope/reward policy in an isolated context. The initial click-based browser run also passed in **48.4 seconds** before strengthening Enter coverage. A separate unauthenticated HTTP probe of `octocat/Hello-World` with API version `2022-11-28` returned **200** and matching public repository metadata; browser tests use intercepted responses and do not establish a live browser/CORS result.
+
+This adds public repository scope import only. GitHub App installation, ownership verification, commit-pinned scope and patch-release references remain open. No GitHub write, wallet transaction or proving-key generation occurred. [Behavior, upstream API reference and privacy limits](github-public-scope.md).
+
+A subsequent live Chrome check compiled the actual repository client and invoked it from an `about:blank` page against GitHub without interception. It exited **0** with the expected `octocat/Hello-World` reference, exercising real browser fetch/CORS and the client validation. This is distinct from the mocked full-UI cases and does not establish a public production host's configuration.
+
+The final normal web build with TypeScript checking and release package check exited **0**: **8 circuits, 69 files, 64,034,978 bytes**. No runtime image or public host was updated. The preceding consolidated regression predates this feature; the checks above describe this change's validation scope.
+
 ## Consolidated regression at 0adfc97 -- 2026-09-10
 
 With a clean worktree at **`0adfc97c8a50566f362ec5530fa3981e94b5000e`**, Node **24.14.1**, one `npm run validate` invocation exited **0**: all six workspace builds/typechecks and **398 tests across 67 files** passed. Counts were shared 13, contract 28, API 42, cipherstore 49, integration 9 and web 257. The contract suite took **89.34 seconds** and web **91.80 seconds**; [machine-readable evidence](evidence/regression-0adfc97.json) records all workspace durations and log hashes.

@@ -1,5 +1,7 @@
 # Use independent browser roles
 
+Undeployed vendor programs can [import a public GitHub repository as primary scope](github-public-scope.md): look up its URL, review the public metadata, then explicitly apply it to the draft. Existing rewards/windows stay unchanged, and the chosen scope follows normal encrypted backup and deployment gates.
+
 Connected restoration holds a fixed copy of the selected identity, saved reports and journal while waiting for Lace. Existing ledger reports must match the saved commitment and ciphertext digest, and their submission receipt must match the contract's hash of the commitment, ciphertext digest and researcher key. Researcher workspaces additionally verify their own derived researcher authority; vendor authority is checked by the role session.
 
 If a saved report has a local finalization claim but is absent from the current ledger, connected restoration refuses the contradiction. Choose **Restore backups without connecting Lace** to retain access to the report and inspect its journal, then investigate the selected network and public evidence before reconnecting. Prepared reports and uncertain attempts without saved finalization may still be absent; their absence does not establish that resubmission is safe. These checks compare backup claims with the configured ledger source. They do not authenticate that source, prove finality, recover deployment addresses or automatically reconcile/retry transactions.
