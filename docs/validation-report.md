@@ -1,5 +1,15 @@
 # Validation report
 
+## Reviewed vendor policy export and isolated verification -- 2026-09-10
+
+Vendor Reports now offers a public-policy sharing panel for backups with a saved draft and contract address. Explicit checking reads public state, requires the workspace program ID, and compares all six committed policy fields after applying the same normalization as deployment. Only a matching preview enables downloading the six public JSON fields. Missing drafts do not substitute defaults; mismatches list affected fields, changed inputs cancel/clear results, and download errors preserve the reviewed content for retry. No wallet connection or network transaction is started by this flow.
+
+The initial five export-component tests passed. The final **9 component tests / 2 files passed in 2.96 seconds**, exit **0**, covering the export and public comparison components, wrong program/policy, missing drafts, delayed results after input changes, and download failure/retry. The first typecheck exposed React ref initialization and exact-optional prop declarations in the new component; both were corrected before the successful browser build. Final TypeScript/build checks also passed.
+
+Chrome desktop and Pixel 7 passed **4 E2E cases in 1.1 minutes as reported**, two workers and no retries. The new journey restores a synthetic vendor backup offline, checks compiled-constructor public state through mocked services, previews and downloads the normalized policy, verifies that its contents equal exactly the expected public object, and imports that actual downloaded file into an isolated browser context with the project's device settings. Both sides match, with exactly eight public lookup requests and no policy/authority text uploaded. Existing public-policy mismatch/private-field checks also pass. The later difference-label and download-error clearing refinements were covered by the final component run.
+
+The final normal web build and release package check exited **0**: **8 circuits, 69 files, 64,092,223 bytes**. Logs: `.compact/vendor-policy-tests-final.log`, `.compact/vendor-policy-browser.log` and `.compact/vendor-policy-release.log`. No native-wallet ceremony, signed policy publication, container image, public host or proving material was refreshed. [Handoff instructions and limits](public-policy-sharing.md).
+
 ## Compare public program policy content -- 2026-09-10
 
 Public state projection now includes all four policy digests. The SDK `compareProgramPolicy` compares supplied exact policy text with an already observed program across four digests and both windows, returning individual differences without fetching. Public lookup displays those fields and accepts a bounded public policy JSON file for local comparison. Invalid/private fields fail validation; replacement input and changed observations clear the previous match, and superseded file reads are ignored. Name remains outside the current contract commitments.

@@ -1,5 +1,7 @@
 # Use independent browser roles
 
+Vendors can [review and download their public program policy](public-policy-sharing.md) from Reports. The saved draft must match the observed program ID, four policy digests and both windows before export is enabled. Researchers can compare the resulting file in the public verifier.
+
 Vendors with saved contract coordinates can [share a public program invitation link](program-invitation-links.md) from Reports. Researchers open the link or import a public invitation file, review the network/contract/program, then explicitly connect Lace. Opening a link does not join or submit automatically.
 
 If another invitation or public receipt changes the fragment in this tab, a navigation notice offers to open it in a separate tab. The original URL and live workspace remain together, including unsaved drafts. **Keep working here** dismisses the request. This does not persist unsaved edits or prevent a full reload.

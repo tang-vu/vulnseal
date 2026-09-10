@@ -24,6 +24,8 @@ Here `observation` is a `verifyPublicContract` result. This comparison makes no 
 
 The browser's **Program policy commitments** panel displays the four digests and both windows after public lookup. **Compare public program policy** accepts a JSON file with exactly `name`, `primaryScope`, `additionalScope`, `responseDays`, `disclosureDays` and `rewardPolicy`. Obtain the public text from the program through an agreed channel; digests cannot recover it. The file is capped at 2 MiB before reading, and the policy validator applies its own field limits. File contents are processed locally, never uploaded. Replacing the input or observation discards the old comparison. Name is uncommitted display metadata; even an all-fields match does not establish ownership or permission.
 
+Vendor workspaces can produce this file through the [reviewed public policy export](public-policy-sharing.md), including from an offline-restored backup with its saved policy draft.
+
 For example, after building the workspace dependencies:
 
 ```js
