@@ -1,0 +1,54 @@
+{
+  "recordedAt": "2026-09-10T16:10:46.028223+00:00",
+  "applicationRevision": "47775c1eb2a5c8156211d448566a12eb08d8401d",
+  "imageId": "sha256:d835406a803ae6d60289077cf42a3b2a559ab6167759e58dd0488f9466ce3f26",
+  "imageConfigId": "sha256:8c2b2727b9320d4a06bb99f5f9742891a08858505edb18c16c7e3f8967767f54",
+  "build": {
+    "command": "docker build -f infra/cipherstore.Dockerfile -t vulnseal-cipherstore:local .",
+    "exitCode": 0,
+    "node": "24.20.0",
+    "tests": 49,
+    "files": 10,
+    "durationSeconds": 46.95,
+    "rawLogSha256": "754cf740fed25378fa417355755fe53b1048be703c69c5c2cd3313fadd6bfb2d"
+  },
+  "filesystemDrill": {
+    "exitCode": 0,
+    "evidence": "docs/evidence/cipherstore-filesystem-container-drill.json",
+    "cleanupCompleted": true,
+    "rawLogSha256": "7d39de3eb3138c0bf9b399988278fad473e020481edd02b3bca7494c400f873a"
+  },
+  "sqliteDrill": {
+    "initialAttempt": {
+      "exitCode": 1,
+      "failure": "PUT failed with UND_ERR_SOCKET / other side closed; server request/socket timeout configured to 1000 ms. Filesystem drill and image scanner were also running. Root cause not established.",
+      "cleanupCompleted": true,
+      "rawLogSha256": "c94c4b154b58f516cdfb7f9dcd1c4f0f258add7c8f20a679e3dd42ceb41bb242"
+    },
+    "isolatedAttempt": {
+      "exitCode": 0,
+      "sameImageTimeoutsAndAssertions": true,
+      "evidence": "docs/evidence/cipherstore-sqlite-container-drill.json",
+      "cleanupCompleted": true,
+      "rawLogSha256": "51c9f8a7db674f882618748c1becc0899085e00d96a217221394a03d30d217ad"
+    }
+  },
+  "scanner": {
+    "exitCode": 0,
+    "os": "alpine 3.24.1",
+    "osPackages": 18,
+    "findings": 0,
+    "warnings": [
+      "Alpine 3.24 is not on the scanner EOL list."
+    ],
+    "cleanupCompleted": true,
+    "rawLogSha256": "682e3e0f8e0072dcfe05f608162c07f091958bccbd265592f3cb340219a78cf8"
+  },
+  "evidencePublication": "Container drill success records are now written only after owned container and volume cleanup succeeds.",
+  "limits": [
+    "The initial SQLite socket closure remains unexplained; the isolated pass does not establish reliability under concurrent drills or production load.",
+    "The native full-database/tmpfs capacity probe was not rerun on this image; its prior evidence remains historical.",
+    "No independent storage regions, production service policy/SLO, native wallet or public deployment was established.",
+    "This scan does not clear unresolved web/ingress/Prometheus findings."
+  ]
+}

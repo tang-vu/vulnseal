@@ -29,7 +29,7 @@ const docker = async (...args) => (await execute(executable, [...(distro ? ["--d
 const failed = async (...args) => { try { await docker(...args); return false; } catch (error) { if (error.code === 1) return true; throw error; } };
 const imageId = await docker("image", "inspect", image, "--format", "{{.Id}}");
 assert.match(imageId, /^sha256:[a-f0-9]{64}$/);
-let stage = "startup";
+let stage = "startup", evidence;
 const request = (url, options = {}) => {
   stage = `${options.method ?? "GET"} ${new URL(url).pathname}`;
   return fetch(url, { ...options, signal: AbortSignal.timeout(5000) });
@@ -139,10 +139,8 @@ try {
   assert.deepEqual(new Uint8Array(decrypted), plaintext);
   await docker("stop", "--time", "20", name);
   assert.equal(JSON.parse(await docker("inspect", name))[0].State.ExitCode, 0, "Final stop must close storage and release its lease");
-  const evidence = { capturedAt: new Date().toISOString(), backend, imageId, nonRoot: true, readOnlyRoot: true, metricsEnabled: true, readyBeforeUpload: true, incompleteRestoreStartupRefused: true, incompleteRestoreBackupRefused: true, incompleteRestoreMarkerRetained: true, incompleteRestoreLeaseReleased: true, trickledUploadTerminated: true, quotaRejectsNewBlob: true, fullStoreRemainsReadable: true, secondWriterRefused: true, gracefulRestart: true, persistedCiphertextDecrypted: true };
+  evidence = { capturedAt: new Date().toISOString(), backend, imageId, nonRoot: true, readOnlyRoot: true, metricsEnabled: true, readyBeforeUpload: true, incompleteRestoreStartupRefused: true, incompleteRestoreBackupRefused: true, incompleteRestoreMarkerRetained: true, incompleteRestoreLeaseReleased: true, trickledUploadTerminated: true, quotaRejectsNewBlob: true, fullStoreRemainsReadable: true, secondWriterRefused: true, gracefulRestart: true, persistedCiphertextDecrypted: true };
   evidence.retirement = retirement;
-  if (args.includes("--write-evidence")) await writeFile(`docs/evidence/cipherstore-${backend}-container-drill.json`, JSON.stringify(evidence, null, 2) + "\n");
-  process.stdout.write(JSON.stringify(evidence) + "\n");
 } catch (error) {
   process.stderr.write(`Container drill failed (${backend}, ${stage}): ${String(error)}\n`);
   try { process.stderr.write(await docker("logs", "--tail", "30", name) + "\n"); } catch {}
@@ -151,3 +149,7 @@ try {
   await removeOwned("container", name);
   await removeOwned("volume", volume);
 }
+// A cleanup failure must not publish a successful drill record.
+evidence.cleanupCompleted = true;
+if (args.includes("--write-evidence")) await writeFile(`docs/evidence/cipherstore-${backend}-container-drill.json`, JSON.stringify(evidence, null, 2) + "\n");
+process.stdout.write(JSON.stringify(evidence) + "\n");

@@ -1,5 +1,13 @@
 # Validation report
 
+## Refresh ciphertext runtime and publish evidence after cleanup -- 2026-09-10
+
+Image `sha256:d835406a803ae6d60289077cf42a3b2a559ab6167759e58dd0488f9466ce3f26` packages the current ciphertext service, including the SQLite worker stdin/eval argument fix. The build exited **0** with **49 tests / 10 files in 46.95 seconds** on Node 24.20.0. The container drill now defers success output/evidence writes until both owned container and volume cleanup have completed; syntax validation passed.
+
+The filesystem drill exited **0**. The first SQLite drill exited **1** with a closed PUT socket (`UND_ERR_SOCKET`) while the filesystem drill and scanner were also running, under the drill's existing 1000 ms request/socket timeout. Cleanup completed. An explicit isolated SQLite run then exited **0** with the same image, timeouts and assertions. This is not an automatic retry or proof of the first failure's cause; that failure remains unresolved. Both successful records cover in-image retirement/restore controls, non-root/read-only execution, metrics, quota/full-store reads, second-writer refusal, restart and ciphertext decryption.
+
+The exact-image scan exited **0**, with zero findings across Alpine 3.24.1 / 18 OS packages and the Node package target. The scanner still warns that Alpine 3.24 is missing from its EOL list. Final label queries found no test containers, test volumes or scanner containers. [Image, scan and both SQLite attempts](evidence/cipherstore-worker-runtime.json), [filesystem drill](evidence/cipherstore-filesystem-container-drill.json), [SQLite drill](evidence/cipherstore-sqlite-container-drill.json). Native tmpfs-full capacity, production load/SLO, independently operated storage and public deployment were not verified in this refresh.
+
 ## Wire source diagnostics into release verification -- 2026-09-10
 
 The manually dispatched Release verification workflow now has a Caddy/Prometheus source-diagnostic matrix with read-only repository permissions, pinned checkout/build inputs, bounded build/job/scan runtimes and ownership-checked cleanup. Existing network-artifact and monitoring-security jobs, including strict runtime Trivy scans, remain independent and unchanged.
