@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { bytesToHex, hexToBytes } from "@vulnseal/shared";
-import { ContractCall, Transaction } from "@midnight-ntwrk/midnight-js-protocol/ledger";
+import { ContractCall, ContractDeploy, ContractState, Transaction } from "@midnight-ntwrk/midnight-js-protocol/ledger";
 
 /** Decode public bytes only after binding them to the requested identifier and hash.
  * This does not verify proofs, signatures, block inclusion or report effects. */
@@ -19,4 +19,21 @@ export function inspectTransactionContent(raw: string, identifier: string, expec
     }
   }
   return { transactionHash: tx.transactionHash(), identifiers: tx.identifiers(), calls };
+}
+
+/** Bind an observed deployment state to hash/identifier-checked public transaction bytes.
+ * This checks content consistency, not signatures, proofs, inclusion or code identity. */
+export function verifyDeploymentState(input: { raw: string; identifier: string; transactionHash: string; contractAddress: string; state: string }) {
+  inspectTransactionContent(input.raw, input.identifier, input.transactionHash);
+  if (!/^[a-f0-9]{64}$/.test(input.contractAddress)) throw new Error("Invalid deployment address");
+  if (typeof input.state !== "string" || input.state.length > 8 * 1024 * 1024 || !/^(?:0x)?(?:[a-f0-9]{2})+$/i.test(input.state)) throw new Error("Invalid deployment state");
+  const tx = Transaction.deserialize("signature", "proof", "binding", hexToBytes(input.raw));
+  const actions = [...(tx.intents ?? [])].flatMap(([, intent]) => intent.actions);
+  if (actions.length !== 1 || !(actions[0] instanceof ContractDeploy)) throw new Error("Raw transaction must contain exactly one deployment action");
+  const deploy = actions[0];
+  if (deploy.address !== input.contractAddress) throw new Error("Raw deployment names another address");
+  const expected = deploy.initialState.serialize();
+  const actual = ContractState.deserialize(hexToBytes(input.state)).serialize();
+  if (expected.length !== actual.length || expected.some((value, index) => value !== actual[index])) throw new Error("Observed deployment state differs from the raw transaction's initial state");
+  return { address: deploy.address, transactionHash: tx.transactionHash(), stateBytes: expected.length };
 }

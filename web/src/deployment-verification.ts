@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractState } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
+import { verifyDeploymentState } from "@vulnseal/api/transaction-content";
 import { ledger } from "@vulnseal/contract";
 import { hexToBytes } from "@vulnseal/shared";
 import { captureDeploymentInputs, validateDeploymentInputs, type SavedDeploymentInputs } from "./program.js";
@@ -15,7 +16,7 @@ export async function compareDeploymentPolicy(transactionId: string, saved: Save
   const address = observed.contractActions[0].address;
   const response = await fetch(endpoints.indexerUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
     query: `query DeploymentPolicy($offset: TransactionOffset!) { transactions(offset: $offset) {
-      hash block { height hash } ... on RegularTransaction { identifiers transactionResult { status } }
+      hash raw block { height hash } ... on RegularTransaction { identifiers transactionResult { status } }
       contractActions { __typename address state }
     } }`, variables: { offset: { identifier: observed.transactionId } },
   }), signal: pending, credentials: "omit", cache: "no-store", referrerPolicy: "no-referrer" });
@@ -29,6 +30,7 @@ export async function compareDeploymentPolicy(transactionId: string, saved: Save
   if (!Array.isArray(tx.contractActions) || tx.contractActions.length !== 1) throw new Error("Deployment state has ambiguous actions");
   const action = tx.contractActions[0];
   if (action?.__typename !== "ContractDeploy" || action.address !== address) throw new Error("Deployment state names another action or address");
+  verifyDeploymentState({ raw: tx.raw, identifier: observed.transactionId, transactionHash: observed.transactionHash, contractAddress: address, state: action.state });
   let actual: SavedDeploymentInputs;
   try {
     if (typeof action.state !== "string" || !/^(?:0x)?(?:[a-f0-9]{2})+$/i.test(action.state)) throw new Error("Invalid state");

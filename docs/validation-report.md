@@ -1,5 +1,17 @@
 # Validation report
 
+## Bind deployment state to raw transaction content -- 2026-09-10
+
+Deployment policy comparison now requests raw transaction bytes and uses the SDK to recompute their hash/identifiers before accepting the sole `ContractDeploy`, its address and its complete canonical initial state. A valid later state of the same contract is rejected even when the indexer metadata claims the original deployment transaction. Comparison of the seven saved policy fields happens only after this content binding. No address is saved or retry unlocked.
+
+A read-only SDK probe against the retained historical deployment found exactly one deployment action at the expected address and exact equality of all **18,181 canonical state bytes**. The updated live GraphQL query returned **21,664 raw transaction bytes**, matching the retained transaction and deployment state. The public fixture was refreshed with that response. This establishes content/query consistency, not signature/proof validation or authenticated block inclusion.
+
+The API helper passed **8 tests / 1 file in 0.966 seconds**; web verification/component checks passed **25 tests / 2 files in 4.54 seconds**, both exit **0**. Negative cases replace transaction hash, identifier, address, raw bytes and state, exceed the state bound, and supply a real report-call transaction instead of a deployment. The state substitution uses valid serialized later state from the same historical contract, rather than merely malformed bytes.
+
+Production Chrome desktop and Pixel 7 checks passed **2 tests in 44.0 seconds**, two workers and no retries. Each first sees the expected local reward-policy mismatch, then substitutes that valid later state in the mocked indexer response and requires the raw-initial-state mismatch error while clearing the earlier comparison result. RPC finality is mocked; no native wallet or new transaction is involved. [Content binding and remaining trust limits](adr/0026-deployment-policy-comparison.md).
+
+Final API and normal web builds (including TypeScript checking) and the package check exited **0**. The artifact contains **8 circuits, 62 files, 62,696,437 bytes**, with retained proving keys and existing unchanged-main-contract source evidence. No Docker build, security rescan, public-host deployment or fresh key generation was performed.
+
 ## Historical deployment policy comparison -- 2026-09-10
 
 The active role journal now offers an explicit, cancellable comparison for v12 constructor snapshots. It requires one finalized successful deployment, fetches that transaction's historical state, checks transaction/block/action consistency, decodes the Compact ledger and compares all seven saved policy fields locally. It does not use the mutable draft, persist the result/address, verify vendor authority or unlock retry. The wallet-free inspector has no such private-context action.

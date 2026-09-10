@@ -4,6 +4,7 @@ import { ContractState } from "@midnight-ntwrk/midnight-js-protocol/compact-runt
 import { ledger } from "@vulnseal/contract";
 import { hexToBytes } from "@vulnseal/shared";
 import fixture from "./fixtures/preprod-deployment-state.json" with { type: "json" };
+import later from "./fixtures/preprod-public-state.json" with { type: "json" };
 import { captureDeploymentInputs } from "../web/src/program.js";
 import { encryptRoleVault, withDeploymentInputs, withSubmissionAttempt } from "../web/src/role-recovery.js";
 
@@ -15,9 +16,12 @@ test("deployment policy comparison decodes historical state and reports local in
   const vault = await withDeploymentInputs(await withSubmissionAttempt({ version: 1, role: "vendor", network: "preprod", contractAddress: null, programId: inputs.programId, actorSecret: "34".repeat(32), reports: [] }, transactionId, { circuit: "constructor", reportId: null }), transactionId, { ...inputs, rewardPolicyDigest: "ff".repeat(32) });
   const encrypted = await encryptRoleVault(vault, password);
   const bodies: string[] = [];
+  let substituteState = false;
   await page.route("https://indexer.preprod.midnight.network/api/v4/graphql", async route => {
     bodies.push(route.request().postData()!);
-    await route.fulfill({ json: fixture });
+    const response = structuredClone(fixture);
+    if (substituteState) response.data.transactions[0]!.contractActions[0]!.state = later.data.contractAction.state;
+    await route.fulfill({ json: response });
   });
   await page.route("https://rpc.preprod.midnight.network/**", async route => {
     const body = route.request().postDataJSON();
@@ -41,4 +45,8 @@ test("deployment policy comparison decodes historical state and reports local in
   expect(bodies).toHaveLength(5);
   expect(bodies.join("")).not.toContain(vault.actorSecret);
   expect(bodies.join("")).not.toContain(vault.submissionAttempts![0]!.deployment!.rewardPolicyDigest);
+  substituteState = true;
+  await button.click();
+  await expect(page.getByText("Observed deployment state differs from the raw transaction's initial state")).toBeVisible();
+  await expect(page.getByText("Saved deployment policy differs: rewardPolicyDigest.")).toHaveCount(0);
 });

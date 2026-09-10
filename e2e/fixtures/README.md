@@ -7,3 +7,5 @@
 It contains the serialized public contract state and latest successful action at block 2371914, hash `71acb36d1d46364ca4fca5b6f30ed9bf5f4538fd262dabc772adafa02a5e5585`. The query is in `web/src/public-verification.ts`. No private witness, report plaintext, wallet secret or recovery file is included.
 
 Unit and browser tests replay this response with mocked RPC replies. They exercise the real ledger deserializer but do not establish live network availability. The independent live check is separately documented in `docs/validation-report.md`.
+
+The September 10 deployment capture was refreshed with the query's `raw` field. Its 21,664 public transaction bytes match the previously retained historical transaction; the SDK checks its hash/identifiers and sole deployment address. All 18,181 bytes of its canonical initial state match the captured deployment state. This content comparison does not verify signatures, proofs or inclusion. The browser regression deliberately substitutes the valid later public state above and requires rejection.

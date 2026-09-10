@@ -15,7 +15,7 @@ const saved = captureDeploymentInputs(ledger(ContractState.deserialize(hexToByte
 const observation: Exclude<TransactionObservation, { kind: "not-found" }> = { kind: "finalized", status: "SUCCESS", transactionId, checkedAt: "2026-09-10T00:00:00.000Z", indexerUrl: endpoints.indexerUrl, transactionHash: captured.hash, blockHash: captured.block.hash, blockHeight: captured.block.height, finalizedHead: captured.block.height + 1, contractActions: [{ kind: "ContractDeploy", address: action.address, entryPoint: null }] };
 const setup = () => {
   // Captured deployment bytes; RPC observation is mocked for deterministic negative cases.
-  const tx = { hash: observation.transactionHash, identifiers: [transactionId], block: { ...captured.block }, transactionResult: { status: "SUCCESS" }, contractActions: [{ __typename: "ContractDeploy", address: action.address, state: action.state }] };
+  const tx = { hash: observation.transactionHash, raw: captured.raw, identifiers: [transactionId], block: { ...captured.block }, transactionResult: { status: "SUCCESS" }, contractActions: [{ __typename: "ContractDeploy", address: action.address, state: action.state }] };
   const payload = { data: { transactions: [tx] } };
   vi.mocked(observeTransaction).mockResolvedValue(observation);
   const fetcher = vi.fn(async () => Response.json(payload)); vi.stubGlobal("fetch", fetcher);
