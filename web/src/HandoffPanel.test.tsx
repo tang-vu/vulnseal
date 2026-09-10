@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ create: vi.fn(), backup: vi.fn() }));
 vi.mock("./handoff.js", async (original) => ({ ...await original<typeof import("./handoff.js")>(), createRecipient: mocks.create, backupRecipient: mocks.backup }));
@@ -14,7 +15,7 @@ const start = () => {
   fireEvent.submit(screen.getByRole("button", { name: "Create receiving key and save backup" }).closest("form")!);
 };
 
-it("does not download or attach a receiving key after unmount during backup encryption", async () => {
+it("retains the receiving key before backup encryption but does not download after unmount", async () => {
   let finish!: (value: string) => void;
   mocks.create.mockResolvedValue(keys);
   mocks.backup.mockImplementation(() => new Promise<string>((resolve) => { finish = resolve; }));
@@ -25,10 +26,11 @@ it("does not download or attach a receiving key after unmount during backup encr
   start();
   await act(async () => {});
   expect(mocks.backup).toHaveBeenCalledOnce();
+  expect(onKeys).toHaveBeenCalledExactlyOnceWith(keys);
   view.unmount();
   await act(async () => { finish("encrypted synthetic backup"); });
   expect(createUrl).not.toHaveBeenCalled();
-  expect(onKeys).not.toHaveBeenCalled();
+  expect(onKeys).toHaveBeenCalledExactlyOnceWith(keys);
 });
 
 it("does not start backup derivation when key generation finishes after unmount", async () => {
@@ -55,8 +57,32 @@ it("ignores a late failure from a closed panel and permits a fresh panel to crea
   await act(async () => { fail(new Error("Late failure from closed workspace")); });
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   start();
-  await screen.findByText(/Recipient backup downloaded/);
+  await screen.findByText(/Recipient backup download started/);
   expect(current).toHaveBeenCalledExactlyOnceWith(keys);
   expect(abandoned).not.toHaveBeenCalled();
+  expect(download).toHaveBeenCalledOnce();
+});
+
+it.each(["encryption", "download"])("retries the same retained receiving key after %s failure", async failure => {
+  mocks.create.mockResolvedValue(keys);
+  mocks.backup.mockResolvedValue("encrypted synthetic backup");
+  if (failure === "encryption") mocks.backup.mockRejectedValueOnce(new Error("Synthetic encryption failure"));
+  const createUrl = vi.fn(() => "blob:synthetic");
+  if (failure === "download") createUrl.mockImplementationOnce(() => { throw new Error("Synthetic download failure"); });
+  vi.stubGlobal("URL", class extends URL { static createObjectURL = createUrl; static revokeObjectURL = vi.fn(); });
+  const download = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  function Parent() {
+    const [retained, setRetained] = useState<RecipientKeys>();
+    return <HandoffPanel disclosure={undefined} keys={retained} onKeys={setRetained} />;
+  }
+  render(<Parent />); start();
+  expect(await screen.findByRole("alert")).toHaveTextContent(`Synthetic ${failure} failure`);
+  expect(screen.getByText(keys.recipient.fingerprint)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Save receiving key backup" }));
+  await screen.findByText(/Recipient backup download started/);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(mocks.create).toHaveBeenCalledOnce();
+  expect(mocks.backup).toHaveBeenCalledTimes(2);
+  for (const call of mocks.backup.mock.calls) expect(call).toEqual([keys, "Synthetic receiving password"]);
   expect(download).toHaveBeenCalledOnce();
 });

@@ -10,8 +10,15 @@ test("a separate recipient restores its own key and opens an encrypted disclosur
     await recipient.getByRole("button", { name: "Private exchange" }).click();
     await recipient.getByLabel("Recipient backup password", { exact: true }).fill("Separate recipient backup password");
     await recipient.getByLabel("Confirm recipient backup password").fill("Separate recipient backup password");
-    const backupDownload = recipient.waitForEvent("download");
+    await recipient.evaluate(() => {
+      const original = URL.createObjectURL;
+      URL.createObjectURL = function () { URL.createObjectURL = original; throw new Error("Synthetic backup download failure"); };
+    });
     await recipient.getByRole("button", { name: "Create receiving key and save backup" }).click();
+    await expect(recipient.getByRole("alert")).toHaveText("Synthetic backup download failure");
+    const retainedFingerprint = await recipient.locator(".public-value code").textContent();
+    const backupDownload = recipient.waitForEvent("download");
+    await recipient.getByRole("button", { name: "Save receiving key backup" }).click();
     const backupPath = testInfo.outputPath("recipient-backup.json");
     await (await backupDownload).saveAs(backupPath);
     const publicDownload = recipient.waitForEvent("download");
@@ -19,6 +26,7 @@ test("a separate recipient restores its own key and opens an encrypted disclosur
     const publicPath = testInfo.outputPath("recipient-public.json");
     await (await publicDownload).saveAs(publicPath);
     const publicKey = JSON.parse(await readFile(publicPath, "utf8"));
+    expect(publicKey.fingerprint).toBe(retainedFingerprint);
     expect(Object.keys(publicKey).sort()).toEqual(["fingerprint", "format", "publicKey", "version"]);
     await recipient.close();
 

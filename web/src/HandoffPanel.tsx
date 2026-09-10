@@ -43,20 +43,21 @@ export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { reado
     <p className="operation-notice">Use your agreed channel to confirm the recipient fingerprint. A public key alone does not establish vendor identity. Files are downloaded locally; this page does not send messages or upload disclosure packages.</p>
     <fieldset className="workflow-controls" disabled={working}>
       <section className="form-panel"><h2>1. Recipient: prepare a receiving key</h2>
-        {!keys ? <>
           <form onSubmit={(event) => void run(event, async (commit, isCurrent) => {
             if (password !== confirmation) throw new Error("Recipient backup passwords do not match");
             if (password.length < 12) throw new Error("Use a recipient backup password of at least 12 characters");
-            const created = await createRecipient();
+            const created = keys ?? await createRecipient();
             if (!isCurrent()) return;
+            if (!keys) commit(() => onKeys(created));
             const saved = await backupRecipient(created, password);
-            commit(() => { download(saved, "vulnseal-recipient-backup.json"); onKeys(created); setPassword(""); setConfirmation(""); setMessage("Recipient backup downloaded. Keep it and its password private; share only the public receiving key."); });
+            commit(() => { download(saved, "vulnseal-recipient-backup.json"); setPassword(""); setConfirmation(""); setMessage("Recipient backup download started. Keep it and its password private; share only the public receiving key."); });
           })}>
             <p>Create the key in the recipient's browser. The encrypted backup is required to receive packages after closing this tab.</p>
             <label>Recipient backup password<input type="password" minLength={12} required autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
             <label>Confirm recipient backup password<input type="password" minLength={12} required autoComplete="new-password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label>
-            <button className="primary-button">Create receiving key and save backup</button>
+            <button className="primary-button">{keys ? "Save receiving key backup" : "Create receiving key and save backup"}</button>
           </form>
+        {!keys ? <>
           <form onSubmit={(event) => void run(event, async (commit) => {
             const restored = await restoreRecipient(await read(backup, 16384), restorePassword);
             commit(() => { onKeys(restored); setRestorePassword(""); setMessage("Receiving key restored locally."); });
@@ -66,7 +67,7 @@ export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { reado
             <label>Recipient restore password<input type="password" required minLength={12} autoComplete="current-password" value={restorePassword} onChange={(event) => setRestorePassword(event.target.value)} /></label>
             <button className="secondary-button">Restore receiving key</button>
           </form>
-        </> : <><p className="public-value">Your receiving fingerprint: <code>{keys.recipient.fingerprint}</code></p><p>This key stays in memory for this tab. Its separate encrypted backup contains no wallet or contract actor secrets.</p><button className="secondary-button" onClick={() => download(JSON.stringify(keys.recipient, null, 2), "vulnseal-recipient-public.json")}>Download public receiving key</button></>}
+        </> : <><p className="public-value">Your receiving fingerprint: <code>{keys.recipient.fingerprint}</code></p><p>This key stays in memory for this tab. Save its encrypted backup before closing; you can save it again above if encryption or download failed. Its separate backup contains no wallet or contract actor secrets.</p><button className="secondary-button" onClick={() => download(JSON.stringify(keys.recipient, null, 2), "vulnseal-recipient-public.json")}>Download public receiving key</button></>}
       </section>
       <section className="form-panel"><h2>2. Researcher: encrypt the sealed report</h2>
         <p>The package contains the report ciphertext, decryption key and commitment salt. It excludes researcher/vendor actor secrets and private triage/retest notes. The recipient will be able to read and retain the full report, including contact and attachment metadata.</p>

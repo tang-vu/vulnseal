@@ -1,5 +1,15 @@
 # Validation report
 
+## Preserve receiving keys across backup failures -- 2026-09-10
+
+Private exchange now retains a newly generated receiving key in its parent workspace before encrypting/downloading its separate backup. Previously either failure discarded the generated key and offered only another creation attempt. **Save receiving key backup** now retries with the retained key, also allowing a new backup of an already restored key. The success message says that download started; it does not claim the browser saved the file. Password fields clear only after download initiation succeeds. Existing unmount guards prevent late downloads or attachment of keys generated after unmount.
+
+**10 tests across 2 files passed in 5.99 seconds**, covering encryption/download failures with same-key retry, unmount behavior and handoff cryptography. **Both desktop/mobile E2E cases passed**, exit **0**: a one-shot injected download failure leaves the receiving fingerprint visible, retry downloads its backup, the public export has the same fingerprint, and a separate page restores that exact file and decrypts the disclosure. Wrong-password and tampered-package rejection remain checked; no wallet or remote request was required in the restored recipient. Logs: `.compact/recipient-backup-retry-tests.log` and `.compact/recipient-backup-retry-browser.log`.
+
+The final normal TypeScript/web build and release package check exited **0**: **8 circuits, 80 files, 65,408,798 bytes** (`.compact/recipient-backup-retry-release.log`). The browser run took **42.3 seconds** as reported. No image or public host was refreshed.
+
+This is in-memory recovery from backup failure, not automatic persistence or proof that the user retained the download. Keep the file and password before sharing a receiving key or closing the tab. See [recipient backup design](adr/0008-recipient-bound-disclosure.md). The full regression at `b137720` remains historical evidence for its revision; this change has focused validation.
+
 ## Consolidated regression after public policy, widget and worker changes -- 2026-09-10
 
 At clean application revision `b137720c99a19a52f1cab0e0d3a0043499b059c9`, one `npm run validate` invocation exited **0** with all **six workspace builds and typechecks**, then **525 tests across 80 files**: shared 13, contract 28, API 79, ciphertext service 49, integration 9 and web 347. The web suite completed in 92.63 seconds. This consolidates the shared policy/invitation API, vendor policy export, widget and disposable public-verification worker with the existing recovery and lifecycle implementation.
