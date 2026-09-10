@@ -1,0 +1,44 @@
+{
+  "recordedAt": "2026-09-10T09:38:07.854359+00:00",
+  "applicationRevision": "03f34fe",
+  "imageId": "sha256:6666fdd2a7c4a815d4a8344199eb0ec257bcec89bd104faf8235e8fa492aa81c",
+  "imageConfigId": "sha256:b82643dfcbee6b55b1e9bd183134c9177648be67ff066371713c2f0afe8c1c8e",
+  "build": {
+    "wrapperExitCodes": [
+      1,
+      1
+    ],
+    "logsShowCompletedImageExport": true,
+    "cachedBuildDirectChildExitCode": 0,
+    "cachedBuildOutput": "type=cacheonly; image tag unchanged",
+    "gate": {
+      "circuits": 8,
+      "files": 69,
+      "bytes": 64010347
+    },
+    "caddyTestsSeconds": 0.209,
+    "logs": {
+      "web-worker-image-build.log": "50b994a44cae4c32f6d1d9304c4f765e3ef64f0cc6a7a1ef4433f93c8a9c52c9",
+      "web-worker-image-build-direct.log": "26f3fa19bbb5d6729d1f3c670437c9b0de15cdf361949ccdf6738c9737194bc7",
+      "web-worker-build-verified.log": "1449b49e4c2023ef7d6dcf8598686d90790deb551dddc034439e313f6d62bca5"
+    }
+  },
+  "containerDrill": {
+    "exitCode": 1,
+    "functionalChecksCompleted": true,
+    "cleanupCompleted": false,
+    "logSha256": "8e778edadbc3597a266829bb6dda8f846dafa9a0db5c8bf7938e3b5ef195be4f"
+  },
+  "scanner": {
+    "containerExitCode": 1,
+    "wrapperCompleted": false,
+    "findings": [
+      "GO-2026-5932"
+    ]
+  },
+  "limits": [
+    "Export invocations returned 1 despite completed export output; the cached verification captured the direct child exit code 0 separately.",
+    "Docker removal remains in progress for the owned drill and scanner containers. No daemon restart or duplicate removal was attempted.",
+    "Only local packaging/runtime checks with captured public fixtures; no native wallet, public deployment or fresh proving keys."
+  ]
+}

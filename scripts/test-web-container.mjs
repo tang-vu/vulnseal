@@ -7,6 +7,9 @@ import { setTimeout as delay } from "node:timers/promises";
 import { chromium, devices, expect } from "@playwright/test";
 import { checkWebRelease } from "./check-web-release.mjs";
 import { checkWebHost } from "./check-web-host.mjs";
+import { ContractState } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
+import { ledger } from "@vulnseal/contract";
+import { bytesToHex, hexToBytes } from "@vulnseal/shared";
 
 if (process.argv.slice(2).some((arg) => arg !== "--write-evidence")) throw new Error("Usage: test-web-container.mjs [--write-evidence]");
 const manifest = await checkWebRelease();
@@ -14,7 +17,7 @@ const id = randomUUID(), name = `vulnseal-web-test-${id}`, image = "vulnseal-web
 const distro = process.env.VULNSEAL_DOCKER_WSL_DISTRO;
 const docker = (...args) => execFileSync(distro ? "wsl.exe" : process.platform === "win32" ? "docker.exe" : "docker", [...(distro ? ["--distribution", distro, "--exec", "docker"] : []), ...args], { encoding: "utf8", timeout: 60_000, maxBuffer: 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] }).trim();
 const request = (origin, pathname, options = {}) => fetch(origin + pathname, { ...options, redirect: "error", signal: AbortSignal.timeout(5000) });
-let created = false;
+let created = false, result;
 try {
   docker("run", "--detach", "--name", name, "--label", `vulnseal.web-test=${id}`, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--memory", "256m", "--pids-limit", "64", "--publish", "127.0.0.1::8080", image);
   created = true;
@@ -50,6 +53,12 @@ try {
   }
   const fixture = JSON.parse(await readFile(new URL("../e2e/fixtures/preprod-public-state.json", import.meta.url), "utf8"));
   const action = fixture.data.contractAction;
+  const deploymentFixture = JSON.parse(await readFile(new URL("../e2e/fixtures/preprod-deployment-state.json", import.meta.url), "utf8"));
+  const deployment = deploymentFixture.data.transactions[0], deployAction = deployment.contractActions[0];
+  const state = ledger(ContractState.deserialize(hexToBytes(deployAction.state)).data);
+  const saved = Object.fromEntries(["programId", "scopeDigest", "responsePolicyDigest", "rewardPolicyDigest", "disclosurePolicyDigest", "responseDays", "disclosureDelayDays"].map((field) => [field, typeof state[field] === "bigint" ? state[field].toString() : bytesToHex(state[field])]));
+  const workerAssets = manifest.files.filter((file) => /^assets\/deployment-policy\.worker-[^/]+\.js$/.test(file.path));
+  assert.equal(workerAssets.length, 1, "Expected exactly one packaged deployment policy worker");
   const browser = await chromium.launch({ channel: "chrome" });
   try {
     for (const device of [null, devices["Pixel 7"]]) {
@@ -60,10 +69,11 @@ try {
         await page.route("**/*", (route) => {
           const url = new URL(route.request().url());
           if (url.origin === origin) return route.continue();
-          if (url.hostname === "indexer.preprod.midnight.network") return route.fulfill({ json: fixture });
+          if (url.hostname === "indexer.preprod.midnight.network") return route.fulfill({ json: route.request().postDataJSON().query.includes("PublicVulnSeal") ? fixture : deploymentFixture });
           if (url.hostname === "rpc.preprod.midnight.network") {
             const body = route.request().postDataJSON();
-            return route.fulfill({ json: { jsonrpc: "2.0", id: 1, result: body.method === "chain_getHeader" ? { number: `0x${(action.transaction.block.height + 100).toString(16)}` } : `0x${action.transaction.block.hash}` } });
+            const blockHash = body.method === "chain_getBlockHash" && body.params[0] === deployment.block.height ? deployment.block.hash : action.transaction.block.hash;
+            return route.fulfill({ json: { jsonrpc: "2.0", id: 1, result: body.method === "chain_getHeader" ? { number: `0x${(action.transaction.block.height + 100).toString(16)}` } : `0x${blockHash}` } });
           }
           return route.abort();
         });
@@ -71,6 +81,19 @@ try {
         await expect(page.getByRole("heading", { name: "Verify without private keys" })).toBeVisible({ timeout: 30_000 });
         await page.getByRole("button", { name: "Load public state" }).click();
         await expect(page.getByRole("heading", { name: "Finalized public state" })).toBeVisible({ timeout: 30_000 });
+        for (const mismatch of [false, true]) {
+          const result = await page.evaluate(({ path, input }) => new Promise((resolve, reject) => {
+            const worker = new Worker(path, { type: "module" });
+            const finish = (error, value) => { clearTimeout(timer); worker.terminate(); error ? reject(new Error(error)) : resolve(value); };
+            const timer = setTimeout(() => finish("Packaged deployment worker timed out"), 35_000);
+            worker.onerror = () => finish("Packaged deployment worker failed");
+            worker.onmessage = event => finish(event.data.error, event.data.result);
+            worker.postMessage(input);
+          }), { path: `/${workerAssets[0].path}`, input: { transactionId: deployment.identifiers[0], saved: mismatch ? { ...saved, rewardPolicyDigest: "ff".repeat(32) } : saved, endpoints: { indexerUrl: "https://indexer.preprod.midnight.network/api/v4/graphql", rpcUrl: "https://rpc.preprod.midnight.network" } } });
+          assert.equal(result.address, deployAction.address);
+          assert.equal(result.blockHeight, deployment.block.height);
+          assert.deepEqual(result.mismatches, mismatch ? ["rewardPolicyDigest"] : []);
+        }
         assert.deepEqual(errors, []);
       } finally { await context.close(); }
     }
@@ -82,9 +105,7 @@ try {
   await ready();
   const restarted = await request(origin, "/");
   assert.equal(createHash("sha256").update(new Uint8Array(await restarted.arrayBuffer())).digest("hex"), manifest.files.find((file) => file.path === "index.html").sha256);
-  const result = { capturedAt: new Date().toISOString(), imageId: inspection.Image, ...hosted, nonRoot: true, readOnlyRoot: true, headersChecked: true, missingFilesReturn404: true, desktopAndMobilePublicLookup: "passed against captured fixture; no wallet or live network", gracefulRestart: true };
-  if (process.argv.includes("--write-evidence")) await writeFile(new URL("../docs/evidence/web-container-drill.json", import.meta.url), JSON.stringify(result, null, 2) + "\n");
-  process.stdout.write(JSON.stringify(result) + "\n");
+  result = { capturedAt: new Date().toISOString(), imageId: inspection.Image, ...hosted, nonRoot: true, readOnlyRoot: true, headersChecked: true, missingFilesReturn404: true, desktopAndMobilePublicLookup: "passed against captured fixture; no wallet or live network", desktopAndMobileDeploymentWorker: "packaged worker decoded captured raw deployment and reported matching and mismatched policy; mocked indexer/RPC", gracefulRestart: true };
 } catch (error) {
   if (created) process.stderr.write(docker("logs", "--tail", "30", name) + "\n");
   throw error;
@@ -95,3 +116,6 @@ try {
     docker("rm", "--force", "--volumes", name);
   }
 }
+// Publish successful drill evidence only after owned-container cleanup also succeeded.
+if (process.argv.includes("--write-evidence")) await writeFile(new URL("../docs/evidence/web-container-drill.json", import.meta.url), JSON.stringify({ ...result, cleanupCompleted: true }, null, 2) + "\n");
+process.stdout.write(JSON.stringify({ ...result, cleanupCompleted: true }) + "\n");

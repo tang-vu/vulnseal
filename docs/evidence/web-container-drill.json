@@ -1,14 +1,25 @@
 {
-  "capturedAt": "2026-09-09T16:23:29.672Z",
-  "imageId": "sha256:6f20375885cd4438e506254ab901dab67d919824c4eaea3edfe89c399564d094",
-  "origin": "http://127.0.0.1:32816",
-  "files": 62,
-  "requests": 63,
-  "bytes": 62648273,
+  "capturedAt": "2026-09-10T09:34:13.782Z",
+  "imageId": "sha256:6666fdd2a7c4a815d4a8344199eb0ec257bcec89bd104faf8235e8fa492aa81c",
+  "origin": "http://127.0.0.1:32782",
+  "files": 69,
+  "requests": 70,
+  "bytes": 64011626,
   "nonRoot": true,
   "readOnlyRoot": true,
   "headersChecked": true,
   "missingFilesReturn404": true,
   "desktopAndMobilePublicLookup": "passed against captured fixture; no wallet or live network",
-  "gracefulRestart": true
+  "desktopAndMobileDeploymentWorker": "packaged worker decoded captured raw deployment and reported matching and mismatched policy; mocked indexer/RPC",
+  "gracefulRestart": true,
+  "drillExitCode": 1,
+  "functionalChecksCompleted": true,
+  "cleanupCompleted": false,
+  "cleanupObservation": {
+    "checkedAt": "2026-09-10T09:38:07.854359+00:00",
+    "container": "vulnseal-web-test-2ca34d0c-bb11-48ef-8219-a5942283640e",
+    "status": "removing",
+    "running": false,
+    "reason": "Owned-container docker rm exceeded the helper 60-second timeout; Docker still reports removal in progress."
+  }
 }

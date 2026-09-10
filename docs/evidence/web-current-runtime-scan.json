@@ -1,12 +1,15 @@
 {
-  "recordedAt": "2026-09-09T16:26:38.254922+00:00",
-  "imageId": "sha256:6f20375885cd4438e506254ab901dab67d919824c4eaea3edfe89c399564d094",
-  "imageConfigId": "sha256:8529ea149c9ce8a692053c54a732533c1dbd91a4e9a8b44a0f44e641a6a0814a",
-  "command": "sh scripts/scan-container.sh sha256:6f20375885cd4438e506254ab901dab67d919824c4eaea3edfe89c399564d094",
+  "recordedAt": "2026-09-10T09:38:07.854359+00:00",
+  "imageId": "sha256:6666fdd2a7c4a815d4a8344199eb0ec257bcec89bd104faf8235e8fa492aa81c",
+  "imageConfigId": "sha256:b82643dfcbee6b55b1e9bd183134c9177648be67ff066371713c2f0afe8c1c8e",
+  "command": "sh scripts/scan-container.sh vulnseal-web:local",
   "scannerImage": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
-  "scannerExitCode": 1,
-  "rawLog": ".compact/go-binary-scan-20260909/web-updated-trivy.log",
-  "rawLogSha256": "207b8a20e4de3d193885fa67f1f84a46453550738b4304459f372ae873cbe729",
+  "scannerContainerExitCode": 1,
+  "wrapperCompleted": false,
+  "scannerContainer": "da69a274e982",
+  "cleanupStatus": "removing",
+  "rawLog": ".compact/web-worker-security-scan-observed.log",
+  "rawLogSha256": "5c7831b16689d956b2d9d53173070666a0ee0be7d59f908ab1a59de943c0f22d",
   "findings": [
     {
       "id": "GO-2026-5932",
@@ -16,10 +19,15 @@
       "fixedVersion": null
     }
   ],
+  "alpine": {
+    "version": "3.23.5",
+    "packages": 32,
+    "findings": 0
+  },
   "limits": [
-    "The strict all-severity scan gate did not pass.",
-    "Historical source package inventories do not establish current reachability or waive this advisory.",
-    "The captured log has a truncated informational line; findings and exit status are retained.",
-    "No public deployment, penetration test or host scan."
-  ]
+    "Strict all-severity gate did not pass.",
+    "Scanner process exited 1, but the wrapper remains alive waiting for Docker auto-removal; this is not a completed scan-and-cleanup run.",
+    "No vulnerability waiver, public deployment, penetration test or native-wallet validation."
+  ],
+  "rawLogScope": "Immutable snapshot taken while the scanner wrapper was still awaiting Docker auto-removal."
 }
