@@ -1,5 +1,15 @@
 # Validation report
 
+## Bind recipient confirmation to the selected disclosure -- 2026-09-10
+
+Private exchange now displays the source report commitment and resets fingerprint confirmation when any disclosure source field changes or the source disappears. The parsed recipient remains for review; equivalent source rerenders and same-report navigation retain confirmation. This addresses confirmation carrying over when a persistent exchange panel receives a different selected report.
+
+All **8 component tests passed in 5.18 seconds**, including independently changed network, contract, program, report, ciphertext, key and salt, disappearance, and an equivalent rerender. **6 desktop/mobile E2E cases passed in 1.1 minutes**, two workers and no retries. The new journey restores an encrypted researcher vault with two reports offline, confirms a recipient for the first report, switches to the second and verifies export is disabled until renewed confirmation. It downloads and independently decrypts the resulting package and compares the full disclosure to the second report. Existing backup retry, close warning, local navigation retention, isolated recipient restore and tampered-package checks also pass.
+
+The final normal TypeScript/web build and package check exited **0**: **8 circuits, 80 files, 65,411,096 bytes** (`.compact/disclosure-recipient-binding-release.log`). No image or public host was refreshed.
+
+Logs: `.compact/disclosure-recipient-binding-tests-final.log` and `.compact/disclosure-recipient-binding-browser.log`. This is local consent/source binding, not sender authentication or revocation of an already requested/exported disclosure. [Design and limits](adr/0008-recipient-bound-disclosure.md#recipient-confirmation-and-selected-report).
+
 ## Retain private exchange across local navigation -- 2026-09-10
 
 The combined demo and role workspace now hide the private-exchange panel when another local screen/tab is selected, preserving the mounted component's unfinished passwords, selected files, confirmation and decrypted result. Explicitly started work can finish while hidden; mounting alone does not start work. Locking the role workspace still remounts the tree and clears private panel state, with the existing late-result cleanup.

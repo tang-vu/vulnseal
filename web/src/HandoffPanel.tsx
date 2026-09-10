@@ -22,6 +22,7 @@ export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { reado
   const [backup, setBackup] = useState<File>();
   const [recipient, setRecipient] = useState<Recipient>();
   const [confirmed, setConfirmed] = useState(false);
+  useEffect(() => { setConfirmed(false); }, [disclosure?.network, disclosure?.contractAddress, disclosure?.programId, disclosure?.reportId, disclosure?.envelope, disclosure?.key, disclosure?.salt]);
   const [packageFile, setPackageFile] = useState<File>();
   const [opened, setOpened] = useState<Awaited<ReturnType<typeof decryptDisclosure>>>();
   const [working, setWorking] = useState(false);
@@ -79,6 +80,7 @@ export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { reado
       <section className="form-panel"><h2>2. Researcher: encrypt the sealed report</h2>
         <p>The package contains the report ciphertext, decryption key and commitment salt. It excludes researcher/vendor actor secrets and private triage/retest notes. The recipient will be able to read and retain the full report, including contact and attachment metadata.</p>
         {!disclosure && <p>Seal or restore a report in this tab to create a disclosure package.</p>}
+        {disclosure && <p className="public-value">Report selected for disclosure: <code>{disclosure.reportId}</code>. Confirm the recipient fingerprint again when selecting a different report.</p>}
         <label>Recipient public key file<input type="file" disabled={!disclosure} accept=".json,application/json" onChange={(event) => {
           const file = event.target.files?.[0]; setRecipient(undefined); setConfirmed(false);
           void run(undefined, async (commit) => { const value = await parseRecipient(await read(file, 8192)); commit(() => setRecipient(value)); });

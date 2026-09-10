@@ -2,10 +2,10 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ create: vi.fn(), backup: vi.fn() }));
-vi.mock("./handoff.js", async (original) => ({ ...await original<typeof import("./handoff.js")>(), createRecipient: mocks.create, backupRecipient: mocks.backup }));
+const mocks = vi.hoisted(() => ({ create: vi.fn(), backup: vi.fn(), parse: vi.fn() }));
+vi.mock("./handoff.js", async (original) => ({ ...await original<typeof import("./handoff.js")>(), createRecipient: mocks.create, backupRecipient: mocks.backup, parseRecipient: mocks.parse }));
 import { HandoffPanel } from "./HandoffPanel.js";
-import type { RecipientKeys } from "./handoff.js";
+import type { Disclosure, RecipientKeys } from "./handoff.js";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 const keys = { recipient: { format: "vulnseal-recipient", version: 1, publicKey: "synthetic", fingerprint: "ab".repeat(32) }, privateKey: {} } as RecipientKeys;
@@ -20,6 +20,35 @@ const warnsOnLeave = () => {
   window.dispatchEvent(event);
   return event.defaultPrevented;
 };
+
+it("requires renewed recipient confirmation when selected disclosure changes, but preserves it across equivalent renders", async () => {
+  const disclosure: Disclosure = { network: "undeployed", contractAddress: null, programId: "aa".repeat(32), reportId: "bb".repeat(32), envelope: "synthetic envelope", key: "cc".repeat(32), salt: "dd".repeat(32) };
+  mocks.parse.mockResolvedValue(keys.recipient);
+  const onKeys = vi.fn();
+  const view = render(<HandoffPanel disclosure={disclosure} keys={undefined} onKeys={onKeys} />);
+  const file = new File(["{}"], "recipient.json");
+  Object.defineProperty(file, "text", { value: async () => "{}" });
+  fireEvent.change(screen.getByLabelText("Recipient public key file"), { target: { files: [file] } });
+  await screen.findByText(keys.recipient.fingerprint);
+  const consent = screen.getByRole("checkbox"), send = screen.getByRole("button", { name: "Download encrypted disclosure" });
+  fireEvent.click(consent);
+  expect(send).toBeEnabled();
+  view.rerender(<HandoffPanel disclosure={{ ...disclosure }} keys={undefined} onKeys={onKeys} />);
+  expect(consent).toBeChecked();
+  for (const change of [{ reportId: "ee".repeat(32) }, { envelope: "changed envelope" }, { network: "preprod" as const }, { contractAddress: "ff".repeat(32) }, { programId: "11".repeat(32) }, { key: "22".repeat(32) }, { salt: "33".repeat(32) }]) {
+    view.rerender(<HandoffPanel disclosure={{ ...disclosure }} keys={undefined} onKeys={onKeys} />);
+    if (!(consent as HTMLInputElement).checked) fireEvent.click(consent);
+    expect(send).toBeEnabled();
+    view.rerender(<HandoffPanel disclosure={{ ...disclosure, ...change }} keys={undefined} onKeys={onKeys} />);
+    expect(consent).not.toBeChecked();
+    expect(send).toBeDisabled();
+    expect(screen.getByText(keys.recipient.fingerprint)).toBeInTheDocument();
+    fireEvent.click(consent);
+    expect(send).toBeEnabled();
+  }
+  view.rerender(<HandoffPanel disclosure={undefined} keys={undefined} onKeys={onKeys} />);
+  expect(consent).not.toBeChecked(); expect(send).toBeDisabled();
+});
 
 it("warns for unfinished exchange input, clears reverted input and removes the guard on unmount", () => {
   const view = render(<HandoffPanel disclosure={undefined} keys={undefined} onKeys={vi.fn()} />);

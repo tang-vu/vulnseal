@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: Apache-2.0
+import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+import { pureCircuits } from "@vulnseal/contract";
+import { bytesToHex, hexToBytes } from "@vulnseal/shared";
+import { recoveryFixture } from "../web/src/test/recovery-fixture.js";
+import { encryptRoleVault } from "../web/src/role-recovery.js";
+import { createRecipient, decryptDisclosure } from "../web/src/handoff.js";
+
+test("switching saved reports requires renewed recipient confirmation before disclosure export", async ({ page }, testInfo) => {
+  const { snapshot, sealed } = await recoveryFixture();
+  const first = { network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: snapshot.report!.id, envelope: snapshot.report!.envelope, key: snapshot.report!.key, salt: snapshot.report!.salt };
+  const salt = "67".repeat(32);
+  const second = { ...first, salt, reportId: bytesToHex(pureCircuits.deriveReportCommitment(hexToBytes(first.programId), Uint8Array.from(sealed.canonicalReportDigest), hexToBytes(salt))) };
+  const password = "Synthetic disclosure recipient password";
+  const backup = await encryptRoleVault({ version: 1, role: "researcher", network: "preprod", contractAddress: first.contractAddress, programId: first.programId, actorSecret: snapshot.researcherSecret, reports: [first, second] }, password);
+  const recipient = await createRecipient();
+  await page.goto("/#roles");
+  await page.getByLabel("Restore backups without connecting Lace").check();
+  await page.getByLabel("Single-role backup file").setInputFiles({ name: "role.json", mimeType: "application/json", buffer: Buffer.from(backup) });
+  await page.getByLabel("Role restore password").fill(password);
+  await page.getByRole("button", { name: "Restore role workspace" }).click();
+  await expect(page.getByRole("heading", { name: "Program reports" })).toBeVisible();
+  await page.getByRole("button", { name: "Disclosure exchange" }).click();
+  await page.getByLabel("Recipient public key file").setInputFiles({ name: "recipient.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(recipient.recipient)) });
+  const consent = page.getByLabel("I verified this fingerprint with the intended recipient through our agreed channel.");
+  const send = page.getByRole("button", { name: "Download encrypted disclosure" });
+  await consent.check();
+  await expect(send).toBeEnabled();
+  await page.getByRole("button", { name: "Reports", exact: true }).click();
+  await page.getByLabel("Workspace report").selectOption(second.reportId);
+  await page.getByRole("button", { name: "Disclosure exchange" }).click();
+  await expect(page.getByText(/Report selected for disclosure:/)).toContainText(second.reportId);
+  await expect(consent).not.toBeChecked();
+  await expect(send).toBeDisabled();
+  await expect(page.getByText(recipient.recipient.fingerprint, { exact: true })).toBeVisible();
+  await consent.check();
+  const pending = page.waitForEvent("download");
+  await send.click();
+  const output = testInfo.outputPath("second-report-disclosure.json");
+  await (await pending).saveAs(output);
+  const opened = await decryptDisclosure(await readFile(output, "utf8"), recipient);
+  expect(opened.disclosure).toEqual(second);
+});

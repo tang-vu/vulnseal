@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Disclosure export now shows its selected report and requires renewed recipient-fingerprint confirmation after a source change. Desktop/mobile tests switch between two offline saved reports, reject export until reconfirmation and decrypt the resulting package to verify it contains the second report. Same-source navigation retains confirmation; previously requested exports are not retracted.
+
 - Private exchange retains a generated receiving key before backup encryption/download and permits same-key backup retries, including for restored keys. Encryption/download failure tests and desktop/mobile file restore/decryption confirm recovery; the key still requires a separately retained backup before closing. See [recipient backup design](adr/0008-recipient-bound-disclosure.md).
 
 - Browser public-state lookup and vendor policy-export checking now use a dedicated, disposable worker with a 30-second outer deadline. A busy-loop worker fixture verifies responsive cancellation/timeout/retry on desktop and mobile; normal captured-state and policy-file journeys also pass. Direct API callers still own worker isolation, and browser suspension/result transfer are outside a hard latency guarantee. The refreshed image at `38f19dc` passes the permanent desktop/mobile busy-worker timeout/retry/cancel drill, plus normal captured-state checks. Its exact-image scan still fails on UNKNOWN GO-2026-5932; see [runtime evidence](evidence/web-public-worker-runtime.json).
