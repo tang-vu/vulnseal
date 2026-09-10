@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomUUID, createHash } from "node:crypto";
+import { createServer } from "node:http";
 import { readFile, writeFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium, devices, expect } from "@playwright/test";
@@ -10,6 +11,7 @@ import { checkWebHost } from "./check-web-host.mjs";
 import { ContractState } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
 import { ledger } from "@vulnseal/contract";
 import { bytesToHex, hexToBytes } from "@vulnseal/shared";
+import { programInvitationLink } from "@vulnseal/api/program-invitation";
 
 if (process.argv.slice(2).some((arg) => arg !== "--write-evidence")) throw new Error("Usage: test-web-container.mjs [--write-evidence]");
 const manifest = await checkWebRelease();
@@ -37,6 +39,13 @@ try {
   assert.equal(docker("exec", name, "id", "-u"), "65532");
   docker("exec", name, "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/index.html");
   const hosted = await checkWebHost({ origin, manifest });
+  const widgetModules = manifest.files.filter(file => /^assets\/(?:submission-widget|program-invitation-[A-Za-z0-9_-]+)\.js$/.test(file.path));
+  assert.equal(widgetModules.length, 2, "Expected the widget and its public invitation module");
+  for (const module of widgetModules) {
+    const response = await request(origin, `/${module.path}`, { method: "HEAD", headers: { origin: "https://program.example.test" } });
+    assert.equal(response.status, 200); assert.equal(response.headers.get("access-control-allow-origin"), "*");
+  }
+  assert.equal((await request(origin, "/", { method: "HEAD", headers: { origin: "https://program.example.test" } })).headers.get("access-control-allow-origin"), null);
   for (const pathname of ["/", `/keys/${manifest.circuits[0]}.prover`, "/release-manifest.json"]) {
     const response = await request(origin, pathname, { method: "HEAD" });
     assert.equal(response.status, 200);
@@ -59,8 +68,13 @@ try {
   const saved = Object.fromEntries(["programId", "scopeDigest", "responsePolicyDigest", "rewardPolicyDigest", "disclosurePolicyDigest", "responseDays", "disclosureDelayDays"].map((field) => [field, typeof state[field] === "bigint" ? state[field].toString() : bytesToHex(state[field])]));
   const workerAssets = manifest.files.filter((file) => /^assets\/deployment-policy\.worker-[^/]+\.js$/.test(file.path));
   assert.equal(workerAssets.length, 1, "Expected exactly one packaged deployment policy worker");
-  const browser = await chromium.launch({ channel: "chrome" });
+  const invitation = programInvitationLink(`${origin}/`, { format: "vulnseal-program-invitation", version: 1, network: "preprod", contractAddress: action.address, programId: saved.programId });
+  const publisher = createServer((_request, response) => { response.setHeader("content-type", "text/html"); response.end(`<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Widget container drill</title></head><body><script type="module" src="${origin}/assets/submission-widget.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script><vulnseal-submission invitation="${invitation.replaceAll("&", "&amp;")}"></vulnseal-submission></body></html>`); });
+  await new Promise((resolve, reject) => { publisher.once("error", reject); publisher.listen(0, "127.0.0.1", resolve); });
+  const publisherOrigin = `http://127.0.0.1:${publisher.address().port}`;
+  let browser;
   try {
+    browser = await chromium.launch({ channel: "chrome" });
     for (const device of [null, devices["Pixel 7"]]) {
       const context = await browser.newContext(device ?? {});
       try {
@@ -95,9 +109,29 @@ try {
           assert.deepEqual(result.mismatches, mismatch ? ["rewardPolicyDigest"] : []);
         }
         assert.deepEqual(errors, []);
+        const embedded = await context.newPage(), requests = [];
+        embedded.on("request", request => requests.push(request.url()));
+        embedded.on("pageerror", error => errors.push(error.message));
+        await embedded.goto(publisherOrigin, { timeout: 30_000 });
+        const widget = embedded.locator("vulnseal-submission");
+        await expect(widget.getByRole("heading", { name: "Report a vulnerability" })).toBeVisible();
+        const loaded = requests.filter(url => new URL(url).origin === origin);
+        assert.equal(loaded.length, 2);
+        assert.ok(loaded.every(url => widgetModules.some(module => new URL(url).pathname === `/${module.path}`)));
+        const popupPromise = embedded.waitForEvent("popup"); await widget.getByRole("link", { name: "Start a private report" }).click();
+        const popup = await popupPromise;
+        try {
+          await expect(popup.getByRole("heading", { name: "Review program invitation" })).toBeVisible({ timeout: 30_000 });
+          await expect(popup.getByRole("region", { name: "Review public program invitation" })).toContainText(saved.programId);
+          assert.equal(await popup.evaluate(() => window.opener === null), true);
+        } finally { await popup.close(); }
+        assert.deepEqual(errors, []);
       } finally { await context.close(); }
     }
-  } finally { await browser.close(); }
+  } finally {
+    try { if (browser) await browser.close(); }
+    finally { await new Promise((resolve, reject) => { publisher.close(error => error ? reject(error) : resolve()); publisher.closeAllConnections(); }); }
+  }
   docker("stop", "--time", "10", name);
   assert.equal(JSON.parse(docker("inspect", name))[0].State.ExitCode, 0);
   docker("start", name);
@@ -105,7 +139,7 @@ try {
   await ready();
   const restarted = await request(origin, "/");
   assert.equal(createHash("sha256").update(new Uint8Array(await restarted.arrayBuffer())).digest("hex"), manifest.files.find((file) => file.path === "index.html").sha256);
-  result = { capturedAt: new Date().toISOString(), imageId: inspection.Image, ...hosted, nonRoot: true, readOnlyRoot: true, headersChecked: true, missingFilesReturn404: true, desktopAndMobilePublicLookup: "passed against captured fixture; no wallet or live network", desktopAndMobileDeploymentWorker: "packaged worker decoded captured raw deployment and reported matching and mismatched policy; mocked indexer/RPC", gracefulRestart: true };
+  result = { capturedAt: new Date().toISOString(), imageId: inspection.Image, ...hosted, nonRoot: true, readOnlyRoot: true, headersChecked: true, missingFilesReturn404: true, desktopAndMobilePublicLookup: "passed against captured fixture; no wallet or live network", desktopAndMobileDeploymentWorker: "packaged worker decoded captured raw deployment and reported matching and mismatched policy; mocked indexer/RPC", desktopAndMobileSubmissionWidget: "real second HTTP origin loaded only two public modules from the image and opened isolated invitation review", widgetCorsChecked: true, gracefulRestart: true };
 } catch (error) {
   if (created) process.stderr.write(docker("logs", "--tail", "30", name) + "\n");
   throw error;

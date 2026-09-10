@@ -1,5 +1,15 @@
 # Validation report
 
+## Refresh the distributable web image and extend its widget drill -- 2026-09-10
+
+The current application artifact at revision `25f593c` is now packaged into local image `sha256:e2cb2f3a239c53cc465877b86f2bbffb053392f8a0a303d351e7e11b547f374d` (`vulnseal-web:local`). The Docker build exited **0**, including the in-image artifact gate, Caddy matcher tests and Caddy configuration validation. It packages **8 circuits, 73 files, 64,103,964 artifact bytes**, covering the SDK, policy sharing, invitations and embedded entry added since the previous image.
+
+The permanent container drill now checks widget CORS headers, then serves an actual publisher page on a second local HTTP origin. Both desktop and Pixel 7 load only the two public widget modules from the image and open the intended invitation in a tab without opener access. Existing complete HTTP artifact comparison, non-root/read-only execution, headers/404 behavior, captured-state lookup, matching/mismatched deployment-worker decoding and graceful restart also pass. The drill exited **0** and recorded successful owned-container cleanup. The host comparison accounts for **74 requests / 64,105,243 transferred bytes**, including the extra homepage request; that is distinct from artifact size. Four related packaging/HTTP tests and Node syntax validation passed.
+
+The exact-image Trivy wrapper completed with exit **1**: Alpine 3.23.5 has **0 OS findings**, while Caddy retains **1 UNKNOWN finding, GO-2026-5932**, for `golang.org/x/crypto v0.56.0`, with no fixed version reported. No finding was suppressed. Scanner cleanup completed, and Docker queries found no remaining drill/scanner containers. This is a functional image refresh, not a passed security gate or production release.
+
+[Image/build/scan evidence with log hashes](evidence/web-widget-runtime.json) and [full container drill result](evidence/web-container-drill.json). No public host, native Lace ceremony, fresh proving material or remote CI was verified. Nothing was pushed or deployed externally.
+
 ## Embeddable submission entry with cross-origin hosting -- 2026-09-10
 
 The new `vulnseal-submission` custom element displays public program coordinates and opens invitation review in a separate VulnSeal tab. Vendor Reports generates escaped embed code with anonymous module loading, no referrer and a fallback link. Private authoring/signing remains in the existing workspace; there is no private input or message bridge on the embedding page. Shared invitation parsing/link generation now lives in the dependency-free `@vulnseal/api/program-invitation` entrypoint. The widget build contains a **2,300-byte entry** and **1,788-byte shared module**, excluding source maps, and loads no React/Midnight/WASM on the host page.

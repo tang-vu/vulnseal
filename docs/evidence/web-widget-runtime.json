@@ -1,0 +1,45 @@
+{
+  "recordedAt": "2026-09-10T14:15:40.795748+00:00",
+  "applicationRevision": "25f593c0f456048d339fdcc68061f5e7e4724356",
+  "imageId": "sha256:e2cb2f3a239c53cc465877b86f2bbffb053392f8a0a303d351e7e11b547f374d",
+  "imageConfigId": "sha256:331c7262794359d290ccaf2b851909ec12fb5f38f54048a9a05ce10cca2087ee",
+  "build": {
+    "command": "docker build -f infra/web.Dockerfile -t vulnseal-web:local .",
+    "exitCode": 0,
+    "artifactFiles": 73,
+    "artifactBytes": 64103964,
+    "circuits": 8,
+    "caddyMatcherTestsPassed": true,
+    "rawLogSha256": "8394946183b0a0d14ae23c7f8463437fadfab1768fe82b778e3780995fc401c2"
+  },
+  "containerDrill": {
+    "command": "VULNSEAL_DOCKER_WSL_DISTRO=Ubuntu node scripts/test-web-container.mjs --write-evidence",
+    "exitCode": 0,
+    "evidence": "docs/evidence/web-container-drill.json",
+    "cleanupCompleted": true,
+    "rawLogSha256": "630d263467ef30336009e4c1ce04bcaf7f4d2dd38f760a3f58a445b3e518d6a5"
+  },
+  "scanner": {
+    "command": "sh scripts/scan-container.sh vulnseal-web:local",
+    "exitCode": 1,
+    "strictGatePassed": false,
+    "os": "alpine 3.23.5",
+    "osFindings": 0,
+    "findings": [
+      {
+        "id": "GO-2026-5932",
+        "severity": "UNKNOWN",
+        "package": "golang.org/x/crypto",
+        "installedVersion": "v0.56.0",
+        "fixedVersionReported": null
+      }
+    ],
+    "cleanupCompleted": true,
+    "rawLogSha256": "8707a31f9fdf87f9ad28cf2dce9e9be22514eb399440bb31d3778e949ec96d81"
+  },
+  "limits": [
+    "Local image and captured/synthetic browser evidence only; no public TLS host, native wallet transaction, fresh proving keys or remote CI.",
+    "The UNKNOWN finding remains an unsuppressed security-gate failure; successful runtime checks are not production readiness.",
+    "No container publishing or external deployment was performed."
+  ]
+}
