@@ -1,5 +1,13 @@
 # Validation report
 
+## Wire source diagnostics into release verification -- 2026-09-10
+
+The manually dispatched Release verification workflow now has a Caddy/Prometheus source-diagnostic matrix with read-only repository permissions, pinned checkout/build inputs, bounded build/job/scan runtimes and ownership-checked cleanup. Existing network-artifact and monitoring-security jobs, including strict runtime Trivy scans, remain independent and unchanged.
+
+Both local scans exited **0** under the workflow's **3 GiB RAM / 2 CPU** limits (`GOMEMLIMIT=2GiB`, `GOMAXPROCS=2`, 512 PIDs, 900-second deadline), without OOM. Caddy retains one module-only finding; Prometheus retains three. Neither reported vulnerable symbols/imported packages. The workflow's exact cleanup script exited **0** for both stopped containers, and the final label query was empty. YAML and all three extracted Bash scripts passed parsing/syntax checks. The first validation attempt could not import an unavailable Node YAML package; validation used the installed Python YAML parser without changing project dependencies.
+
+[Local resource and cleanup evidence](evidence/go-source-ci-local.json) records raw-log/state/cleanup hashes. This validates the local configuration and execution, not a GitHub-hosted run. No workflow was triggered, runtime image changed, vulnerability waived or external deployment performed.
+
 ## Scope Go diagnostic and monitoring build contexts -- 2026-09-10
 
 Added Dockerfile-specific deny-by-default context rules for Caddy source diagnostics, the govulncheck tool and Prometheus. Caddy permits only `go.mod`, `go.sum`, `main.go` and its CEL compatibility script under `infra/caddy`; the other two Dockerfiles require no local COPY/ADD inputs. This keeps local configuration, data, logs and unrelated source outside those contexts by construction. Explicit remote dependency/archive retrieval remains unchanged. The README's obsolete fixed simulator-test count was replaced with the covered behavior and its existing validation-report reference.

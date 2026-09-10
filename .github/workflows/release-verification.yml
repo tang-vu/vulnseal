@@ -6,6 +6,64 @@ on:
 permissions: {}
 
 jobs:
+  go-source-diagnostics:
+    name: Go source diagnostic (${{ matrix.component }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: caddy
+            dockerfile: infra/caddy-source-check.Dockerfile
+            target: ""
+          - component: prometheus
+            dockerfile: infra/prometheus.Dockerfile
+            target: source-check
+    env:
+      DIAGNOSTIC_IMAGE: vulnseal-go-source:${{ matrix.component }}
+      DIAGNOSTIC_CONTAINER: vulnseal-go-source-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.component }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the pinned source diagnostic
+        timeout-minutes: 30
+        env:
+          DIAGNOSTIC_DOCKERFILE: ${{ matrix.dockerfile }}
+          DIAGNOSTIC_TARGET: ${{ matrix.target }}
+        run: |
+          args=()
+          if [ -n "$DIAGNOSTIC_TARGET" ]; then args+=(--target "$DIAGNOSTIC_TARGET"); fi
+          docker build "${args[@]}" -f "$DIAGNOSTIC_DOCKERFILE" -t "$DIAGNOSTIC_IMAGE" .
+          docker image inspect "$DIAGNOSTIC_IMAGE" --format '{{.Id}}'
+      - name: Analyze source with bounded resources
+        timeout-minutes: 17
+        env:
+          DIAGNOSTIC_COMPONENT: ${{ matrix.component }}
+        run: |
+          args=(-show verbose,traces ./...)
+          if [ "$DIAGNOSTIC_COMPONENT" = prometheus ]; then
+            args=(-tags netgo,builtinassets -show verbose,traces ./cmd/prometheus ./cmd/promtool)
+          fi
+          docker run --name "$DIAGNOSTIC_CONTAINER" --label "vulnseal.go-source-ci=$DIAGNOSTIC_CONTAINER" \
+            --memory 3g --cpus 2 --pids-limit 512 --env GOMEMLIMIT=2GiB --env GOMAXPROCS=2 \
+            --entrypoint timeout "$DIAGNOSTIC_IMAGE" 900 govulncheck "${args[@]}"
+      - name: Inspect and remove the owned diagnostic container
+        if: always()
+        run: |
+          exists=$(timeout -k 5s 20s docker container ls -aq --filter "name=^/${DIAGNOSTIC_CONTAINER}$")
+          if [ -n "$exists" ]; then
+            owner=$(timeout -k 5s 20s docker inspect "$DIAGNOSTIC_CONTAINER" --format '{{index .Config.Labels "vulnseal.go-source-ci"}}')
+            test "$owner" = "$DIAGNOSTIC_CONTAINER"
+            timeout -k 5s 20s docker inspect "$DIAGNOSTIC_CONTAINER" --format '{{json .State}}'
+            timeout -k 5s 30s docker rm --force --volumes "$DIAGNOSTIC_CONTAINER"
+          fi
+
   network-artifact:
     runs-on: ubuntu-latest
     timeout-minutes: 90

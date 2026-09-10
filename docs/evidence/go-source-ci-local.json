@@ -1,0 +1,53 @@
+{
+  "recordedAt": "2026-09-10T16:03:06.811385+00:00",
+  "applicationRevision": "2a61472fe2c02301bcc3e3fca9de429664e38e70",
+  "workflow": ".github/workflows/release-verification.yml",
+  "workflowSha256": "1d1dc813c39148e9ad6a60ffb80fff50a3045528d45173fd860b9a834896adde",
+  "yamlParsed": true,
+  "bashScriptsSyntaxChecked": 3,
+  "runtimeLimits": {
+    "memoryGiB": 3,
+    "goMemoryLimitGiB": 2,
+    "cpus": 2,
+    "goMaxProcs": 2,
+    "pids": 512,
+    "processDeadlineSeconds": 900
+  },
+  "localRuns": {
+    "caddy": {
+      "exitCode": 0,
+      "symbolFindings": 0,
+      "importedPackageFindings": 0,
+      "requiredModuleFindings": 1,
+      "startedAt": "2026-09-10T15:59:51.499374103Z",
+      "finishedAt": "2026-09-10T16:00:09.255342841Z",
+      "oomKilled": false,
+      "cleanupExitCode": 0,
+      "rawLogSha256": "d45d74c6ea06e0b6b2ffeea74c92736ef6dcdb96e8280a0dd9ba3d122eb40c1e",
+      "rawStateSha256": "1233640b9586d53632123ed0db055a1d8240c513523da26521c5345890e9962b",
+      "rawCleanupSha256": "ebea8b7947e60819d61eaf33165c92956fed18f66135d857b5bfd0860ae1f7c0"
+    },
+    "prometheus": {
+      "exitCode": 0,
+      "symbolFindings": 0,
+      "importedPackageFindings": 0,
+      "requiredModuleFindings": 3,
+      "startedAt": "2026-09-10T16:00:01.841824752Z",
+      "finishedAt": "2026-09-10T16:01:01.82320615Z",
+      "oomKilled": false,
+      "cleanupExitCode": 0,
+      "rawLogSha256": "f039f68f81c117ef5adfdd7dae5d71127c055547bdbf3cd6d96bb326af77f0da",
+      "rawStateSha256": "006f619f55d61ca2d0953ec5fa0dd3e6e1a9c6255d7ce4c7461e4d6833d8c6b5",
+      "rawCleanupSha256": "4ab94203dc4bb6784d6120d0e07f2a512e95246712ece30797d4ae812638e9c2"
+    }
+  },
+  "cleanupScriptMatchesWorkflow": true,
+  "finalOwnedContainerQueryEmpty": true,
+  "githubActionsExecuted": false,
+  "strictTrivyGateChanged": false,
+  "limits": [
+    "Local execution validates scan resource settings and extracted cleanup script, not a completed GitHub-hosted job or remote build performance.",
+    "Build commands use previously validated pinned Dockerfiles; the workflow YAML and shell scripts were parsed/syntax-checked locally.",
+    "Source scan results do not waive existing runtime Trivy findings or establish production readiness."
+  ]
+}
