@@ -1,0 +1,93 @@
+{
+  "recordedAt": "2026-09-10T09:04:54.053626+00:00",
+  "applicationRevision": "af11da5c48fca8a5f679792732a5f2e4d12dc1f2",
+  "node": "24.14.1",
+  "validate": {
+    "command": "npm run validate",
+    "exitCode": 0,
+    "workspaceBuildsPassed": 6,
+    "workspaceTypechecksPassed": 6,
+    "tests": 341,
+    "files": 61,
+    "workspaces": {
+      "shared": {
+        "tests": 13,
+        "files": 1,
+        "durationSeconds": 0.649
+      },
+      "contract": {
+        "tests": 25,
+        "files": 2,
+        "durationSeconds": 93.72
+      },
+      "api": {
+        "tests": 34,
+        "files": 4,
+        "durationSeconds": 3.96
+      },
+      "cipherstore": {
+        "tests": 49,
+        "files": 10,
+        "durationSeconds": 73.29
+      },
+      "integration": {
+        "tests": 9,
+        "files": 3,
+        "durationSeconds": 3.26
+      },
+      "web": {
+        "tests": 211,
+        "files": 41,
+        "durationSeconds": 89.14
+      }
+    },
+    "rawLogSha256": "a7f8b17e752b6855040b5d5d7af1d65ad62bf59f4bf1a5813a9512da83d12948"
+  },
+  "limits": [
+    "Native Lace, fresh proving-key generation, public hosting and external CI are not established by local tests.",
+    "No container build or security rescan is included; prior unresolved findings remain open.",
+    "The isolated escrow experiment and separate replication browser configurations are outside npm run validate and the ordinary browser suite."
+  ],
+  "browserInitial": {
+    "command": "CI=1 npm run test:e2e",
+    "exitCode": 1,
+    "passed": 84,
+    "failed": 2,
+    "duration": "4.8m",
+    "workers": 2,
+    "automaticRetries": 0,
+    "failure": "Both desktop/mobile standalone vendor backup cases expected v1 keys, but the app now saves a v11 program draft.",
+    "rawLogSha256": "19005e129055fcbca02df54536c2a93d237e5ec21435ebbec1636f8be9589a7b"
+  },
+  "browserCorrection": {
+    "file": "e2e/roles.spec.ts",
+    "change": "Replace stale v1 key list with exact v11 vault equality, including default program draft and empty/null private state. Preserve ciphertext secrecy, close/restore, wrong-password and deployment gates.",
+    "command": "CI=1 npm run test:e2e -- e2e/roles.spec.ts",
+    "exitCode": 0,
+    "passed": 8,
+    "durationSeconds": 56.3,
+    "workers": 2,
+    "automaticRetries": 0,
+    "rawLogSha256": "297ff5fe946018fba384d427037761585fc9141e056d32454f232d485a1bb5fd"
+  },
+  "browserCombined": {
+    "distinctCasesPassedAcrossInitialAndCorrectedRuns": 86,
+    "singleSuccessfulFullSuiteInvocation": false,
+    "overlappingCasesInCorrectedRun": 6
+  },
+  "releasePackaging": {
+    "commands": [
+      "npm run build -w @vulnseal/web",
+      "node scripts/check-web-release.mjs --write-manifest"
+    ],
+    "exitCodes": [
+      0,
+      0
+    ],
+    "circuits": 8,
+    "files": 62,
+    "bytes": 62673882,
+    "normalEnvironmentRestoredAfterE2E": true,
+    "provingKeysRegenerated": false
+  }
+}

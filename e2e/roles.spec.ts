@@ -2,6 +2,7 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { decryptRoleVault } from "../web/src/role-recovery.js";
+import { defaultProgramDraft } from "../web/src/program.js";
 
 test("closing an unsaved role can be cancelled, then closes without a warning after autosave", async ({ page }) => {
   await page.goto("/#roles");
@@ -79,7 +80,8 @@ test("standalone vendor identity backup survives a closed tab and gates real dep
   const serialized = await readFile(path, "utf8");
   const vault = await decryptRoleVault(serialized, "Independent vendor backup password");
   expect(vault.role).toBe("vendor"); expect(vault.contractAddress).toBeNull();
-  expect(Object.keys(vault).sort()).toEqual(["actorSecret", "contractAddress", "network", "programId", "reports", "role", "version"]);
+  expect(vault).toEqual({ version: 11, role: "vendor", contractAddress: null, network: "preprod", programId: vault.programId, actorSecret: vault.actorSecret,
+    reports: [], submissionAttempts: [], draft: null, attachmentDraft: null, reportNotes: [], programDraft: defaultProgramDraft });
   expect(serialized).not.toContain(vault.actorSecret);
   await page.close();
   const restored = await context.newPage(); await restored.goto("/#roles");

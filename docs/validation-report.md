@@ -1,5 +1,17 @@
 # Validation report
 
+## Consolidated application regression at af11da5 -- 2026-09-10
+
+`npm run validate` exited **0** in a single invocation at `af11da5c48fca8a5f679792732a5f2e4d12dc1f2`, on Node **24.14.1**. All six workspace builds and typechecks passed, followed by **341 tests / 61 files**: shared 13/1, contract 25/2, API 34/4, cipherstore 49/10, integration 9/3 and web 211/41. This includes the stdin/eval SQLite fix, vendor drafts, v12 deployment checkpoints and post-checkpoint session lock. Existing missing-source-map and Node experimental SQLite warnings remain in the log; they were not test failures.
+
+The ordinary production-browser suite, `CI=1 npm run test:e2e`, ran 86 cases using two workers and no retries. It exited **1** with **84 passed and 2 failed in 4.8 minutes**. Both failures were the desktop/mobile standalone vendor backup assertion expecting v1 keys after vendor creation changed to v11. The test now checks the entire v11 vault, including the default draft, empty journal/report arrays and null researcher/attachment drafts, while retaining the existing secrecy, wrong-password, closed-tab restoration and deployment-gate checks. No runtime code was changed during this regression pass.
+
+The corrected `e2e/roles.spec.ts` run exited **0**, with **8 tests passed in 56.3 seconds**, two workers and no retries. This covers both previously failing cases and six overlapping cases. Across the initial full run and this focused correction, **86 distinct ordinary browser cases passed**; there was no single all-green full-suite invocation.
+
+After browser teardown, a normal web build and package check both exited **0**, restoring the normal ciphertext endpoint and producing **8 circuits, 62 files, 62,673,882 bytes** with retained keys and existing unchanged-source evidence.
+
+[Structured evidence](evidence/regression-af11da5.json) records workspace timings, the initial browser failure and raw-log hashes. This validation does not include separate replication browser configurations, the isolated escrow experiment, native Lace, fresh proving-key generation, Docker security scans, external CI or public-host checks. Known release/security and roadmap requirements remain open.
+
 ## Lock role transactions after post-checkpoint errors -- 2026-09-10
 
 The role workspace previously disabled its active session only on the confirmation deadline. An ordinary SDK/transport failure after the encrypted before-submit checkpoint left that session available despite an unknown transaction outcome. The wait now retains its checkpoint identifier after closing, and every submission error with that identifier disables further transactions and reconnect shortcuts in the active session. The vault, original error, journal and backup access remain available. Errors before the checkpoint retain the existing refresh/retry flow; storage failure still prevents the wallet boundary.
