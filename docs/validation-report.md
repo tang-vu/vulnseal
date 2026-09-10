@@ -1,5 +1,13 @@
 # Validation report
 
+## Isolated escrow compatibility check -- 2026-09-10
+
+`node experiments/escrow/check.mjs` compiled a separate prototype with Compact **0.31.1**, `--skip-zk`, then executed its fresh bindings with the pinned runtime. The run exited **0**, **4 tests passed, 0 skipped**, at **2026-09-10T07:40:36.936Z** after temporary-output cleanup. [Evidence](evidence/escrow-compatibility.json) records the source, binding and test hashes. Earlier compile attempts exposed an integer-width issue and an undisclosed public amount; both were corrected before the successful run.
+
+Tests inspect exact configured-token input/output effects and user recipient, prove that authorization emits no external effects in the simulator, reject invalid owners/amounts/recipients/phases and duplicate release, and distinguish the funding counter from injected actual-balance inputs, including a wrong-token balance. The aggregate funding boundary is exercised at `2^64 - 1`.
+
+This is [an experiment](../experiments/escrow/README.md), not deployed escrow or payment evidence. No main contract, proving keys, application runtime or web artifacts changed; the full application suite was not rerun for these isolated files. CI now runs the fresh experiment check, but that workflow change has not executed remotely. Report binding, recovery/refunds, proof generation, transaction application, wallet/network tests and independently verifiable token balance deltas remain required.
+
 ## Two-backend retirement lifecycle -- 2026-09-10
 
 The new `scripts/test-retirement-lifecycle.mjs` runs two loopback HTTP services with real filesystem/SQLite adapters and cooperative writer leases, the compiled replicated client, and the compiled retirement/backup CLIs. Synthetic AES-GCM ciphertext is uploaded to both stores and backed up before maintenance. The script accepts no operator store paths and verifies its generated temporary root before cleanup.

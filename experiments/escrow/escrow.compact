@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: Apache-2.0
+// Isolated compatibility prototype. Not deployed or connected to VulnSeal reports.
+pragma language_version >= 0.22;
+import CompactStandardLibrary;
+
+witness ownerSecret(): Bytes<32>;
+export ledger ownerKey: Bytes<32>;
+export ledger color: Bytes<32>;
+export ledger available: Uint<128>;
+export ledger authorized: Uint<128>;
+export ledger recipient: UserAddress;
+export ledger released: Boolean;
+
+constructor(token: Bytes<32>) {
+  assert(token != default<Bytes<32>>, "Native NIGHT is excluded from this test-token prototype");
+  color = disclose(token);
+  ownerKey = disclose(persistentHash<Vector<2, Bytes<32>>>([pad(32, "vulnseal:escrow-probe"), ownerSecret()]));
+}
+
+circuit assertOwner(): [] {
+  assert(persistentHash<Vector<2, Bytes<32>>>([pad(32, "vulnseal:escrow-probe"), ownerSecret()]) == ownerKey, "Wrong escrow owner");
+}
+
+export circuit deposit(amount: Uint<64>): [] {
+  assertOwner();
+  const publicAmount = disclose(amount);
+  assert(!released && authorized == 0, "Escrow already authorized or released");
+  assert(publicAmount > 0, "Empty deposit");
+  assert(available <= 18446744073709551615 - (publicAmount as Uint<128>), "Prototype funding limit exceeded");
+  receiveUnshielded(color, publicAmount as Uint<128>);
+  available = (available + publicAmount) as Uint<128>;
+}
+
+export circuit authorize(amount: Uint<64>, payee: UserAddress): [] {
+  assertOwner();
+  const publicAmount = disclose(amount);
+  assert(!released && authorized == 0, "Escrow already authorized or released");
+  assert(publicAmount > 0 && (publicAmount as Uint<128>) == available, "Authorize the full funded amount");
+  assert(payee.bytes != default<Bytes<32>>, "Empty recipient");
+  authorized = publicAmount as Uint<128>;
+  recipient = disclose(payee);
+}
+
+export circuit release(): [] {
+  assertOwner();
+  assert(!released && authorized > 0, "No releasable authorization");
+  assert(unshieldedBalanceGte(color, authorized), "Insufficient actual token balance");
+  sendUnshielded(color, authorized, right<ContractAddress, UserAddress>(recipient));
+  available = available - authorized;
+  released = true;
+}

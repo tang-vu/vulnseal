@@ -1,0 +1,23 @@
+{
+  "capturedAt": "2026-09-10T07:40:36.936Z",
+  "compiler": "0.31.1",
+  "compactRuntime": "0.16.0",
+  "onchainRuntimeV3": "3.0.0",
+  "node": "v24.14.1",
+  "command": "node experiments/escrow/check.mjs",
+  "exitCode": 0,
+  "tests": 4,
+  "skipped": 0,
+  "sourceSha256": "b5b2fd477fd94703caab062a85ca24da080a44ec8a9ecc6508a51038e817abf2",
+  "bindingsSha256": "651b5a5847241f97f3c4a2a6b2d15656647f28356e43e589c77e41a65404db7b",
+  "testsSha256": "7c1341aacf99be94c983213d68ad8bb1e374c3f07a31b885249dc190e6112925",
+  "simulatorPassed": true,
+  "provingKeysGenerated": false,
+  "networkTransactions": 0,
+  "limits": [
+    "Balances are injected simulator inputs; no real funds or payment evidence.",
+    "Owner-controlled experiment without report binding, disputes, refunds or key recovery.",
+    "No proof generation, transaction application, wallet or network validation.",
+    "Main contract and web release artifacts unchanged."
+  ]
+}

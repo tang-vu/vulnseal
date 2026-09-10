@@ -43,6 +43,9 @@ jobs:
       - name: Check compiler output freshness and rejection rules
         run: npm run test:compiler-check && npm run compact:check-source
 
+      - name: Compile and test isolated escrow compatibility experiment
+        run: node experiments/escrow/check.mjs
+
       - name: Build dependencies, typecheck, and test current artifacts
         run: npm run validate
 

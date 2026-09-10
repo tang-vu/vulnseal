@@ -4,6 +4,8 @@ Wave 2 begins only after Wave 1 is stable and its baseline is tagged. Every subm
 
 ## Outcomes
 
+An isolated [escrow compatibility experiment](../experiments/escrow/README.md) compiles with the pinned toolchain and tests token effects and authorization/release separation locally. It has no report binding or network payment evidence and does not satisfy the baseline/start gate or the exit evidence below.
+
 - Maintain the Wave 1 Preprod deployment runner and add migration/redeployment evidence if the resettable network changes.
 - Add test-token escrow using only currently supported token/contract APIs researched at implementation time.
 - Separate payout authorization from escrow release and prove both independently.
