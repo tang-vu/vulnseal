@@ -1,5 +1,11 @@
 # Validation report
 
+## Ciphertext retention and removal policy -- 2026-09-10
+
+The new [policy](ciphertext-retention.md) records the current no-expiry/no-eviction behavior and separates service blobs, backups/snapshots, participant copies, handoffs, public ledger records and operational metadata. It defines private request authorization, custody inventory, maintenance/removal distinctions, per-location verification and bounded completion reporting. It explicitly identifies the absent selective-removal tooling and protected retired-digest registry needed to prevent recreation through PUT, backfill or historical restore.
+
+The operations guide and readiness audit link this policy. The threat model now reflects implemented local multi-backend replication and encrypted recovery instead of claiming both are absent, and adds reintroduction after removal as an unresolved threat. All four policy-relative links resolved and `git diff --check` passed. This is documentation and policy work only: no runtime behavior changed, no files or remote ciphertext were deleted, no service agreement/expiry values were invented, and no production removal guarantee is established. The prior application test/build evidence is unchanged.
+
 ## Connected role restoration consistency -- 2026-09-10
 
 Connected role restoration now verifies the ledger record's commitment against the saved report ID and recomputes its submission receipt from the commitment, ciphertext digest and researcher key. Existing ciphertext and researcher-authority checks remain in place. The generated public `pureCircuits` API does not export the internal receipt helper, so a local Compact-runtime implementation mirrors the retained source and is checked against an actual compiled `submitReport` simulation, including changed-input rejection.

@@ -1,5 +1,7 @@
 # Ciphertext service capacity and operation
 
+The [ciphertext retention and removal policy](ciphertext-retention.md) defines current no-expiry behavior, custody of replicas/backups, authorization requirements and missing removal/reintroduction controls. The current service provides no deletion deadline or secure-erasure guarantee.
+
 The server supports `CIPHERSTORE_BACKEND=filesystem` (default) or `sqlite`. Use a separate directory/Compose volume for a new backend; startup rejects mixing existing backend data. SQLite uses a dedicated worker and the same ciphertext-only HTTP protocol. Offline `backup.js create` exports either backend; `restore-sqlite` imports a verified backup into a new SQLite directory. See [backend configuration, migration and limits](cipherstore-adapters.md) before changing a deployment. Current [SQLite container evidence](evidence/cipherstore-sqlite-container-drill.json) covers persistence and graceful restart; the [validation report](validation-report.md) retains an earlier failed attempt and the scan's OS-support coverage limitation.
 
 Run one cipherstore writer process per data directory. Use a persistent local filesystem supporting exclusive creation and hard links; retain the directory across restarts. The HTTP service stores encrypted envelopes only and is not an authenticated multi-tenant object store.

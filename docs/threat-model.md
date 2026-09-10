@@ -10,7 +10,8 @@ Primary assets are unreleased vulnerability content, reporter identity/contact d
 | --- | --- | --- | --- |
 | Malicious researcher | Claims another report or rewrites its contents | Commitment recomputation, report-bound researcher key, no overwrite | Can submit false/noisy reports; validity is not proven; add rate economics later |
 | Malicious program owner | Rejects valid work, misstates severity, withholds key/payment | Decisions and state transitions are attributable to program authority; original commitment remains fixed | Truthfulness and payment remain social/legal; Wave 2 disputes and escrow |
-| Compromised ciphertext store | Reads, replaces, deletes, withholds, or correlates blobs | AES-GCM before upload; immutable SHA-256 address; digest validation | Availability, size/timing metadata, and traffic correlation; replicate/pad privately later |
+| Compromised ciphertext store | Reads, replaces, deletes, withholds, or correlates blobs | AES-GCM before upload; immutable SHA-256 address; digest validation; optional replication across filesystem/SQLite services | Availability, size/timing metadata and traffic correlation; local replica tests do not prove independent operation |
+| Reintroduction after removal | Restores an older backup or reuploads a removed blob | No automatic expiry/eviction; documented operator custody and removal procedure | No retired-digest registry or selective-removal tooling; current backup validation and immutable PUT do not prevent recreation; see [retention policy](ciphertext-retention.md) |
 | Metadata observer | Links wallet, timing, sizes, statuses, and pseudonyms | Report-specific derived researcher key; minimal public record | Network and behavioral correlation remains; batching/relays/padding later |
 | Replay attacker | Reuses submission or payout data | Unique report map key; legal-edge state checks; payout receipt set; subject/domain binding | A semantically equivalent report with new salt is not detected |
 | Front-runner | Copies a visible commitment/ciphertext digest first | Researcher authorization is derived from a private secret bound to commitment | Front-runner can cause nuisance if exact commitment public before submission; atomic proof submission and secret ownership prevent lifecycle capture |
@@ -34,7 +35,7 @@ The [recipient disclosure exchange](adr/0008-recipient-bound-disclosure.md) uses
 
 ## Abuse and availability
 
-Wave 1 has no on-chain fee policy beyond normal network costs, no spam moderation, no key recovery, no store replication, and no dispute mechanism. Those omissions are accepted to keep the privacy-critical lifecycle complete. A production service needs program admission controls, encrypted abuse review, recovery, retention/deletion policy, rate limits, multi-region ciphertext availability, and operational incident response.
+The current implementation has no on-chain fee policy beyond normal network costs, no spam moderation, no recovery of lost actor secrets, and no dispute mechanism. Encrypted file/browser recovery and optional multi-endpoint ciphertext replication are implemented, with local filesystem/SQLite interoperability evidence. They do not establish independent regional availability or native-wallet recovery. A production service still needs program admission controls, encrypted abuse review, enforced retention/removal controls, per-user rate limits, multi-region operation and operational incident response. The [retention policy](ciphertext-retention.md) defines current behavior and the removal/reintroduction controls still required.
 
 ## Security verification performed
 
