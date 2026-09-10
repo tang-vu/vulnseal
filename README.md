@@ -24,7 +24,7 @@ VulnSeal is deployed on Midnight Preprod at [`83c5aa34…a9eb`](https://preprod.
 
 The repository also includes a reproducible local lifecycle against Midnight node `1.0.0`, indexer `4.3.3`, and proof server `8.1.0`. Its seven transaction identifiers and block heights are in [local-lifecycle.json](docs/evidence/local-lifecycle.json). Local and Preprod evidence are labeled separately.
 
-The contract has eight proving circuits, meaningful private witnesses, generated ZKIR, and locally generated prover/verifier keys. The simulator suite has 13 lifecycle and adversarial tests. The UI journey has component, accessibility, failure-state, desktop, and mobile end-to-end tests. Exact results are recorded in [validation-report.md](docs/validation-report.md).
+The contract has eight proving circuits, meaningful private witnesses, generated ZKIR, and locally generated prover/verifier keys. The simulator suite covers lifecycle, interleaved reports and adversarial transitions. The UI journey has component, accessibility, failure-state, desktop, and mobile end-to-end tests. Exact results are recorded in [validation-report.md](docs/validation-report.md).
 
 ![Public verifier timeline](docs/screenshots/desktop-chrome-verifier.png)
 

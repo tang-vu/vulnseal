@@ -1,5 +1,11 @@
 # Validation report
 
+## Scope Go diagnostic and monitoring build contexts -- 2026-09-10
+
+Added Dockerfile-specific deny-by-default context rules for Caddy source diagnostics, the govulncheck tool and Prometheus. Caddy permits only `go.mod`, `go.sum`, `main.go` and its CEL compatibility script under `infra/caddy`; the other two Dockerfiles require no local COPY/ADD inputs. This keeps local configuration, data, logs and unrelated source outside those contexts by construction. Explicit remote dependency/archive retrieval remains unchanged. The README's obsolete fixed simulator-test count was replaced with the covered behavior and its existing validation-report reference.
+
+The Caddy diagnostic image build exited **0**, reusing cached source/tool layers. Docker `build --check` exited **0** for both Prometheus and govulncheck, with no warnings. Logs: `.compact/go-context-caddy-build.log`, `.compact/go-context-prometheus-check.log` and `.compact/go-context-govulncheck-check.log`. These are build-context/configuration checks, not new source/runtime vulnerability scans or a new full regression. Security gates and runtime deployment state remain unchanged.
+
 ## Handle public receiving-key download failures -- 2026-09-10
 
 Public receiving-key export now runs through the panel's serialized operation/error handler, keeping its key and retry control available when download initiation fails. The shared exchange download helper cleans its anchor and schedules blob-URL revocation in a `finally` block, including click failures. Successful public export clears the prior error and reports download initiation.

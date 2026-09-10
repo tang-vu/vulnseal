@@ -1,0 +1,8 @@
+# Only the Caddy source/module inputs are needed by this diagnostic.
+**
+!infra/
+!infra/caddy/
+!infra/caddy/go.mod
+!infra/caddy/go.sum
+!infra/caddy/main.go
+!infra/caddy/apply-cel-compat.sh
