@@ -1,0 +1,20 @@
+{
+  "recordedAt": "2026-09-10T06:08:56.299524+00:00",
+  "imageId": "sha256:111a0bc29720ae851f2c18c15b10517c23b39b964614d6cfcba6b4936f96c643",
+  "imageConfigId": "sha256:02a629ac82a0a067ca82a79997cd25431217a2773db2be5acea65ec08ed99a2a",
+  "command": "sh scripts/scan-container.sh sha256:111a0bc29720ae851f2c18c15b10517c23b39b964614d6cfcba6b4936f96c643",
+  "scannerImage": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
+  "exitCode": 0,
+  "stdoutSha256": "a07fa9d27a75f5b39f9b99f4dce4fdb24c4a772ddc7825d7cd3d9c2adef32d67",
+  "stderrSha256": "5633e1173d0f9b8a3a552bfcaa2272529a1555da21978b399caab74799b4975b",
+  "findings": [],
+  "limits": [
+    "No runtime findings reported in the Alpine and node-pkg targets.",
+    "Trivy warned that Alpine 3.24 was not on its EOL list; exit 0 does not establish OS support coverage.",
+    "No host scan, independent audit or public deployment."
+  ],
+  "rawLogs": {
+    "stdout": ".compact/security-scan-20260910/cipherstore-sqlite-stdout.log",
+    "stderr": ".compact/security-scan-20260910/cipherstore-sqlite-stderr.log"
+  }
+}

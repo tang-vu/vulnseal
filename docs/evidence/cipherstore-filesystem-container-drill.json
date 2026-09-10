@@ -1,0 +1,15 @@
+{
+  "capturedAt": "2026-09-10T06:08:51.399Z",
+  "backend": "filesystem",
+  "imageId": "sha256:111a0bc29720ae851f2c18c15b10517c23b39b964614d6cfcba6b4936f96c643",
+  "nonRoot": true,
+  "readOnlyRoot": true,
+  "metricsEnabled": true,
+  "readyBeforeUpload": true,
+  "trickledUploadTerminated": true,
+  "quotaRejectsNewBlob": true,
+  "fullStoreRemainsReadable": true,
+  "secondWriterRefused": true,
+  "gracefulRestart": true,
+  "persistedCiphertextDecrypted": true
+}

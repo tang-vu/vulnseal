@@ -84,6 +84,8 @@ jobs:
         run: docker build -f infra/cipherstore.Dockerfile -t vulnseal-cipherstore:local .
       - name: Verify container persistence, capacity and restart
         run: node scripts/test-cipherstore-container.mjs
+      - name: Verify SQLite container persistence, capacity and restart
+        run: node scripts/test-cipherstore-container.mjs --backend=sqlite
       - name: Reject runtime vulnerabilities and end-of-life OS
         run: sh scripts/scan-container.sh
       - name: Verify internal metrics collection and alert rules

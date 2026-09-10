@@ -1,0 +1,31 @@
+{
+  "capturedAt": "2026-09-10T06:10:17.771Z",
+  "backend": "sqlite",
+  "imageId": "sha256:111a0bc29720ae851f2c18c15b10517c23b39b964614d6cfcba6b4936f96c643",
+  "nonRoot": true,
+  "readOnlyRoot": true,
+  "metricsEnabled": true,
+  "readyBeforeUpload": true,
+  "trickledUploadTerminated": true,
+  "quotaRejectsNewBlob": true,
+  "fullStoreRemainsReadable": true,
+  "secondWriterRefused": true,
+  "gracefulRestart": true,
+  "persistedCiphertextDecrypted": true,
+  "priorAttempts": [
+    {
+      "exitCode": 1,
+      "errorCode": "UND_ERR_SOCKET",
+      "message": "Other side closed before an HTTP response; exact request and root cause not established.",
+      "concurrentWork": [
+        "filesystem container drill",
+        "Trivy scan"
+      ],
+      "countedAsPass": false
+    }
+  ],
+  "rerunChanges": [
+    "Added request-stage and bounded container-log diagnostics only."
+  ],
+  "cleanupCompleted": true
+}

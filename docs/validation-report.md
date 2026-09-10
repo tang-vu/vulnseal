@@ -1,5 +1,17 @@
 # Validation report
 
+## SQLite container and process-crash recovery checks -- 2026-09-10
+
+The current ciphertext image built with **exit 0**, including **29 tests across 6 files on Alpine (9.95s)**. Exact image: **sha256:111a0bc29720ae851f2c18c15b10517c23b39b964614d6cfcba6b4936f96c643**. Docker warned that Git revision metadata was not captured. Two additional process-crash tests were added after the build context was captured and passed separately on host Node **24.14.1**: **2 tests, 4.80s**. They are not included in the image-build test count.
+
+One child process exited without closing its SQLite worker after the worker acknowledged a commit; reopening retained the exact bytes and an identical retry remained idempotent. Another child exited inside an uncommitted transaction after a 4 MiB insertion spilled to disk. The test confirmed a nonempty rollback journal and database growth before reopening, then verified the uncommitted row was absent, earlier data remained intact and subsequent writes succeeded. This is process-exit/database-recovery evidence, not physical power-loss testing or automatic stale CLI-lease recovery.
+
+The container drill now accepts an explicit backend and binds its evidence to the image ID selected before startup. The filesystem run passed at **06:08:51.399 UTC**, exit **0** after cleanup. The first SQLite attempt, run alongside that drill and scanning, failed with `UND_ERR_SOCKET` before receiving an HTTP response. Its exact request was not captured, and no cause is established. The drill gained request-stage and bounded container-log diagnostics; an explicit subsequent SQLite run passed at **06:10:17.771 UTC**, exit **0** after cleanup. No runtime, request timeout or retry policy changed between those attempts. The initial failure remains part of the evidence and is not counted as successful.
+
+Both successful runs verified non-root/read-only execution, metrics/readiness, continuous-upload deadlines, immutable retries at quota, rejection of a second writer, graceful restart and exact persisted ciphertext decryption. SQLite additionally checked the actual database file header. Both final stops exited **0**. [Filesystem](evidence/cipherstore-filesystem-container-drill.json) and [SQLite](evidence/cipherstore-sqlite-container-drill.json) records identify the image; an ownership-filtered check found no remaining drill containers or volumes. CI now includes the SQLite drill but has not run remotely.
+
+The same image's strict Trivy scan exited **0**, reporting zero Alpine/node-pkg findings. It also warned that Alpine 3.24 was absent from its EOL list, so this does not prove OS-support coverage. [Scan evidence](evidence/cipherstore-sqlite-runtime-scan.json) records both output-stream hashes and this limit. No application runtime code or web artifact changed in this increment; no new wallet transaction or public deployment occurred.
+
 ## SQLite persistence and cross-adapter recovery -- 2026-09-10
 
 The second persistent storage implementation now uses SQLite in a dedicated Node worker. Immutable writes and logical byte/blob quotas share an immediate transaction; identical retries succeed at capacity. The database uses FULL synchronization and DELETE journaling. Readiness probes write/read/remove their data transactionally. Worker failure rejects pending calls without retry, and the CLI drains HTTP operations before closing the worker and releasing its directory lease. Backend selection is explicit through `CIPHERSTORE_BACKEND`; a directory containing the other backend's data is rejected.
