@@ -649,7 +649,7 @@ function App() {
       case "lookup":
         return <PublicLookup />;
       case "handoff":
-        return <HandoffPanel keys={recipientKeys} onKeys={setRecipientKeys} disclosure={sealed && reportId && reportSalt ? { network: api ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null, programId: bytesToHex(programBytes), reportId: bytesToHex(reportId), envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt) } : undefined} />;
+        return null;
     }
   })();
 
@@ -698,7 +698,7 @@ function App() {
           <span>{operation.detail}</span>
         </div>
       )}
-      <main id="main-content" aria-busy={operation.state === "working"}><fieldset className="workflow-controls" disabled={operation.state === "working"}>{main}</fieldset></main>
+      <main id="main-content" aria-busy={operation.state === "working"}><fieldset className="workflow-controls" disabled={operation.state === "working"}>{main}<div hidden={screen !== "handoff"}><HandoffPanel keys={recipientKeys} onKeys={setRecipientKeys} disclosure={sealed && reportId && reportSalt ? { network: api ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null, programId: bytesToHex(programBytes), reportId: bytesToHex(reportId), envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt) } : undefined} /></div></fieldset></main>
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {navigation.slice(0, 5).map((item) => (
           <button key={item.screen} className={screen === item.screen ? "active" : ""} onClick={() => changeScreen(item.screen)}>

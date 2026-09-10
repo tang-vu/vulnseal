@@ -1,5 +1,17 @@
 # Validation report
 
+## Retain private exchange across local navigation -- 2026-09-10
+
+The combined demo and role workspace now hide the private-exchange panel when another local screen/tab is selected, preserving the mounted component's unfinished passwords, selected files, confirmation and decrypted result. Explicitly started work can finish while hidden; mounting alone does not start work. Locking the role workspace still remounts the tree and clears private panel state, with the existing late-result cleanup.
+
+The new component regression initially failed on the old unmount behavior (**34 passed / 1 failed**); a local file-edit encoding error had prevented the implementation from applying. After the UTF-8 edit, **35 tests across 3 files passed in 92.21 seconds**, including input retention, role locking, backup retry and unmount cleanup. The first browser startup stopped at TypeScript because the new Testing Library query incorrectly supplied Playwright's `exact` option. Removing that unsupported test option allowed the production build and full selected browser run to pass.
+
+**14 desktop/mobile E2E cases passed in 1.3 minutes**, two workers and no retries. The exchange journey retains passwords, an actual selected disclosure file and its decrypted report while visiting Private recovery and returning. Existing backup failure/retry, isolated restore, tampering rejection and browser-storage/journal checks also pass. Logs: `.compact/handoff-navigation-tests.log`, `.compact/handoff-navigation-tests-final.log`, `.compact/handoff-navigation-browser.log` and `.compact/handoff-navigation-browser-final.log`.
+
+The final normal TypeScript/web build and release package check exited **0**: **8 circuits, 80 files, 65,410,097 bytes** (`.compact/handoff-navigation-release.log`). No container or public host was refreshed.
+
+This is session memory retention, not crash recovery, a DOM security boundary or automatic backup. Other child forms still follow their own navigation behavior. [Exchange navigation and limits](adr/0008-recipient-bound-disclosure.md#in-session-navigation).
+
 ## Warn before closing unfinished private exchange -- 2026-09-10
 
 The private-exchange panel now registers its own unload guard while it holds unfinished recipient passwords, selected files, a parsed recipient, a decrypted disclosure, a receiving key or an active operation. This closes the period before a newly created key reaches the parent workspace. Reverted empty inputs do not leave a warning behind, and panel unmount removes the listener.

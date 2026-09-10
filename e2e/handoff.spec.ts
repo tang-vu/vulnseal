@@ -7,6 +7,10 @@ test("unfinished recipient input warns before close and reverting it removes the
   await page.getByRole("button", { name: "Private exchange" }).click();
   const password = page.getByLabel("Recipient backup password", { exact: true });
   await password.fill("Unfinished recipient password");
+  await page.getByRole("button", { name: "Private recovery", exact: true }).click();
+  await expect(password).toBeHidden();
+  await page.getByRole("button", { name: "Private exchange", exact: true }).click();
+  await expect(password).toHaveValue("Unfinished recipient password");
   const warning = page.waitForEvent("dialog");
   await page.close({ runBeforeUnload: true });
   const dialog = await warning;
@@ -80,7 +84,14 @@ test("a separate recipient restores its own key and opens an encrypted disclosur
     await restored.getByRole("button", { name: "Restore receiving key" }).click();
     await expect(restored.getByRole("button", { name: "Download public receiving key" })).toBeVisible();
     await restored.getByLabel("Encrypted disclosure file").setInputFiles(packagePath);
+    await restored.getByRole("button", { name: "Private recovery", exact: true }).click();
+    await restored.getByRole("button", { name: "Private exchange", exact: true }).click();
+    expect(await restored.getByLabel("Encrypted disclosure file").evaluate((input: HTMLInputElement) => input.files?.length)).toBe(1);
     await restored.getByRole("button", { name: "Decrypt received disclosure" }).click();
+    await expect(restored.getByRole("heading", { name: "Cross-tenant authorization bypass" })).toBeVisible();
+    await restored.getByRole("button", { name: "Private recovery", exact: true }).click();
+    await expect(restored.getByRole("heading", { name: "Cross-tenant authorization bypass" })).toBeHidden();
+    await restored.getByRole("button", { name: "Private exchange", exact: true }).click();
     await expect(restored.getByRole("heading", { name: "Cross-tenant authorization bypass" })).toBeVisible();
     await expect(restored.getByText(/guided local report, with no network transaction evidence/)).toBeVisible();
     expect(await restored.evaluate(() => "midnight" in window)).toBe(false);

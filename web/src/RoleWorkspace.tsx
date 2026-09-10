@@ -354,7 +354,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
             currentVault.current = updated; setVault(updated); setSelectedId(id); setTab("backup");
             setMessage("Report encrypted locally. Save its role backup before uploading the saved ciphertext. No upload or transaction has started.");
           })} /></>}
-          {tab === "exchange" && <HandoffPanel disclosure={vault.role === "researcher" ? chosen : undefined} keys={keys} onKeys={setKeys} {...(vault.role === "vendor" ? { onDisclosure: acceptDisclosure } : {})} />}
+          <div hidden={tab !== "exchange"}><HandoffPanel disclosure={vault.role === "researcher" ? chosen : undefined} keys={keys} onKeys={setKeys} {...(vault.role === "vendor" ? { onDisclosure: acceptDisclosure } : {})} /></div>
         </>}
       </fieldset>
     </main>

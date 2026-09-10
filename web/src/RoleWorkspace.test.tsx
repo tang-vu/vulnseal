@@ -268,7 +268,7 @@ describe("independent role workspace", () => {
     await user.click(screen.getByRole("button", { name: "Prepare vendor identity" }));
     expect(screen.getByRole("button", { name: "Lock and switch workspace" })).toBeDisabled();
   });
-  it("requires retention of the separate receiving-key backup before locking loaded keys", async () => {
+  it("retains exchange input across tabs and requires a separate key backup before locking", async () => {
     vi.stubGlobal("URL", class extends URL { static override createObjectURL = () => "blob:recipient-backup"; static override revokeObjectURL = vi.fn(); });
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     const user = userEvent.setup(); render(<RoleWorkspace />);
@@ -277,6 +277,10 @@ describe("independent role workspace", () => {
     await user.click(screen.getByRole("button", { name: "Disclosure exchange" }));
     fireEvent.change(screen.getByLabelText("Recipient backup password"), { target: { value: "Retain this receiving key password" } });
     fireEvent.change(screen.getByLabelText("Confirm recipient backup password"), { target: { value: "Retain this receiving key password" } });
+    await user.click(screen.getByRole("button", { name: "Reports" }));
+    expect(screen.getByLabelText("Recipient backup password")).not.toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Disclosure exchange" }));
+    expect(screen.getByLabelText("Recipient backup password")).toHaveValue("Retain this receiving key password");
     await user.click(screen.getByRole("button", { name: "Create receiving key and save backup" }));
     // Real RSA-3072 generation and encrypted backup derivation can exceed the
     // default one-second query deadline while other crypto tests run in parallel.

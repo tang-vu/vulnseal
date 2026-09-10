@@ -23,3 +23,9 @@ Receiving-key backup is separate from combined actor recovery. Losing the receiv
 The sender exports from an existing sealed-report session. A fresh recipient context restores only its receiving key and reads the disclosure locally, without a wallet or actor recovery file. Received reports use a separate read-only view and cannot replace active reports or alter contract state. Independent researcher/vendor transaction sessions, program invitations, role-specific authority recovery and multi-report persistence remain required work.
 
 Verification covers wrong recipients, ciphertext/IV/wrapped-key tampering, wrong backup passwords, fingerprint mismatch, private-field rejection, report/program mismatch and isolated browser contexts. Executed results are in the validation report.
+
+## In-session navigation
+
+The combined demo and role workspace keep the private-exchange panel mounted while another local screen/tab is selected. Its hidden wrapper removes it from normal display and keyboard navigation while retaining unfinished passwords, file selections, fingerprint confirmation and decrypted results in memory. Returning to exchange resumes that same panel; an explicitly started operation can finish while it is hidden. Merely mounting the panel performs no cryptography or network request. Its unload warning remains active for retained material.
+
+Role locking still remounts the workspace and clears the panel, and actual unmount still invalidates late async results. Hiding a panel is not a security boundary, durable storage or secure erasure. Page reload/close still requires the separate receiving-key backup; other forms do not inherit persistence from this change.
