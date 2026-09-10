@@ -50,3 +50,32 @@ test("deployment policy comparison decodes historical state and reports local in
   await expect(page.getByText("Observed deployment state differs from the raw transaction's initial state")).toBeVisible();
   await expect(page.getByText("Saved deployment policy differs: rewardPolicyDigest.")).toHaveCount(0);
 });
+
+test("an unresponsive deployment worker cannot prevent the UI deadline and retry", async ({ page }) => {
+  const tx = fixture.data.transactions[0]!, action = tx.contractActions[0]!, transactionId = tx.identifiers[0]!;
+  const saved = captureDeploymentInputs(ledger(ContractState.deserialize(hexToBytes(action.state)).data));
+  const password = "Synthetic stalled worker backup";
+  const vault = await withDeploymentInputs(await withSubmissionAttempt({ version: 1, role: "vendor", network: "preprod", contractAddress: null, programId: saved.programId, actorSecret: "34".repeat(32), reports: [] }, transactionId, { circuit: "constructor", reportId: null }), transactionId, saved);
+  const encrypted = await encryptRoleVault(vault, password);
+  await page.clock.install();
+  let workerRequests = 0;
+  await page.route("**/deployment-policy.worker-*.js", async route => {
+    workerRequests++;
+    await route.fulfill({ contentType: "text/javascript", body: "self.onmessage = () => { while (true) {} };" });
+  });
+  await page.goto("/#roles");
+  await page.getByLabel("Restore backups without connecting Lace").check();
+  await page.getByLabel("Single-role backup file").setInputFiles({ name: "worker.json", mimeType: "application/json", buffer: Buffer.from(encrypted) });
+  await page.getByLabel("Role restore password").fill(password);
+  await page.getByRole("button", { name: "Restore role workspace" }).click();
+  const button = page.getByRole("button", { name: "Compare saved deployment policy" });
+  await button.click();
+  await expect.poll(() => workerRequests).toBe(1);
+  await page.clock.fastForward(30_000);
+  await expect(page.getByText("Policy comparison timed out. No recovery decision was made.")).toBeVisible();
+  await expect(button).toBeEnabled();
+  await button.click();
+  await page.getByRole("button", { name: "Cancel policy comparison" }).click();
+  await expect(button).toBeEnabled();
+  await expect(page.getByText(/Deployment address:/)).toHaveCount(0);
+});

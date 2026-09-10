@@ -1,32 +1,61 @@
 // SPDX-License-Identifier: Apache-2.0
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
-import { compareDeploymentPolicy } from "./deployment-verification.js";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type { DeploymentCheckResult } from "./deployment-verification.js";
 import { DeploymentPolicyCheck } from "./DeploymentPolicyCheck.js";
 import type { SavedDeploymentInputs } from "./program.js";
-vi.mock("./deployment-verification.js", () => ({ compareDeploymentPolicy: vi.fn() }));
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+const instances: FakeWorker[] = [];
+class FakeWorker {
+  onmessage?: (event: { data: unknown }) => void;
+  onerror?: () => void;
+  onmessageerror?: () => void;
+  postMessage = vi.fn();
+  terminate = vi.fn();
+  constructor() { instances.push(this); }
+}
+beforeEach(() => { instances.length = 0; vi.useFakeTimers(); vi.stubGlobal("Worker", FakeWorker); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 const saved: SavedDeploymentInputs = { programId: "12".repeat(32), scopeDigest: "34".repeat(32), responsePolicyDigest: "56".repeat(32), rewardPolicyDigest: "78".repeat(32), disclosurePolicyDigest: "ab".repeat(32), responseDays: "7", disclosureDelayDays: "90" };
 it("compares only on request and displays mismatches without an address-selection action", async () => {
-  vi.mocked(compareDeploymentPolicy).mockResolvedValue({ address: "cd".repeat(32), blockHeight: 10, checkedAt: "now", mismatches: ["rewardPolicyDigest"] });
+  const result: DeploymentCheckResult = { address: "cd".repeat(32), blockHeight: 10, checkedAt: "now", mismatches: ["rewardPolicyDigest"] };
   render(<DeploymentPolicyCheck network="preprod" transactionId="ef" saved={saved} />);
-  expect(compareDeploymentPolicy).not.toHaveBeenCalled();
+  expect(instances).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: "Compare saved deployment policy" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("differs: rewardPolicyDigest");
+  act(() => instances[0]!.onmessage?.({ data: { result } }));
+  expect(screen.getByRole("status")).toHaveTextContent("differs: rewardPolicyDigest");
   expect(screen.getByRole("status")).toHaveTextContent("does not authenticate");
   expect(screen.getAllByRole("button")).toHaveLength(1);
 });
 it.each(["cancel", "change", "unmount"])("ignores a late result after %s", async (operation) => {
-  let finish!: (value: Awaited<ReturnType<typeof compareDeploymentPolicy>>) => void;
-  vi.mocked(compareDeploymentPolicy).mockReturnValue(new Promise(resolve => { finish = resolve; }));
   const view = render(<DeploymentPolicyCheck network="preprod" transactionId="ef" saved={saved} />);
   fireEvent.click(screen.getByRole("button", { name: "Compare saved deployment policy" }));
-  const signal = vi.mocked(compareDeploymentPolicy).mock.calls[0]![3]!;
+  const active = instances[0]!;
   if (operation === "cancel") fireEvent.click(screen.getByRole("button", { name: "Cancel policy comparison" }));
   if (operation === "change") view.rerender(<DeploymentPolicyCheck network="preprod" transactionId="ab" saved={saved} />);
   if (operation === "unmount") view.unmount();
-  expect(signal.aborted).toBe(true);
-  finish({ address: "cd".repeat(32), blockHeight: 10, checkedAt: "now", mismatches: [] });
-  await Promise.resolve();
+  expect(active.terminate).toHaveBeenCalledOnce();
+  expect(vi.getTimerCount()).toBe(0);
+  act(() => active.onmessage?.({ data: { result: { address: "cd".repeat(32), blockHeight: 10, checkedAt: "now", mismatches: [] } } }));
   expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});
+
+it.each(["timeout", "load", "message", "empty"])("terminates worker and permits explicit retry after %s", (failure) => {
+  render(<DeploymentPolicyCheck network="preprod" transactionId="ef" saved={saved} />);
+  const button = screen.getByRole("button", { name: "Compare saved deployment policy" });
+  fireEvent.click(button);
+  expect(instances[0]!.postMessage).toHaveBeenCalledWith({ transactionId: "ef", saved, endpoints: { indexerUrl: "https://indexer.preprod.midnight.network/api/v4/graphql", rpcUrl: "https://rpc.preprod.midnight.network" } });
+  act(() => {
+    if (failure === "timeout") vi.advanceTimersByTime(30_000);
+    if (failure === "load") instances[0]!.onerror?.();
+    if (failure === "message") instances[0]!.onmessageerror?.();
+    if (failure === "empty") instances[0]!.onmessage?.({ data: {} });
+  });
+  expect(instances[0]!.terminate).toHaveBeenCalledOnce();
+  expect(screen.getByRole("alert")).toBeInTheDocument();
+  expect(button).toBeEnabled();
+  expect(vi.getTimerCount()).toBe(0);
+  fireEvent.click(button);
+  act(() => instances[0]!.onmessage?.({ data: { result: { mismatches: [] } } }));
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  expect(instances).toHaveLength(2);
 });

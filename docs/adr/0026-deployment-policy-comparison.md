@@ -10,7 +10,7 @@ The state query also requests raw transaction bytes. Before decoding policy, the
 
 The protocol's Compact runtime adapter then decodes the state into the current VulnSeal ledger schema. All seven saved fields are compared locally: program ID, scope and policy digests, and response/disclosure windows. The result names differing fields or reports an exact match. It shows the observed deployment address, block and check time. It never uses the editable program draft as historical intent.
 
-Requests contain the transaction identifier and public RPC parameters, not the saved digests, actor secret, report content or backup. Responses are bounded to 16 MiB for the state query; the whole check has a 20-second asynchronous deadline. Cancellation, changed inputs and unmounting discard late results. The wallet-free inspector does not expose this private-context action.
+Requests contain the transaction identifier and public RPC parameters, not the saved digests, actor secret, report content or backup. Responses are bounded to 16 MiB for the state query, with a 20-second asynchronous network deadline. The browser runs loading, fetching and synchronous SDK decoding in a dedicated module worker, terminated by a separate 30-second UI deadline. Cancellation, changed inputs, errors and unmounting terminate that worker and discard late results. Browser suspension can delay UI timers; the limit is not a real-time guarantee. The wallet-free inspector does not expose this private-context action.
 
 ## Meaning and limits
 

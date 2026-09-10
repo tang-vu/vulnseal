@@ -1,5 +1,15 @@
 # Validation report
 
+## Isolate deployment decoding from the UI -- 2026-09-10
+
+Deployment policy comparison now creates a dedicated module worker only on an explicit click. SDK loading, network reads and synchronous raw-transaction/state decoding run there, with the existing 20-second network deadline and a new 30-second deadline enforced by the UI. Completion, cancellation, errors, changed props and unmount terminate the worker and clear its timer. Late messages from replaced workers cannot populate the result. Worker load/message errors release the controls for explicit retry; no role vault or transaction decision is changed. The worker receives only the selected public policy fields and identifiers/endpoints, not actor authority or report material.
+
+Focused component and comparison checks passed **29 tests / 2 files in 4.58 seconds**, exit **0**. They cover explicit startup, result rendering, cancellation/replacement/unmount, timer cleanup, load/message/empty-response failures, deadline termination and late messages after retry. Production Chrome desktop and Pixel 7 passed **4 E2E cases in 43.2 seconds**, two workers and no retries. The real packaged worker decodes the captured deployment and rejects substituted state. A separate case serves a worker scripted with an infinite loop and advances the page clock to verify timeout recovery, followed by a new attempt and cancellation.
+
+These checks use captured public data and mocked indexer/RPC responses; the unresponsive-worker case is synthetic and its deadline is clock-controlled. Browser suspension can delay UI timers, so the deadline is not a real-time guarantee. No native wallet, new transaction, authenticated inclusion or safe-retry policy is established. [Worker behavior and trust limits](adr/0026-deployment-policy-comparison.md).
+
+The final normal web build (including TypeScript checking) and release package check both exited **0**, producing **8 circuits, 69 files, 64,010,347 bytes**, including the new worker assets. Proving keys remain retained with existing unchanged-main-contract source evidence. No Docker image or public host was refreshed.
+
 ## Bind deployment state to raw transaction content -- 2026-09-10
 
 Deployment policy comparison now requests raw transaction bytes and uses the SDK to recompute their hash/identifiers before accepting the sole `ContractDeploy`, its address and its complete canonical initial state. A valid later state of the same contract is rejected even when the indexer metadata claims the original deployment transaction. Comparison of the seven saved policy fields happens only after this content binding. No address is saved or retry unlocked.

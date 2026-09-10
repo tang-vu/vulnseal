@@ -7,6 +7,9 @@ import { captureDeploymentInputs, validateDeploymentInputs, type SavedDeployment
 import { observeTransaction } from "./transaction-verification.js";
 import { readBoundedJson } from "./bounded-json.js";
 
+export type DeploymentCheckInput = { transactionId: string; saved: SavedDeploymentInputs; endpoints: { indexerUrl: string; rpcUrl: string } };
+export type DeploymentCheckResult = Awaited<ReturnType<typeof compareDeploymentPolicy>>;
+
 /** Compare local intent with the historical state claimed by the indexer, never today's draft. */
 export async function compareDeploymentPolicy(transactionId: string, saved: SavedDeploymentInputs, endpoints: { indexerUrl: string; rpcUrl: string }, signal?: AbortSignal) {
   const expected = validateDeploymentInputs(saved);
