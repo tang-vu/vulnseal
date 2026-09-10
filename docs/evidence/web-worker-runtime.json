@@ -23,22 +23,38 @@
       "web-worker-build-verified.log": "1449b49e4c2023ef7d6dcf8598686d90790deb551dddc034439e313f6d62bca5"
     }
   },
-  "containerDrill": {
-    "exitCode": 1,
-    "functionalChecksCompleted": true,
-    "cleanupCompleted": false,
-    "logSha256": "8e778edadbc3597a266829bb6dda8f846dafa9a0db5c8bf7938e3b5ef195be4f"
-  },
   "scanner": {
     "containerExitCode": 1,
-    "wrapperCompleted": false,
+    "wrapperCompleted": true,
     "findings": [
       "GO-2026-5932"
-    ]
+    ],
+    "wrapperExitCode": 1,
+    "cleanupCompleted": true,
+    "cleanupCheckedAt": "2026-09-10T09:46:20.214272+00:00"
   },
   "limits": [
     "Export invocations returned 1 despite completed export output; the cached verification captured the direct child exit code 0 separately.",
-    "Docker removal remains in progress for the owned drill and scanner containers. No daemon restart or duplicate removal was attempted.",
-    "Only local packaging/runtime checks with captured public fixtures; no native wallet, public deployment or fresh proving keys."
-  ]
+    "Only local packaging/runtime checks with captured public fixtures; no native wallet, public deployment or fresh proving keys.",
+    "The initial drill still exited 1 on its cleanup deadline; later Docker removal does not turn that invocation into a pass."
+  ],
+  "initialContainerDrill": {
+    "exitCode": 1,
+    "functionalChecksCompleted": true,
+    "cleanupCompleted": false,
+    "logSha256": "8e778edadbc3597a266829bb6dda8f846dafa9a0db5c8bf7938e3b5ef195be4f",
+    "laterCleanupObservation": {
+      "completed": true,
+      "checkedAt": "2026-09-10T09:46:20.214272+00:00",
+      "method": "Previously named container absent from Docker; no removal retry or daemon restart."
+    }
+  },
+  "finalContainerDrill": {
+    "exitCode": 0,
+    "cleanupCompleted": true,
+    "capturedAt": "2026-09-10T09:46:38.251Z",
+    "imageId": "sha256:6666fdd2a7c4a815d4a8344199eb0ec257bcec89bd104faf8235e8fa492aa81c",
+    "evidence": "docs/evidence/web-container-drill.json",
+    "logSha256": "ee5a4db5a8e99f3acc4e12e7ffb0dce79375da593247e1ed6b67f2de2590b7ed"
+  }
 }

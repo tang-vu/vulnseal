@@ -5,9 +5,9 @@
   "command": "sh scripts/scan-container.sh vulnseal-web:local",
   "scannerImage": "aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969",
   "scannerContainerExitCode": 1,
-  "wrapperCompleted": false,
+  "wrapperCompleted": true,
   "scannerContainer": "da69a274e982",
-  "cleanupStatus": "removing",
+  "cleanupStatus": "completed; scanner container and private export directory absent",
   "rawLog": ".compact/web-worker-security-scan-observed.log",
   "rawLogSha256": "5c7831b16689d956b2d9d53173070666a0ee0be7d59f908ab1a59de943c0f22d",
   "findings": [
@@ -26,8 +26,10 @@
   },
   "limits": [
     "Strict all-severity gate did not pass.",
-    "Scanner process exited 1, but the wrapper remains alive waiting for Docker auto-removal; this is not a completed scan-and-cleanup run.",
-    "No vulnerability waiver, public deployment, penetration test or native-wallet validation."
+    "No vulnerability waiver, public deployment, penetration test or native-wallet validation.",
+    "Auto-removal completed later after an observed wait; the scanner still failed its strict vulnerability gate."
   ],
-  "rawLogScope": "Immutable snapshot taken while the scanner wrapper was still awaiting Docker auto-removal."
+  "rawLogScope": "Immutable snapshot taken while the scanner wrapper was still awaiting Docker auto-removal.",
+  "wrapperExitCode": 1,
+  "cleanupCheckedAt": "2026-09-10T09:46:20.214272+00:00"
 }

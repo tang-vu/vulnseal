@@ -52,6 +52,9 @@ jobs:
       - name: Production dependency audit
         run: npm run audit:prod
 
+      - name: Check scanner deadlines and owned cleanup
+        run: node --test scripts/scan-container.test.mjs
+
       - name: Test retirement across filesystem and SQLite replicas
         run: node scripts/test-retirement-lifecycle.mjs
 
