@@ -1,5 +1,13 @@
 # Validation report
 
+## Cancel public lookup and receipt import -- 2026-09-10
+
+The public verifier now exposes cancellation for its existing abortable lookup. Receipt imports show a distinct reading state, disable lookup until the import finishes or is canceled, and clear the file input so the same receipt can be selected again after edits. Canceling ignores late file contents or errors; it does not interrupt the browser's underlying `File.text()` read. Receipt import still only fills the form and never starts a network lookup automatically.
+
+The focused component/verifier run passed **10 tests in 2 files (46.00s)**, including abort signaling, an old result arriving while a replacement remains pending, canceled receipt contents not replacing edited fields, and reimport. Web typecheck passed. The production Chrome desktop/Pixel 7 suite passed **6 cases in 42.6s**, exit **0**, with two CI workers and no automatic retries. Its new case holds the first intercepted indexer request, cancels it through the UI, then explicitly restarts and verifies captured state. These are controlled responses, not live network or native-wallet evidence.
+
+`npm run release:build` then exited **0**, restoring the normal endpoint configuration: source comparison at **05:33:47.063 UTC**, six workspace builds, **8 circuits, 62 files, 62,649,560 bytes**. Proving keys were retained. Previous Docker/security evidence remains scoped to its recorded images; no container rebuild, public deployment, full-suite rerun or remote CI execution occurred for this increment.
+
 ## Cancel attachment hashing and invalidate stale file comparisons -- 2026-09-09
 
 Attachment authoring now offers **Cancel hashing**, releasing the pending restriction without adding metadata. Received-file review offers **Cancel file check**, leaving a neutral canceled result. Both invalidate the attempt so late success/failure cannot affect a replacement. Cancellation stops the application wait; the browser's already-started file read or WebCrypto operation may continue. Attachment review now resets whenever sealed metadata changes, including a changed size or filename with the same digest, preventing a stale match from describing a different entry.

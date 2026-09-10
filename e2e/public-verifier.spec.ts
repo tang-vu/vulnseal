@@ -44,3 +44,23 @@ test("public lookup imports a receipt and rejects a private recovery file", asyn
   await page.getByRole("button", { name: "Load public state" }).click();
   await expect(page.getByRole("heading", { name: "Finalized public state" })).toBeVisible();
 });
+
+test("a canceled public lookup can be explicitly restarted without a wallet", async ({ page }) => {
+  await publicServices(page);
+  let requests = 0;
+  await page.route("https://indexer.preprod.midnight.network/**", async (route) => {
+    requests++;
+    if (requests > 1) await route.fulfill({ json: fixture });
+    // Deliberately leave the first intercepted request unanswered until cancellation.
+  });
+  await page.goto(`/#verify?network=preprod&contract=${action.address}`);
+  await page.getByRole("button", { name: "Load public state" }).click();
+  await expect.poll(() => requests).toBe(1);
+  await page.getByRole("button", { name: "Cancel public lookup" }).click();
+  await expect(page.getByRole("button", { name: "Load public state" })).toBeEnabled();
+  await expect(page.getByRole("heading", { name: "Finalized public state" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Load public state" }).click();
+  await expect(page.getByRole("heading", { name: "Finalized public state" })).toBeVisible();
+  expect(requests).toBe(2);
+  expect(await page.evaluate(() => "midnight" in window)).toBe(false);
+});
