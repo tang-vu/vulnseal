@@ -1,5 +1,13 @@
 # Validation report
 
+## Consolidated regression after public policy, widget and worker changes -- 2026-09-10
+
+At clean application revision `b137720c99a19a52f1cab0e0d3a0043499b059c9`, one `npm run validate` invocation exited **0** with all **six workspace builds and typechecks**, then **525 tests across 80 files**: shared 13, contract 28, API 79, ciphertext service 49, integration 9 and web 347. The web suite completed in 92.63 seconds. This consolidates the shared policy/invitation API, vendor policy export, widget and disposable public-verification worker with the existing recovery and lifecycle implementation.
+
+One full ordinary `CI=1 npm run test:e2e` invocation exited **0**, with **122 desktop/mobile cases passing in 5.6 minutes**, two workers, no test exclusions and no automatic retries. Both offline SDK examples exited **0**. The final normal web build and package gate also exited **0**, restoring the deployment configuration after E2E and recording **8 circuits, 80 files, 65,408,457 bytes**.
+
+[Machine-readable regression evidence](evidence/regression-b137720.json) records command results, per-workspace counts and raw log hashes. This supersedes the `1d95c1b` full-regression baseline for this application revision. Separate tooling, replication configurations and escrow checks were not rerun here. Existing image/security evidence remains separate; native Lace, fresh proving keys, public hosting and remote CI remain unverified. No network transaction, publication or external deployment was performed.
+
 ## Package and exercise the public worker in the web image -- 2026-09-10
 
 Application revision `38f19dc` is packaged in image `sha256:3f4ee9d7422529ae05c167b559d8114da9aef49f5bc59dce597dc0c6ce1d8959`. BuildKit completed export/unpack and the inspected tag matches; the process exit response was unavailable after session expiry, so the evidence records it as unknown. The in-image package gate and Caddy configuration validation completed; Caddy build/matcher layers were cached. The artifact contains **8 circuits, 80 files, 65,408,457 bytes**.
