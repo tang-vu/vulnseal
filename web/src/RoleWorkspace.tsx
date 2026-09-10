@@ -157,9 +157,9 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const notes = vault?.reportNotes?.find((entry) => entry.reportId === selectedId);
   const detail = notes?.text ?? "", tier = notes?.tier ?? "3";
   const updateNotes = (text: string, selectedTier: string) => {
-    if (!vault || !chosen) return;
-    try { setVault(withReportNotes(vault, { reportId: chosen.reportId, text, tier: selectedTier })); setError(""); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not update private notes"); }
+    if (!vault || !chosen) return false;
+    try { setVault(withReportNotes(vault, { reportId: chosen.reportId, text, tier: selectedTier })); setError(""); return true; }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not update private notes"); return false; }
   };
   const warnBeforeLeaving = working || (vault !== undefined && !backedUp) || keys !== undefined;
   useEffect(() => {

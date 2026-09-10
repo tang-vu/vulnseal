@@ -1,5 +1,15 @@
 # Validation report
 
+## Retain release preview when notes reject an append -- 2026-09-10
+
+The notes update handler now reports success/failure to the release importer. If appending would exceed the existing 64 KiB note limit, the old notes and already-resolved release preview remain available with an error. Shortening the notes and applying again reuses that exact preview without a second lookup. A thrown apply error also retains the preview; successful application clears it and the local error. Previously the preview disappeared even when the parent rejected the edit.
+
+All **6 release-component tests passed in 8.37 seconds**, exit **0**, including rejected/thrown application followed by retry. Chrome desktop and Pixel 7 passed **4 E2E cases in 46.2 seconds**, two workers and no retries. The boundary cases restore 32,768 two-byte Unicode characters (exactly 64 KiB), reject an append without changing them, shorten the notes, reapply without extra GitHub requests, export the complete updated vault and restore it in an isolated context. Ordinary append/recovery cases also remain green.
+
+The first browser run had **2 passes and 2 failures in 47.9 seconds**: PowerShell's script input encoding replaced the intended Unicode fixture character with `?`, producing only 32 KiB and never reaching the boundary. Using an explicit TypeScript Unicode escape corrected the fixture; no application assertion or limit was relaxed. These are synthetic browser checks, not new GitHub writes or native-wallet transactions.
+
+The final normal web build with TypeScript checking and release package check exited **0**: **8 circuits, 69 files, 64,053,166 bytes**. No image/public host or contract artifact was refreshed.
+
 ## Import published GitHub releases into patch notes -- 2026-09-10
 
 Saved vendor reports now offer explicit public release lookup and a separate append action. Existing private notes are preserved; imported text contains the release URL/ID, tag, reported tag commit, publication time and prerelease flag. The existing Anchor patch path hashes the full notes text and preserves it in the pre-wallet journal when actually submitted; import itself starts no transaction. The component is keyed to the selected report, so switching reports aborts and invalidates an outstanding result.

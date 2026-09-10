@@ -5,10 +5,10 @@ import { recoveryFixture } from "../web/src/test/recovery-fixture.js";
 import { decryptRoleVault, encryptRoleVault, withReportNotes, type RoleVault } from "../web/src/role-recovery.js";
 import { releaseReferenceText } from "../web/src/github-repository.js";
 
-test("a public patch release appends to private report notes and survives isolated recovery", async ({ page, browser }, testInfo) => {
+for (const fullNotes of [false, true]) test(`a public patch release appends to private report notes and survives isolated recovery (full notes=${fullNotes})`, async ({ page, browser }, testInfo) => {
   const { snapshot } = await recoveryFixture();
   const report = { network: "preprod", contractAddress: "ab".repeat(32), programId: snapshot.programId, reportId: snapshot.report!.id, envelope: snapshot.report!.envelope, key: snapshot.report!.key, salt: snapshot.report!.salt };
-  const original = "Private report context retained before importing a patch";
+  const original = fullNotes ? "\u00e9".repeat(32768) : "Private report context retained before importing a patch";
   const vault: RoleVault = withReportNotes({ version: 1, role: "vendor", network: "preprod", contractAddress: report.contractAddress, programId: report.programId, actorSecret: snapshot.vendorSecret, reports: [report] }, { reportId: report.reportId, text: original, tier: "3" });
   const password = "Public release private report notes", encrypted = await encryptRoleVault(vault, password);
   const reference = { repository: "example/project", releaseUrl: "https://github.com/example/project/releases/tag/v1", releaseId: 42, tag: "v1", commitSha: "ab".repeat(20), publishedAt: "2026-09-10T00:00:00Z", prerelease: false };
@@ -28,7 +28,16 @@ test("a public patch release appends to private report notes and survives isolat
   await expect(page.getByRole("button", { name: "Append release reference to notes" })).toBeVisible();
   await expect(page.getByLabel("Private decision, patch reference or retest notes")).toHaveValue(original);
   await page.getByRole("button", { name: "Append release reference to notes" }).click();
-  const text = `${original}\n\n${releaseReferenceText(reference)}`;
+  let retainedNotes = original;
+  if (fullNotes) {
+    await expect(page.getByText("Report notes must be text of at most 64 KiB", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Private decision, patch reference or retest notes")).toHaveValue(original);
+    await expect(page.getByRole("button", { name: "Append release reference to notes" })).toBeVisible();
+    retainedNotes = "Shortened private context; keep the already looked-up reference";
+    await page.getByLabel("Private decision, patch reference or retest notes").fill(retainedNotes);
+    await page.getByRole("button", { name: "Append release reference to notes" }).click();
+  }
+  const text = `${retainedNotes}\n\n${releaseReferenceText(reference)}`;
   await expect(page.getByLabel("Private decision, patch reference or retest notes")).toHaveValue(text);
   expect(requests.map(request => request.url)).toEqual(["https://api.github.com/repos/example/project", "https://api.github.com/repos/example/project/releases/tags/v1", "https://api.github.com/repos/example/project/commits/tags%2Fv1"]);
   expect(requests.every(request => request.method === "GET" && request.body === null && !request.authorization && !request.cookie)).toBe(true);

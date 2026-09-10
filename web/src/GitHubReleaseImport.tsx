@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchPublicRelease, releaseReferenceText, type PublicReleaseReference } from "./github-repository.js";
 
-export function GitHubReleaseImport({ onAppend }: { onAppend: (text: string) => void }) {
+export function GitHubReleaseImport({ onAppend }: { onAppend: (text: string) => boolean | void }) {
   const [url, setUrl] = useState(""), [error, setError] = useState("");
   const [reference, setReference] = useState<PublicReleaseReference>();
   const [pending, setPending] = useState(false);
@@ -23,6 +23,12 @@ export function GitHubReleaseImport({ onAppend }: { onAppend: (text: string) => 
     <button type="button" disabled={pending || !url.trim()} onClick={() => void lookup()}>Look up public release</button>
     {pending && <><p role="status">Looking up release and tag commit…</p><button type="button" onClick={stop}>Cancel release lookup</button></>}
     {error && <p role="alert">{error}</p>}
-    {reference && <div role="status"><p>{reference.repository} — {reference.prerelease ? "Prerelease" : "Published release"}</p><pre className="public-value">{releaseReferenceText(reference)}</pre><p>GitHub-reported metadata and tag commit may change. Assets and source diffs were not downloaded.</p><button type="button" onClick={() => { onAppend(releaseReferenceText(reference)); setReference(undefined); }}>Append release reference to notes</button></div>}
+    {reference && <div role="status"><p>{reference.repository} — {reference.prerelease ? "Prerelease" : "Published release"}</p><pre className="public-value">{releaseReferenceText(reference)}</pre><p>GitHub-reported metadata and tag commit may change. Assets and source diffs were not downloaded.</p><button type="button" onClick={() => {
+      setError("");
+      try {
+        if (onAppend(releaseReferenceText(reference)) === false) { setError("Release reference was not appended. Review the notes error and try again."); return; }
+        setReference(undefined);
+      } catch (cause) { setError(cause instanceof Error ? cause.message : "Release reference could not be appended"); }
+    }}>Append release reference to notes</button></div>}
   </section>;
 }

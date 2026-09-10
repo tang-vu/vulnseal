@@ -8,6 +8,21 @@ import { releaseReferenceText } from "./github-repository.js";
 import { GitHubReleaseImport } from "./GitHubReleaseImport.js";
 const reference = { repository: "example/project", releaseUrl: "https://github.com/example/project/releases/tag/v1", releaseId: 42, tag: "v1", commitSha: "ab".repeat(20), publishedAt: "2026-09-10T00:00:00Z", prerelease: true };
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
+it.each(["rejected", "throw"])("retains the preview after %s application and retries without another lookup", async mode => {
+  mocks.fetch.mockResolvedValue(reference);
+  const append = vi.fn().mockImplementationOnce(() => { if (mode === "throw") throw new Error("Notes too large"); return false; }).mockReturnValue(true);
+  const user = userEvent.setup(); render(<GitHubReleaseImport onAppend={append} />);
+  await user.type(screen.getByLabelText("Public GitHub release URL"), reference.releaseUrl);
+  await user.click(screen.getByRole("button", { name: "Look up public release" }));
+  const apply = await screen.findByRole("button", { name: "Append release reference to notes" });
+  await user.click(apply);
+  expect(screen.getByRole("alert")).toHaveTextContent(mode === "throw" ? "Notes too large" : "not appended");
+  expect(apply).toBeInTheDocument();
+  await user.click(apply);
+  expect(mocks.fetch).toHaveBeenCalledOnce(); expect(append).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Append release reference to notes" })).not.toBeInTheDocument();
+});
 it("appends only on explicit approval and labels prereleases", async () => {
   mocks.fetch.mockResolvedValue(reference); const append = vi.fn(), user = userEvent.setup();
   render(<GitHubReleaseImport onAppend={append} />);
