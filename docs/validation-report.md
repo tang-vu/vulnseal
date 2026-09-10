@@ -1,5 +1,13 @@
 # Validation report
 
+## Persist vendor program drafts -- 2026-09-10
+
+Role-vault v11 retains incomplete vendor program fields as bounded raw strings, and the deployment form now updates that vault directly. New vendor identities start with a draft; edits participate in encrypted autosave/file export and invalidate the latest-backup transaction gate until saved. v1-v10 remain readable. Tests preserve existing journal/finalization and retest-patch fields across v11 updates and reject invalid roles, schemas, field types and oversized values.
+
+Role recovery, workspace and autosave suites passed **37 tests / 3 files in 80.95 seconds**, exit **0**; web typecheck passed. Browser verification first passed both existing researcher-draft cases but failed the two new vendor cases because the test's exact label selector did not match the nested textarea. The selector was corrected to the control's accessible role/name. The final vendor run passed **2 tests in 42.7 seconds**, Chrome desktop and Pixel 7, two workers and no retries. It checks raw whitespace/blank scope, selected windows, tab switching, encrypted IndexedDB contents, browser-copy unlock and actual downloaded-file restoration. No POST/PUT requests occurred. The earlier mixed run is not recorded as all-green.
+
+The normal web build and package check exited **0**, yielding **8 circuits, 62 files, 62,662,399 bytes**, with retained proving keys and existing unchanged-contract source evidence. The final build also includes an autosave-description update naming vendor drafts. These results do not establish native-wallet deployment, authenticated deployed policy, per-attempt constructor arguments, old-release compatibility with v11, or current Docker/public-host packaging. [Design and migration limits](adr/0024-vendor-program-drafts.md).
+
 ## Preserve leave warnings for private demo material -- 2026-09-10
 
 The combined demo previously removed its leave warning once a ciphertext upload succeeded, despite retaining the report key only in the tab. The guard now covers completed/prepared reports, program authority/policy, receiving keys and edited report/attachment/private-note state as well as active or uncertain operations. Untouched default drafts do not trigger it; reverted drafts clear it when no other protected material exists. Starting a recovery download does not certify a saved file and does not clear the guard; recovery copy explains that distinction.

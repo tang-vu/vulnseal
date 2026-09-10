@@ -11,8 +11,8 @@ import type { PublicContractSnapshot, TransactionEvidence } from "@vulnseal/api/
 import { createVulnSealPrivateState, pureCircuits } from "@vulnseal/contract";
 import { bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, randomBytes, sealReport, sha256, utf8, validateEnvironment, type VulnerabilityReport } from "@vulnseal/shared";
 import { initializeBrowserProviders } from "./midnight/browser-providers.js";
-import { defaultProgram, programConstructor, readProgramForm } from "./program.js";
-import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, MAX_SUBMISSION_ATTEMPTS, assertSubmissionCapacity, parseInvitation, validateRoleVault, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withSubmissionNotes, withRetestChoice, withFinalizedSubmission, type ReportNotes, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
+import { defaultProgramDraft, programConstructor, readProgramForm, type ProgramDraft } from "./program.js";
+import { decryptRoleVault, encryptRoleVault, MAX_ROLE_BACKUP_BYTES, MAX_SUBMISSION_ATTEMPTS, assertSubmissionCapacity, parseInvitation, validateRoleVault, withProgramDraft, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withSubmissionNotes, withRetestChoice, withFinalizedSubmission, type ReportNotes, type SubmissionIntent, type RoleVault } from "./role-recovery.js";
 import { joinRoleVault } from "./role-network.js";
 import { HandoffPanel } from "./HandoffPanel.js";
 import { validateDisclosure, type Disclosure, type RecipientKeys } from "./handoff.js";
@@ -94,6 +94,8 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const [network, setNetwork] = useState("preprod");
   const [tab, setTab] = useState<"reports" | "prepare" | "exchange" | "backup">("reports");
   const draft = vault?.draft ?? blank;
+  const programDraft = vault?.programDraft ?? defaultProgramDraft;
+  const updateProgramDraft = (name: keyof ProgramDraft, value: string) => setVault((current) => current ? withProgramDraft(current, { ...(current.programDraft ?? defaultProgramDraft), [name]: value }) : current);
   const [offlineRestore, setOfflineRestore] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [copyCheck, setCopyCheck] = useState<Awaited<ReturnType<typeof verifyCipherstoreCopies>>>();
@@ -237,7 +239,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
       <fieldset className="workflow-controls" disabled={working}>
         {!vault ? <>
           <section className="form-panel"><h2>Create a vendor identity</h2><label>Workspace network<select value={network} onChange={(event) => setNetwork(event.target.value)}><option value="preprod">Preprod</option><option value="local">Local Midnight</option></select></label>
-            <button className="primary-button" onClick={() => { setVault({ version: 1, role: "vendor", network, programId: bytesToHex(randomBytes(32)), actorSecret: bytesToHex(randomBytes(32)), contractAddress: null, reports: [] }); setTab("backup"); }}>Prepare vendor identity</button><p>First save its encrypted backup, then deploy a program.</p>
+            <button className="primary-button" onClick={() => { setVault(withProgramDraft({ version: 1, role: "vendor", network, programId: bytesToHex(randomBytes(32)), actorSecret: bytesToHex(randomBytes(32)), contractAddress: null, reports: [] }, defaultProgramDraft)); setTab("backup"); }}>Prepare vendor identity</button><p>First save its encrypted backup, then deploy a program.</p>
           </section>
           <form className="form-panel" onSubmit={(event) => form(event, async () => {
             const invitation = parseInvitation(await readFile(invitationFile, 4096));
@@ -258,7 +260,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
           {tab === "backup" && <form className="form-panel" onSubmit={(event) => form(event, async () => {
             if (password !== confirmation) throw new Error("Role backup passwords do not match");
             const encrypted = await encryptRoleVault(vault, password); download(encrypted, `vulnseal-role-${vault.role}-backup.json`); setSaved(vault); setPassword(""); setConfirmation(""); setMessage("Role backup downloaded. Confirm the file is saved; keep the file and password private.");
-          })}><h2>Save {vault.role} authority</h2><p>This file contains this role's actor secret, prepared/received reports, submission journal, current report draft and working notes for each saved report. Notes are editable working copies, not transaction history. Retain the separate receiving-key backup.</p><label>Role backup password<input type="password" autoComplete="new-password" minLength={12} required value={password} onChange={(event) => setPassword(event.target.value)} /></label><label>Confirm role backup password<input type="password" autoComplete="new-password" minLength={12} required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label><button className="primary-button">Download single-role backup</button></form>}
+          })}><h2>Save {vault.role} authority</h2><p>This file contains this role's actor secret, prepared/received reports, submission journal, current report or vendor program draft and working notes for each saved report. Notes are editable working copies, not transaction history. Retain the separate receiving-key backup.</p><label>Role backup password<input type="password" autoComplete="new-password" minLength={12} required value={password} onChange={(event) => setPassword(event.target.value)} /></label><label>Confirm role backup password<input type="password" autoComplete="new-password" minLength={12} required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label><button className="primary-button">Download single-role backup</button></form>}
           {!vault.contractAddress && vault.role === "vendor" && tab === "reports" && <form className="form-panel" onSubmit={(event) => {
             const data = new FormData(event.currentTarget); form(event, async () => {
               const policy = readProgramForm(data);
@@ -283,7 +285,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
               }
               const connected = await RoleSession.attach(deployed.api, { role: "vendor", programId: hexToBytes(vault.programId), actorSecret: hexToBytes(vault.actorSecret) }); setSession(connected); setSnapshot(await connected.readPublicState()); setTab("backup");
             });
-          }}><h2>Deploy vendor program</h2>{([ ["name", "Program name"], ["primaryScope", "Primary scope"], ["additionalScope", "Additional scope"], ["rewardPolicy", "Reward policy"] ] as const).map(([name, label]) => <label key={name}>{label}{name === "rewardPolicy" ? <textarea name={name} defaultValue={defaultProgram[name]} required rows={4} /> : <input name={name} defaultValue={defaultProgram[name]} required={name !== "additionalScope"} />}</label>)}<label>Response days<select name="responseDays" defaultValue="7"><option>2</option><option>7</option><option>14</option></select></label><label>Disclosure days<select name="disclosureDays" defaultValue="90"><option>30</option><option>60</option><option>90</option></select></label><button className="primary-button" disabled={!backedUp || recoveryRequired}>Connect Lace and deploy program</button></form>}
+          }}><h2>Deploy vendor program</h2><p>Program draft fields are included in encrypted role backups and browser autosave. Wait for the saved confirmation after editing before deploying or closing this workspace.</p>{([ ["name", "Program name"], ["primaryScope", "Primary scope"], ["additionalScope", "Additional scope"], ["rewardPolicy", "Reward policy"] ] as const).map(([name, label]) => <label key={name}>{label}{name === "rewardPolicy" ? <textarea name={name} value={programDraft[name]} onChange={(event) => updateProgramDraft(name, event.target.value)} maxLength={16384} required rows={4} /> : <input name={name} value={programDraft[name]} onChange={(event) => updateProgramDraft(name, event.target.value)} maxLength={16384} required={name !== "additionalScope"} />}</label>)}<label>Response days<select name="responseDays" value={programDraft.responseDays} onChange={(event) => updateProgramDraft("responseDays", event.target.value)}><option>2</option><option>7</option><option>14</option></select></label><label>Disclosure days<select name="disclosureDays" value={programDraft.disclosureDays} onChange={(event) => updateProgramDraft("disclosureDays", event.target.value)}><option>30</option><option>60</option><option>90</option></select></label><button className="primary-button" disabled={!backedUp || recoveryRequired}>Connect Lace and deploy program</button></form>}
           {!session && !recoveryRequired && tab === "reports" && <form className="form-panel" onSubmit={(event) => form(event, async () => {
             const updated = await validateRoleVault({ ...vault, contractAddress: vault.contractAddress ?? address.trim().toLowerCase() });
             const joined = await joinRoleVault(updated, recordSubmission); setVault(updated); setSession(joined.session); setSnapshot(joined.snapshot);

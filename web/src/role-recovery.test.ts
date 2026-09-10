@@ -3,6 +3,43 @@ import { describe, expect, it } from "vitest";
 import { decryptRoleVault, encryptRoleVault, parseInvitation, validateRoleVault, withRoleDraft, withAttachmentDraft, withReportNotes, withSubmissionAttempt, withFinalizedSubmission, type RoleVault } from "./role-recovery.js";
 import { recoveryFixture } from "./test/recovery-fixture.js";
 import { withSubmissionNotes, withRetestChoice } from "./role-recovery.js";
+import { withProgramDraft } from "./role-recovery.js";
+import { defaultProgramDraft } from "./program.js";
+
+it("round-trips incomplete vendor policy text and preserves it through journal updates", async () => {
+  const original = await roleFixture("vendor");
+  const draft = { ...defaultProgramDraft, name: "  Private program  ", primaryScope: "", rewardPolicy: "line one\n\nunfinished\n" };
+  let vault = withProgramDraft(original, draft);
+  vault = await withSubmissionAttempt(vault, "cd".repeat(32), { circuit: "beginTriage", reportId: original.reports[0]!.reportId });
+  vault = await withSubmissionNotes(vault, "cd".repeat(32), { reportId: original.reports[0]!.reportId, text: "Private decision", tier: "3" });
+  vault = await withFinalizedSubmission(vault, { circuit: "beginTriage", txId: "cd".repeat(32), blockHeight: "123" });
+  const encrypted = await encryptRoleVault(vault, "Vendor program draft password");
+  expect(encrypted).not.toContain(draft.name.trim());
+  const restored = await decryptRoleVault(encrypted, "Vendor program draft password");
+  expect(restored).toEqual(vault);
+  expect(restored.version).toBe(11);
+  expect(restored.programDraft).toEqual(draft);
+  expect(original.programDraft).toBeUndefined();
+  await expect(validateRoleVault({ ...vault, programDraft: undefined })).rejects.toThrow("Invalid vendor program draft");
+  await expect(validateRoleVault({ ...vault, version: 10 })).rejects.toThrow("Unsupported role document");
+  expect(() => withProgramDraft(vault, { ...draft, name: "x".repeat(65537) })).toThrow("64 KiB");
+  expect(() => withProgramDraft(vault, { ...draft, responseDays: 7 } as never)).toThrow("must be text");
+  const researcher = await roleFixture();
+  expect(() => withProgramDraft(researcher, draft)).toThrow("Only vendor");
+  await expect(validateRoleVault({ ...withProgramDraft(original, draft), role: "researcher" })).rejects.toThrow("Only vendor");
+});
+
+it("preserves v11 when a researcher records retest evidence without a vendor draft", async () => {
+  const original = await roleFixture(), reportId = original.reports[0]!.reportId;
+  const legacy = await withRetestChoice(await withSubmissionAttempt(original, "ab".repeat(32), { circuit: "submitRetest", reportId }), "ab".repeat(32), true, "cd".repeat(32));
+  let vault = await validateRoleVault({ ...legacy, version: 11, programDraft: null });
+  vault = await withSubmissionAttempt(vault, "ef".repeat(32), { circuit: "submitRetest", reportId });
+  vault = await withRetestChoice(vault, "ef".repeat(32), false);
+  expect(vault.version).toBe(11);
+  expect(vault.programDraft).toBeNull();
+  expect(vault.submissionAttempts![0]!.retestPatchCommitment).toBe("cd".repeat(32));
+  expect(vault.submissionAttempts![1]!.retestPatchCommitment).toBeNull();
+});
 
 it("allows the final journal slot and rejects the next attempt without changing history", async () => {
   const original = await roleFixture("vendor");

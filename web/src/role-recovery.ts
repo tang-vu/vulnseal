@@ -5,11 +5,12 @@ import { base64UrlToBytes, bytesToBase64Url, randomBytes, utf8, type Vulnerabili
 import { validateDisclosure, type Disclosure } from "./handoff.js";
 
 import { validateAttachmentDraft, type AttachmentDraft } from "./attachment-draft.js";
+import { validateProgramDraft, type ProgramDraft } from "./program.js";
 export type SubmissionIntent = { readonly circuit: "constructor"; readonly reportId: null } | { readonly circuit: RoleCommand["kind"]; readonly reportId: string };
 export type SavedFinalization = { readonly blockHeight: string; readonly recordedAt: string };
 export type SubmissionAttempt = { readonly transactionId: string; readonly recordedAt: string; readonly intent?: SubmissionIntent | null; readonly finalization?: SavedFinalization | null; readonly notes?: ReportNotes | null; readonly retestPassed?: boolean | null; readonly retestPatchCommitment?: string | null };
 export type ReportNotes = { readonly reportId: string; readonly text: string; readonly tier: string };
-export type RoleVault = { readonly version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10; readonly role: ActorRole; readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly actorSecret: string; readonly reports: readonly Disclosure[]; readonly submissionAttempts?: readonly SubmissionAttempt[]; readonly draft?: VulnerabilityReport | null; readonly attachmentDraft?: AttachmentDraft | null; readonly reportNotes?: readonly ReportNotes[] };
+export type RoleVault = { readonly version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11; readonly role: ActorRole; readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly actorSecret: string; readonly reports: readonly Disclosure[]; readonly submissionAttempts?: readonly SubmissionAttempt[]; readonly draft?: VulnerabilityReport | null; readonly attachmentDraft?: AttachmentDraft | null; readonly reportNotes?: readonly ReportNotes[]; readonly programDraft?: ProgramDraft | null };
 export type ProgramInvitation = { readonly format: "vulnseal-program-invitation"; readonly version: 1; readonly network: string; readonly contractAddress: string; readonly programId: string };
 export const MAX_ROLE_BACKUP_BYTES = 32 * 1024 * 1024;
 export const MAX_SUBMISSION_ATTEMPTS = 200;
@@ -45,7 +46,7 @@ export const withSubmissionAttempt = async (vault: RoleVault, transactionId: str
   assertSubmissionCapacity(vault);
   return validateRoleVault({
   ...vault, version: vault.version >= 6 ? vault.version : 5, draft: vault.draft ?? null, reportNotes: vault.reportNotes ?? [],
-  submissionAttempts: [...(vault.submissionAttempts ?? []).map((entry) => ({ ...entry, intent: entry.intent ?? null })), { transactionId, recordedAt, intent, ...(vault.version >= 6 ? { finalization: null } : {}), ...(vault.version >= 8 ? { notes: null } : {}), ...(vault.version >= 9 ? { retestPassed: null } : {}), ...(vault.version === 10 ? { retestPatchCommitment: null } : {}) }],
+  submissionAttempts: [...(vault.submissionAttempts ?? []).map((entry) => ({ ...entry, intent: entry.intent ?? null })), { transactionId, recordedAt, intent, ...(vault.version >= 6 ? { finalization: null } : {}), ...(vault.version >= 8 ? { notes: null } : {}), ...(vault.version >= 9 ? { retestPassed: null } : {}), ...(vault.version >= 10 ? { retestPatchCommitment: null } : {}) }],
   });
 };
 const timestamp = (value: unknown): string => {
@@ -86,6 +87,11 @@ const validateDraft = (input: unknown): VulnerabilityReport => {
   return draft;
 };
 export const withRoleDraft = (vault: RoleVault, draft: VulnerabilityReport | null): RoleVault => ({ ...vault, version: vault.version >= 4 ? vault.version : 3, submissionAttempts: vault.submissionAttempts ?? [], draft });
+export const withProgramDraft = (vault: RoleVault, input: ProgramDraft): RoleVault => {
+  if (vault.role !== "vendor") throw new Error("Only vendor workspaces can hold a program draft");
+  return { ...vault, version: 11, programDraft: validateProgramDraft(input), draft: vault.draft ?? null, attachmentDraft: vault.attachmentDraft ?? null, reportNotes: vault.reportNotes ?? [],
+    submissionAttempts: (vault.submissionAttempts ?? []).map((entry) => ({ ...entry, intent: entry.intent ?? null, finalization: entry.finalization ?? null, notes: entry.notes ?? null, retestPassed: entry.retestPassed ?? null, retestPatchCommitment: entry.retestPatchCommitment ?? null })) };
+};
 export const withAttachmentDraft = (vault: RoleVault, input: AttachmentDraft): RoleVault => {
   if (vault.role !== "researcher") throw new Error("Only researcher workspaces can hold an attachment draft");
   return { ...vault, version: vault.version >= 8 ? vault.version : 7, draft: vault.draft ?? null, reportNotes: vault.reportNotes ?? [], attachmentDraft: validateAttachmentDraft(input), submissionAttempts: (vault.submissionAttempts ?? []).map((entry) => ({ ...entry, intent: entry.intent ?? null, finalization: entry.finalization ?? null })) };
@@ -125,14 +131,15 @@ export const withRetestChoice = async (vault: RoleVault, transactionId: string, 
   if (entry.retestPassed != null && entry.retestPassed !== passed) throw new Error("Saved retest choice cannot be replaced");
   const patch = patchCommitment === undefined ? undefined : hex(patchCommitment);
   if (patch !== undefined && entry.retestPatchCommitment != null && entry.retestPatchCommitment !== patch) throw new Error("Saved retest patch cannot be replaced");
-  const version = patch !== undefined || vault.version === 10 ? 10 : 9;
+  const version = vault.version === 11 ? 11 : patch !== undefined || vault.version >= 10 ? 10 : 9;
   return validateRoleVault({ ...vault, version, draft: vault.draft ?? null, attachmentDraft: vault.attachmentDraft ?? null, reportNotes: vault.reportNotes ?? [],
-    submissionAttempts: vault.submissionAttempts!.map((item) => ({ ...item, intent: item.intent ?? null, finalization: item.finalization ?? null, notes: item.notes ?? null, retestPassed: item.transactionId === transactionId ? passed : item.retestPassed ?? null, ...(version === 10 ? { retestPatchCommitment: item.transactionId === transactionId ? patch ?? item.retestPatchCommitment ?? null : item.retestPatchCommitment ?? null } : {}) })),
+    submissionAttempts: vault.submissionAttempts!.map((item) => ({ ...item, intent: item.intent ?? null, finalization: item.finalization ?? null, notes: item.notes ?? null, retestPassed: item.transactionId === transactionId ? passed : item.retestPassed ?? null, ...(version >= 10 ? { retestPatchCommitment: item.transactionId === transactionId ? patch ?? item.retestPatchCommitment ?? null : item.retestPatchCommitment ?? null } : {}) })),
   });
 };
 export const validateRoleVault = async (input: unknown): Promise<RoleVault> => {
   const version = (input as { version?: unknown } | null)?.version;
-  const retestPatch = version === 10;
+  const programDrafted = version === 11;
+  const retestPatch = version === 10 || programDrafted;
   const retestIntent = version === 9 || retestPatch;
   const historicalNotes = version === 8 || retestIntent;
   const pendingAttachment = version === 7 || historicalNotes;
@@ -141,8 +148,8 @@ export const validateRoleVault = async (input: unknown): Promise<RoleVault> => {
   const noted = version === 4 || contextual;
   const drafted = version === 3 || noted;
   const journaled = version === 2 || drafted;
-  const value = object(input, ["version", "role", "network", "contractAddress", "programId", "actorSecret", "reports", ...(journaled ? ["submissionAttempts"] : []), ...(drafted ? ["draft"] : []), ...(noted ? ["reportNotes"] : []), ...(pendingAttachment ? ["attachmentDraft"] : [])]);
-  if ((value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== 7 && value.version !== 8 && value.version !== 9 && value.version !== 10) || !["vendor", "researcher"].includes(String(value.role)) || !Array.isArray(value.reports) || value.reports.length > 100) throw new Error("Invalid role backup");
+  const value = object(input, ["version", "role", "network", "contractAddress", "programId", "actorSecret", "reports", ...(journaled ? ["submissionAttempts"] : []), ...(drafted ? ["draft"] : []), ...(noted ? ["reportNotes"] : []), ...(pendingAttachment ? ["attachmentDraft"] : []), ...(programDrafted ? ["programDraft"] : [])]);
+  if ((value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4 && value.version !== 5 && value.version !== 6 && value.version !== 7 && value.version !== 8 && value.version !== 9 && value.version !== 10 && value.version !== 11) || !["vendor", "researcher"].includes(String(value.role)) || !Array.isArray(value.reports) || value.reports.length > 100) throw new Error("Invalid role backup");
   const attempts: SubmissionAttempt[] = [];
   if (journaled) {
     if (!Array.isArray(value.submissionAttempts) || value.submissionAttempts.length > MAX_SUBMISSION_ATTEMPTS) throw new Error("Invalid submission journal");
@@ -186,7 +193,8 @@ export const validateRoleVault = async (input: unknown): Promise<RoleVault> => {
     if (entry.intent?.reportId && !ids.has(entry.intent.reportId)) throw new Error("Submission intent must name a saved report");
   }
   if (pendingAttachment && value.attachmentDraft !== null && value.role !== "researcher") throw new Error("Only researcher workspaces can hold an attachment draft");
-  return { ...result, reports, ...(noted ? { reportNotes } : {}), ...(pendingAttachment ? { attachmentDraft: value.attachmentDraft === null ? null : validateAttachmentDraft(value.attachmentDraft) } : {}) };
+  if (programDrafted && value.programDraft !== null && value.role !== "vendor") throw new Error("Only vendor workspaces can hold a program draft");
+  return { ...result, reports, ...(programDrafted ? { programDraft: value.programDraft === null ? null : validateProgramDraft(value.programDraft) } : {}), ...(noted ? { reportNotes } : {}), ...(pendingAttachment ? { attachmentDraft: value.attachmentDraft === null ? null : validateAttachmentDraft(value.attachmentDraft) } : {}) };
 };
 const passwordKey = async (password: string, salt: Uint8Array, usage: KeyUsage) => {
   if (password.length < 12 || utf8(password).length > 1024) throw new Error("Use a role backup password of at least 12 characters (at most 1024 UTF-8 bytes)");

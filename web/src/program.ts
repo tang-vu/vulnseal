@@ -12,6 +12,15 @@ export const defaultProgram = {
 };
 
 export type ProgramPolicy = typeof defaultProgram;
+export type ProgramDraft = { readonly [K in keyof ProgramPolicy]: string };
+export const defaultProgramDraft: ProgramDraft = { ...defaultProgram, responseDays: String(defaultProgram.responseDays), disclosureDays: String(defaultProgram.disclosureDays) };
+/** Preserve incomplete text exactly; deployment validation is a separate step. */
+export const validateProgramDraft = (input: unknown): ProgramDraft => {
+  if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).sort().join() !== Object.keys(defaultProgramDraft).sort().join()) throw new Error("Invalid vendor program draft");
+  const draft = input as ProgramDraft;
+  if (Object.values(draft).some((value) => typeof value !== "string" || utf8(value).length > 64 * 1024)) throw new Error("Program draft fields must be text of at most 64 KiB each");
+  return { ...draft };
+};
 
 export const readProgramForm = (form: FormData): ProgramPolicy => {
   const field = (name: string, required = true): string => {
