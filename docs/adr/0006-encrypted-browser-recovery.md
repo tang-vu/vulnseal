@@ -59,3 +59,7 @@ This is an explicit snapshot, not automatic persistence. Save a new file after n
 The current experimental session holds both roles. Its recovery file must not be used for researcher/vendor key exchange: anyone with the file and password gains both authorities. Separate-role exports and deliberate key sharing are subsequent work. The file does not back up the Lace wallet seed, rotate a compromised secret, or recover a forgotten password.
 
 Use a local filesystem/private password manager or other user-chosen secure storage. No external upload is performed by the application. Cleartext exists in browser memory during use; this design does not protect a compromised browser or device.
+
+### Recovery panel asynchronous boundaries
+
+The combined recovery panel serializes both forms with a synchronous busy guard and disables their input while processing. Unmount invalidates pending panel callbacks: a file read completing afterward cannot start restoration, and a completed export cannot initiate a late download. Import eligibility is checked before reading and again before invoking restoration. A failed download keeps the password available for retry and cleans its temporary link/blob URL. This does not cancel an already invoked parent restoration, crypto operation or wallet request; the parent retains its own session and busy checks.

@@ -1,5 +1,13 @@
 # Validation report
 
+## Guard combined recovery across asynchronous panel changes -- 2026-09-10
+
+Recovery forms now share a synchronous busy guard and disabled fieldset. Pending callbacks are invalidated on unmount, preventing late export downloads or restoration starting after a delayed file read from a closed panel. Import eligibility is rechecked after reading, before entering the parent restoration. Download cleanup runs even if the anchor click fails; retry input remains until successful download initiation.
+
+**4 component tests passed in 4.44 seconds**: delayed export after unmount, delayed file reads after unmount or loss of import eligibility, overlapping submit rejection, and failed-download cleanup/password-preserving retry. **14 desktop/mobile E2E cases passed in 59.0 seconds**, two workers and no retries, including the actual encrypted file round trip into a fresh tab and continuation of disclosure, plus existing guided workflow, leave-warning and policy cases. The new async race boundaries are specifically covered by component tests; the browser run supplies real-file regression evidence.
+
+The final normal TypeScript/web build and package gate exited **0**: **8 circuits, 80 files, 65,414,820 bytes**. Logs: `.compact/recovery-panel-guards-tests.log`, `.compact/recovery-panel-guards-browser.log` and `.compact/recovery-panel-guards-release.log`. This does not cancel a parent restoration already invoked, wallet request or crypto task. No image/public host was refreshed. [Recovery boundary details](adr/0006-encrypted-browser-recovery.md#recovery-panel-asynchronous-boundaries).
+
 ## Explicitly clear retained exchange input and preview -- 2026-09-10
 
 The persistent private-exchange panel now offers **Clear exchange inputs and preview**. It clears local password/file/recipient/confirmation/decrypted-result state and stale status/error text, and resets native file input values. It is disabled while processing. The UI explains that receiving keys and saved workspace reports remain available; no backup or filesystem deletion occurs.

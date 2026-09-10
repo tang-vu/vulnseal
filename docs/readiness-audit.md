@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Combined recovery now guards delayed file reads and exports against panel unmount, rechecks whether restoration is still allowed, and prevents overlapping forms synchronously. Failed download attempts keep retry input and clean temporary download resources. Component boundary tests and desktop/mobile backup round trips pass; already invoked parent restoration is not canceled by this panel guard.
+
 - Private exchange now has an explicit clear action for unfinished passwords, file selections, recipient confirmation and decrypted preview. Desktop/mobile checks verify actual file-input reset, no preview resurrection through navigation and successful reopening with the retained receiving key. Workspace reports and keys remain intact; this is not secure memory erasure.
 
 - Disclosure export now shows its selected report and requires renewed recipient-fingerprint confirmation after a source change. Desktop/mobile tests switch between two offline saved reports, reject export until reconfirmation and decrypt the resulting package to verify it contains the second report. Same-source navigation retains confirmation; previously requested exports are not retracted.
