@@ -35,6 +35,7 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved, onPersis
       if (!mounted.current || activeWriter.current !== writer) throw new Error("Encrypted browser autosave is unavailable; recovery copy was not saved");
       // A delayed older draft must never overwrite the new pre-wallet journal.
       window.clearTimeout(autosaveTimer.current); autosaveTimer.current = undefined; setScheduled(false);
+      setMessage("");
       setPending((value) => value + 1);
       try {
         const row = await writer.save(snapshot);
@@ -56,7 +57,7 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved, onPersis
   useEffect(() => {
     if (!writer || !vault || saved.current === vault) return;
     const captured = vault;
-    setScheduled(true);
+    setScheduled(true); setMessage("");
     const timer = window.setTimeout(() => {
       autosaveTimer.current = undefined; setScheduled(false);
       saved.current = captured; setPending((value) => value + 1); setError("");
@@ -74,7 +75,7 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved, onPersis
   const bind = (next: RoleAutosave, snapshot: RoleVault) => { activeWriter.current?.stop(); activeWriter.current = next; saved.current = snapshot; setWriter(next); };
   const run = async (event: FormEvent, action: () => Promise<void>) => {
     event.preventDefault(); if (busy.current) return;
-    busy.current = true; setWorking(true); setError("");
+    busy.current = true; setWorking(true); setError(""); setMessage("");
     try { await action(); } catch (cause) { if (mounted.current) setError(cause instanceof Error ? cause.message : "Encrypted browser storage failed"); }
     finally { busy.current = false; if (mounted.current) setWorking(false); }
   };

@@ -18,6 +18,8 @@ An active writer serializes snapshots. Routine edits are debounced for 400 ms be
 
 The UI marks a vault revision saved only after persistence completes and only when it still matches the current vault. Autosaving an older snapshot cannot unlock transactions for a newer unsaved vault. A successful browser save satisfies the role workspace's pre-transaction backup gate. Keep an independent downloaded copy as well. Wait for the saved indicator before closing; shutdown during encryption/write has no guaranteed completion.
 
+Starting another storage action, scheduling a changed vault or beginning an explicit checkpoint clears the preceding storage success message. An older revision's success must not remain beside a pending or failed save as if it described the current draft. After autosave failure, further local edits remain available for encrypted file export; the stopped writer does not persist them.
+
 When role deployment returns a finalized result, the workspace explicitly awaits a second encrypted checkpoint containing the contract address before attaching a role session or reading its public state. This bypasses the ordinary debounce. If that save fails, the address and finalized receipt stay visible in the open workspace, its saved gate remains false, and the backup form is opened for file export. The user is told deployment finalized and must not be repeated. Generic storage-checkpoint errors do not claim that no transaction was sent, since the same persistence callback serves both pre-wallet journals and post-deployment address recovery. This does not eliminate the crash window between a finalized SDK result and the completed address write, nor persist the full finalized receipt.
 
 ## Restore and limits

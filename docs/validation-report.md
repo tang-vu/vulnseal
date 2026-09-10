@@ -1,5 +1,15 @@
 # Validation report
 
+## Recover newer edits after an unconfirmed autosave -- 2026-09-10
+
+The storage panel now clears the preceding success message when another storage action, changed-vault save or explicit checkpoint starts. Previously the old revision's saved message remained visible alongside pending or failed persistence, making the current draft's status unclear. Save gates and vault contents are unchanged by this display fix.
+
+The existing two storage component tests passed in **11.45 seconds**, exit **0**. A new production-app Chrome desktop/Pixel 7 drill passed **2 cases in 44.1 seconds**, two workers and no retries. It saves an initial vendor identity, changes its draft, allows real IndexedDB bytes to commit while withholding the application completion callback, advances the clock through the deadline, and verifies that autosave stops, the old success message is absent and deployment remains disabled even after late completion.
+
+The drill then edits the still-open draft again. Direct reading/decryption confirms the browser row contains the earlier committed draft; the downloaded encrypted file equals that full vault with only the newer name changed. Restoring the file in an isolated browser context recovers the newer draft. No POST/PUT request occurs on the originating page. An earlier two-case run passed in **43.9 seconds** before strengthening the test with this newer-edit/full-vault comparison. This is injected callback timing in a real browser, not physical storage failure or native-wallet recovery.
+
+The final normal web build with TypeScript checking and release package check exited **0**, producing **8 circuits, 69 files, 64,019,245 bytes**. No image or public host was refreshed. [Autosave status and recovery semantics](adr/0011-encrypted-browser-autosave.md).
+
 ## Bound encrypted browser storage waits -- 2026-09-10
 
 IndexedDB opening and each list/read/write/delete transaction now have separate **15-second application deadlines**. A late open is closed, a late upgrade is aborted, and transaction timeout attempts abort while rejecting the caller and discarding late callbacks. Connections and timers are cleaned up on synchronous setup failures as well. Revision comparison, strict write durability, encrypted-only validation and quota guidance remain in place. Existing autosave failure handling stops further queued saves and retains the live vault. Encryption and browser suspension remain outside these timer guarantees; timeout does not establish rollback.
