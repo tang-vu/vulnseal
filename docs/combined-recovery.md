@@ -38,6 +38,10 @@ A matching SDK result triggers another encrypted save with the resulting status.
 
 After the panel reads the selected backup, decryption, wallet connection and ledger checks have a combined three-minute deadline. If it expires, the file and password remain available for an explicit retry. A response from an expired or closed application session cannot advance to another restore stage or install the session. An already-open wallet request or SDK operation may still finish independently.
 
+To read a backup without connecting a wallet, use **Inspect a backup offline**. Choose **Backup to inspect** and enter its **Inspection password**, or select an existing browser copy and use **Inspect selected browser copy**. Inspection validates the encrypted backup locally and displays saved network/address, report identifiers, unresolved markers, draft notes and report journal inputs. It does not install a session, query transaction status or establish current ledger state. A prepared copy can predate later submissions.
+
+Use **Clear inspected backup** when finished. It clears the visible data, inspection password and selected inspection file, including when a read/decryption is still pending. Navigating between application screens retains the inspection in this tab; reloading discards it. A three-minute deadline covers local reading and decryption. This is application-level clearing, not a guarantee of memory erasure. Exporting and restoring still use their separate controls.
+
 Open a fresh tab on the application. In **Private recovery**, either choose a **Recovery file** or refresh and select a saved browser copy. Enter that copy's existing **Recovery password**, then select the corresponding restore button. Restoring replaces that tab's draft; the application blocks restoration over an active network program, prepared/submitted report, deployment attempt or autosave writer.
 
 | Saved state | Restore behavior |

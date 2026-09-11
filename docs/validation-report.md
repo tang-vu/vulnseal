@@ -1,5 +1,11 @@
 # Validation report
 
+## Offline combined recovery inspection -- 2026-09-11
+
+Private recovery can now inspect a local encrypted file or selected browser copy without connecting Lace, replacing a session or querying transaction status. Existing backup validation runs before displaying saved identifiers, uncertainty markers, private draft/notes and report journal requests. Clear invalidates pending reads/decryption and drops visible data and inputs; a three-minute deadline bounds inspection. Saved observations do not establish current ledger state or safe retry.
+
+**14 component tests passed in 5.66 seconds. Eight unique desktop/mobile browser cases passed** across the initial six passing regressions and the corrected two new cases (**45.0 seconds**, two workers, no retries). The first browser run exposed an overbroad button-count assertion, corrected to check that transaction lookup is absent. Normal web build/typecheck and release validation passed: **8 circuits / 80 files / 65,550,810 bytes**. See [evidence and limits](evidence/offline-recovery-inspection.json). No full regression, native-wallet ceremony or container refresh is claimed.
+
 ## Private restoration deadline and lifetime -- 2026-09-11
 
 The old combined restore continued to subsequent wallet/SDK stages after unmount. A baseline run reproduced **4 failed / 1 passed** unmount cases (10 unrelated cases skipped), while preserving and restoring the edited App source exactly. An earlier title filter selected no tests and is not counted as a reproduction.

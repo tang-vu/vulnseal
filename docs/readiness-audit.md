@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Combined encrypted files and selected browser copies can now be inspected offline without wallet initialization or session replacement. Saved identifiers, uncertainty markers, draft notes and immutable journal inputs remain historical; lookup and retry are not enabled by inspection. See [inspection evidence](evidence/offline-recovery-inspection.json) and [the recovery guide](combined-recovery.md).
+
 - Combined private restoration now has a three-minute deadline across decryption, wallet initialization, join, ledger read and verification. Late responses after expiry/unmount cannot progress or install a session, and recovery inputs survive timeout. Desktop/mobile browser tests with real crypto also verify late decryption before and during explicit retry without an extra wallet connection or premature unlock. See [restore deadline evidence](evidence/private-recovery-deadlines.json). Already-started SDK work and native-wallet validation remain outside this guarantee.
 
 - Combined network reports now confirm an encrypted preparation copy before ciphertext upload. Save errors/deadlines prevent PUT, and a late upload response after unmount cannot start SDK work. See [pre-upload evidence](evidence/prepared-before-upload.json). Old preparation files can still predate a later submission; authenticated reconciliation and native-wallet validation remain open.

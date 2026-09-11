@@ -1,0 +1,49 @@
+{
+  "date": "2026-09-11",
+  "scope": "Read-only offline combined recovery inspection for files and selected encrypted browser copies",
+  "behavior": [
+    "Uses existing decryptRecovery password, schema and cryptographic integrity validation without importing a session or initializing providers.",
+    "Shows saved network/address, report and deployment identifiers, uncertainty/preparation markers, saved draft/notes and immutable report journal inputs. Does not render secret keys or transaction lookup controls.",
+    "Explicit clear invalidates pending continuations and drops rendered data, inspection password and selected file. Local read/decryption has a three-minute deadline.",
+    "Inspection remains available alongside an active program or autosave writer; export/restore retain their own controls."
+  ],
+  "validation": {
+    "unit": {
+      "log": ".compact/offline-inspection-tests.log",
+      "passed": 14,
+      "files": 2,
+      "seconds": 5.66,
+      "exit": 0,
+      "scope": "Real encrypted network browser copy with mocked storage, private data clearing, delayed file reads after clear/unmount/deadline, and existing RecoveryPanel regressions."
+    },
+    "browser": {
+      "initialLog": ".compact/offline-inspection-browser.log",
+      "initialPassed": 6,
+      "initialFailed": 2,
+      "initialExit": 1,
+      "correction": "The broad button count included an accessible disclosure summary. Replaced it with a direct absence check for Check transaction status.",
+      "finalLog": ".compact/offline-inspection-browser-final.log",
+      "finalPassed": 2,
+      "finalSeconds": 45.0,
+      "finalExit": 0,
+      "uniquePassed": 8,
+      "workers": 2,
+      "retries": 0,
+      "scope": "Desktop and mobile real encrypted v8 file inspection, wrong-password retry, private journal inputs, no wallet connect, no lookup button, no exposed vendor secret, no horizontal overflow and explicit clearing. Six recovery-input/deadline regressions passed in the first run."
+    },
+    "release": {
+      "log": ".compact/offline-inspection-release-final.log",
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65550810,
+      "scope": "Normal web typecheck/build and release manifest after browser tests."
+    }
+  },
+  "limits": [
+    "Saved data is historical; inspection does not authenticate current ledger state, authorize retry, or reconcile pending reports.",
+    "File browser E2E uses a synthetic connector; browser-copy storage is mocked in component tests. No native wallet, physical suspend, full regression or container refresh.",
+    "Clearing removes application references/rendered data; it does not guarantee memory erasure. Navigating between screens retains inspection in the tab.",
+    "Saved private draft is displayed as a draft; it is not presented as a current ledger-backed report."
+  ]
+}
