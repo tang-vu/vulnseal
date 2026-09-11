@@ -142,6 +142,15 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   };
   const run = (action: () => Promise<void>) => void lock(action).catch((cause) => setError(cause instanceof Error ? cause.message : "Role operation failed"));
   const form = (event: FormEvent, action: () => Promise<void>) => { event.preventDefault(); run(action); };
+  const connectRole = (load: () => Promise<RoleVault>, apply: (input: RoleVault, joined: Awaited<ReturnType<typeof joinRoleVault>>) => void) => {
+    const lifetime = workspaceLifetime.current;
+    return continuationDeadline(180_000, "Role connection timed out. Keep this workspace and retry explicitly; a late result cannot install a connection.", async assertActive => {
+      const check = () => { assertActive(); if (workspaceLifetime.current !== lifetime) throw new Error("Role connection session closed"); };
+      check(); const input = await load(); check();
+      const joined = await joinRoleVault(input, recordSubmission, check); check();
+      apply(input, joined);
+    });
+  };
   const restoreRole = (load: (check: () => void) => Promise<RoleVault>) => {
     const lifetime = workspaceLifetime.current;
     return continuationDeadline(180_000, "Role restoration timed out. Keep the backup and retry explicitly; a late result cannot open this workspace.", async assertActive => {
@@ -270,7 +279,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
           </section>
           <ProgramInvitationJoin onJoin={invitation => run(async () => {
             const created: RoleVault = { version: 1, role: "researcher", network: invitation.network, contractAddress: invitation.contractAddress, programId: invitation.programId, actorSecret: bytesToHex(randomBytes(32)), reports: [] };
-            const joined = await joinRoleVault(created, recordSubmission); setVault(created); setSession(joined.session); setSnapshot(joined.snapshot); setTab("backup");
+            await connectRole(async () => created, (input, joined) => { setVault(input); setSession(joined.session); setSnapshot(joined.snapshot); setTab("backup"); });
           })} />
           <form className="form-panel" onSubmit={(event) => form(event, async () => {
             await restoreRole(async check => {
@@ -322,8 +331,9 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
             });
           }}><h2>Deploy vendor program</h2><p>Program draft fields are included in encrypted role backups and browser autosave. Wait for the saved confirmation after editing before deploying or closing this workspace.</p><GitHubScopeImport onApply={(url) => updateProgramDraft("primaryScope", url)} />{([ ["name", "Program name"], ["primaryScope", "Primary scope"], ["additionalScope", "Additional scope"], ["rewardPolicy", "Reward policy"] ] as const).map(([name, label]) => <label key={name}>{label}{name === "rewardPolicy" ? <textarea name={name} value={programDraft[name]} onChange={(event) => updateProgramDraft(name, event.target.value)} maxLength={16384} required rows={4} /> : <input name={name} value={programDraft[name]} onChange={(event) => updateProgramDraft(name, event.target.value)} maxLength={16384} required={name !== "additionalScope"} />}</label>)}<label>Response days<select name="responseDays" value={programDraft.responseDays} onChange={(event) => updateProgramDraft("responseDays", event.target.value)}><option>2</option><option>7</option><option>14</option></select></label><label>Disclosure days<select name="disclosureDays" value={programDraft.disclosureDays} onChange={(event) => updateProgramDraft("disclosureDays", event.target.value)}><option>30</option><option>60</option><option>90</option></select></label><button className="primary-button" disabled={!backedUp || recoveryRequired}>Connect Lace and deploy program</button></form>}
           {!session && !recoveryRequired && tab === "reports" && <form className="form-panel" onSubmit={(event) => form(event, async () => {
-            const updated = await validateRoleVault({ ...vault, contractAddress: vault.contractAddress ?? address.trim().toLowerCase() });
-            const joined = await joinRoleVault(updated, recordSubmission); setVault(updated); setSession(joined.session); setSnapshot(joined.snapshot);
+            await connectRole(() => validateRoleVault({ ...vault, contractAddress: vault.contractAddress ?? address.trim().toLowerCase() }), (updated, joined) => {
+              setVault(updated); setSession(joined.session); setSnapshot(joined.snapshot);
+            });
           })}><h2>Reconnect an existing program</h2><p>For a pre-deployment backup, enter the address from your finalized deployment receipt. The vendor key must match.</p>{!vault.contractAddress && <label>Existing contract address<input value={address} required onChange={(event) => setAddress(event.target.value)} /></label>}<button className="secondary-button">Connect Lace and verify program</button></form>}
           {vault.contractAddress && tab === "reports" && <section className="form-panel"><h2>Program reports</h2>{session && <button className="secondary-button" onClick={() => run(load)}>Refresh ledger</button>}{session && vault.role === "vendor" && <button className="secondary-button" onClick={() => download(JSON.stringify({ format: "vulnseal-program-invitation", version: 1, network: vault.network, contractAddress: vault.contractAddress, programId: vault.programId }), "vulnseal-program-invitation.json")}>Download public program invitation</button>}{vault.role === "vendor" && <label>Share public program invitation<input className="public-value" readOnly value={programInvitationLink(window.location.href, { format: "vulnseal-program-invitation", version: 1, network: vault.network, contractAddress: vault.contractAddress, programId: vault.programId })} onFocus={event => event.currentTarget.select()} /></label>}
             {vault.role === "vendor" && <VendorPolicyExport draft={vault.programDraft} network={vault.network} contractAddress={vault.contractAddress} programId={vault.programId} onDownload={text => download(text, "vulnseal-public-policy.json")} />}

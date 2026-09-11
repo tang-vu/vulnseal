@@ -1,0 +1,41 @@
+{
+  "date": "2026-09-11",
+  "scope": "Bound researcher invitation joining and offline-role reconnection",
+  "behavior": [
+    "Both connection paths have a three-minute deadline covering local validation and guarded wallet/SDK/ledger/report verification.",
+    "Workspace lifetime checks guard installation; expired or closed results cannot create a researcher workspace or replace an offline session with a connection.",
+    "Expiry releases the existing operation lock for explicit retry. Existing offline vaults and reviewed invitation inputs remain available. No transaction submission is added."
+  ],
+  "validation": {
+    "unit": {
+      "log": ".compact/role-connect-deadline-tests.log",
+      "passed": 35,
+      "files": 3,
+      "seconds": 94.08,
+      "exit": 0,
+      "scope": "Four new invitation/reconnect timeout/unmount cases plus complete RoleWorkspace and role-network regressions. New cases verify the passed continuation guard rejects closed operations."
+    },
+    "browser": {
+      "log": ".compact/role-connect-deadline-browser.log",
+      "passed": 12,
+      "reportedDuration": "1.1m",
+      "workers": 2,
+      "retries": 0,
+      "exit": 0,
+      "scope": "Existing desktop/mobile roles and invitation journeys, including stalled wallet authorization, isolated invitation sharing, invalid-link recovery and role backup restoration."
+    },
+    "release": {
+      "log": ".compact/role-connect-deadline-release-final.log",
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65573546,
+      "scope": "Normal web build/typecheck and release manifest after browser tests."
+    }
+  },
+  "limits": [
+    "New three-minute connection cases mock joinRoleVault; existing browser cases do not perform a funded native-wallet connection or physical suspend test.",
+    "Already-started wallet/SDK work is not cancelled. The application prevents further continuation or installation.",
+    "No full regression, runtime-image refresh or public deployment."
+  ]
+}

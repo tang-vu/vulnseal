@@ -1,5 +1,11 @@
 # Validation report
 
+## Role invitation and reconnect deadlines -- 2026-09-11
+
+Researcher invitation joining and offline-role reconnection now share a three-minute bounded connection path across validation, wallet setup, SDK join and ledger/report checks. Installation runs only under the current workspace lifetime/deadline guard. Expiry releases the operation lock and preserves the current offline workspace or invitation review for explicit retry.
+
+**35 tests / 3 files passed in 94.08 seconds**, including four new invitation/reconnect timeout/unmount cases and complete RoleWorkspace/role-network regressions. **12 existing desktop/mobile role/invitation cases passed in 1.1 minutes**, with two workers and no retries. Normal web build/typecheck and release validation passed: **8 circuits / 80 files / 65,573,546 bytes**. [Evidence](evidence/role-connect-deadlines.json) distinguishes mocked deadline checks from browser regression and native-wallet limitations.
+
 ## Role restore deadlines and continuation guards -- 2026-09-11
 
 Role file restoration now has a three-minute deadline across reading, decryption and connected authority/report checks. Browser unlocking separately bounds local reading/decryption, then runs the bounded workspace restoration phase. SDK continuation guards stop later stages after wallet setup, join, public read or disclosure validation if restoration expires or its workspace closes. Expired local decryption cannot call restore or activate autosave; inputs remain available for explicit retry.
