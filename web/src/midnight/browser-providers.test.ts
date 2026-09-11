@@ -18,7 +18,7 @@ const wallet = () => {
 };
 
 describe("wallet network binding", () => {
-  afterEach(() => { delete window.midnight; vi.useRealTimers(); });
+  afterEach(() => { delete window.midnight; vi.restoreAllMocks(); vi.useRealTimers(); });
 
   it("returns a timely balanced transaction to the SDK and clears its deadline", async () => {
     vi.useFakeTimers();
@@ -228,4 +228,84 @@ describe("wallet network binding", () => {
     expect(connected.submitTransaction).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  for (const clock of ["wall", "monotonic"] as const) it.each(["authorization", "balancing"])(`rejects expired %s when ${clock} time advances without timer dispatch`, async stage => {
+    vi.useFakeTimers();
+    const connected = wallet();
+    const checkpoint = vi.fn().mockResolvedValue(undefined);
+    const providers = await initializeBrowserProviders("preprod", checkpoint);
+    let wall = 1_000_000, monotonic = 100;
+    vi.spyOn(Date, "now").mockImplementation(() => wall);
+    vi.spyOn(performance, "now").mockImplementation(() => monotonic);
+    let finish!: () => void;
+    connected.balanceUnsealedTransaction.mockResolvedValue({ tx: "010203" });
+    if (stage === "authorization") connected.getConnectionStatus.mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve({ status: "connected", networkId: "preprod" }); }));
+    else connected.balanceUnsealedTransaction.mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve({ tx: "010203" }); }));
+    const transaction = { identifiers: () => ["12".repeat(32)], serialize: () => Uint8Array.of(1, 2, 3) };
+    const deserialize = vi.spyOn(Transaction, "deserialize").mockReturnValue(transaction as never);
+    const result = providers.walletProvider.balanceTx(transaction as never).then(tx => providers.midnightProvider.submitTx(tx)).catch((cause: unknown) => cause);
+    for (let n = 0; n < 12; n++) await Promise.resolve();
+    expect(finish).toBeTypeOf("function");
+    const duration = stage === "authorization" ? WALLET_AUTHORIZATION_TIMEOUT_MS : WALLET_BALANCING_TIMEOUT_MS;
+    if (clock === "wall") wall += duration; else { monotonic += duration; wall -= duration; }
+    finish();
+    expect(await result).toMatchObject({ message: expect.stringContaining(stage === "authorization" ? "Wallet authorization check timed out" : "Wallet balancing timed out") });
+    expect(deserialize).not.toHaveBeenCalled(); expect(checkpoint).not.toHaveBeenCalled(); expect(connected.submitTransaction).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+
+  for (const clock of ["wall", "monotonic"] as const) it.each(["connect", "status", "configuration", "addresses"])(`rejects expired %s setup on ${clock} time before starting its next step`, async stage => {
+    vi.useFakeTimers();
+    const connected = wallet();
+    const config = await connected.getConfiguration(); connected.getConfiguration.mockClear();
+    setNetworkId("undeployed");
+    let wall = 1_000_000, monotonic = 100;
+    vi.spyOn(Date, "now").mockImplementation(() => wall);
+    vi.spyOn(performance, "now").mockImplementation(() => monotonic);
+    let finish!: () => void;
+    const pending = new Promise<any>(resolve => { finish = () => resolve(stage === "connect" ? connected : stage === "status" ? { status: "connected", networkId: "preprod" } : stage === "configuration" ? config : { shieldedCoinPublicKey: "01".repeat(32), shieldedEncryptionPublicKey: "02".repeat(32) }); });
+    if (stage === "connect") vi.mocked(window.midnight!.lace!.connect).mockReturnValueOnce(pending);
+    else if (stage === "status") connected.getConnectionStatus.mockReturnValueOnce(pending);
+    else if (stage === "configuration") connected.getConfiguration.mockReturnValueOnce(pending);
+    else connected.getShieldedAddresses.mockReturnValueOnce(pending);
+    const result = initializeBrowserProviders("preprod").catch((cause: unknown) => cause);
+    for (let n = 0; n < 32; n++) await Promise.resolve();
+    const calls = [connected.getConnectionStatus.mock.calls.length, connected.getConfiguration.mock.calls.length, connected.getShieldedAddresses.mock.calls.length];
+    if (clock === "wall") wall += WALLET_SETUP_TIMEOUT_MS; else { monotonic += WALLET_SETUP_TIMEOUT_MS; wall -= WALLET_SETUP_TIMEOUT_MS; }
+    finish();
+    expect(await result).toMatchObject({ message: expect.stringContaining("Wallet setup timed out") });
+    expect([connected.getConnectionStatus.mock.calls.length, connected.getConfiguration.mock.calls.length, connected.getShieldedAddresses.mock.calls.length]).toEqual(calls);
+    expect(getNetworkId()).toBe("undeployed"); expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each(["wall", "monotonic"])("rejects final pre-broadcast authorization after %s expiry without dispatching a timer", async clock => {
+    vi.useFakeTimers();
+    const connected = wallet(), checkpoint = vi.fn().mockResolvedValue(undefined);
+    const providers = await initializeBrowserProviders("preprod", checkpoint);
+    let wall = 1_000_000, monotonic = 100;
+    vi.spyOn(Date, "now").mockImplementation(() => wall);
+    vi.spyOn(performance, "now").mockImplementation(() => monotonic);
+    let finish!: () => void;
+    connected.getConnectionStatus.mockResolvedValueOnce({ status: "connected", networkId: "preprod" }).mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve({ status: "connected", networkId: "preprod" }); }));
+    const id = "12".repeat(32), transaction = { identifiers: () => [id], serialize: () => Uint8Array.of(1, 2, 3) };
+    const result = providers.midnightProvider.submitTx(transaction as never).catch((cause: unknown) => cause);
+    for (let n = 0; n < 32; n++) await Promise.resolve();
+    expect(finish).toBeTypeOf("function"); expect(checkpoint).toHaveBeenCalledExactlyOnceWith(id);
+    if (clock === "wall") wall += WALLET_SUBMISSION_TIMEOUT_MS; else { monotonic += WALLET_SUBMISSION_TIMEOUT_MS; wall -= WALLET_SUBMISSION_TIMEOUT_MS; }
+    finish();
+    expect(await result).toMatchObject({ transactionId: id, cause: { message: expect.stringContaining("deadline exceeded") } });
+    expect(connected.submitTransaction).not.toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);
+  });
+
+
+  it("bounds wallet discovery when wall time does not advance", async () => {
+    vi.useFakeTimers(); delete window.midnight;
+    vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+    const result = initializeBrowserProviders("preprod").catch((cause: unknown) => cause);
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(await result).toMatchObject({ message: expect.stringContaining("Compatible Midnight Lace wallet not found") });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
 });

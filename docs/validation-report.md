@@ -1,5 +1,13 @@
 # Validation report
 
+## Reject wallet continuations after elapsed deadlines -- 2026-09-11
+
+A reproduction produced **18 passed / 4 failed**: delayed authorization or balancing could continue through submission and return an identifier after its deadline when timer callbacks had not run. Wallet setup, authorization, balancing and connector response now share wall/monotonic continuation checks. Setup checks each awaited stage. The final authorization after checkpoint explicitly checks the submission guard before broadcast. Late connector success/rejection retains the identifier as unknown, while timely errors preserve their original identity. Discovery uses a monotonic 1.5-second window and checks the parent guard.
+
+**66 tests / 4 files** passed in **57.07 seconds**. They independently expire each clock without dispatching timers, move wall time backward during monotonic expiry, verify all setup stages and final pre-broadcast authorization, cover late connector resolve/reject, and retain deployment/report regressions. **6 Chrome desktop/mobile E2E checks** passed in **54.7 seconds**, including simulated wall-clock jumps during connection/configuration and the existing initial IndexedDB quota guard. The subsequent discovery refinement has dedicated unit coverage. Final normal build/typecheck and release validation passed: **8 circuits / 80 files / 65,483,631 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/wallet-clock-deadlines.json) retains the failing reproduction and successful checks. These are application continuation guards, not physical suspend/resume or native-wallet validation. Already invoked broadcasts can continue, and a forward clock adjustment may expire a wait conservatively. No new full regression or runtime image refresh is claimed.
+
 ## Consolidate deployment recovery regression and runtime -- 2026-09-11
 
 At application revision `05f20ef`, the complete web suite passed **407 tests / 60 files in 208.92 seconds**. All **144 ordinary Chrome desktop/mobile E2E cases** passed in **6.5 minutes**, with two workers and no retries. Each complete suite passed in its own single invocation. Normal build/typecheck and release validation passed after restoring the usual build configuration: **8 circuits / 80 files / 65,483,628 bytes**. See [regression evidence](evidence/deployment-full-regression.json).

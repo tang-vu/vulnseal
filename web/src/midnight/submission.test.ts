@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { FinalizedTransaction } from "@midnight-ntwrk/midnight-js-protocol/ledger";
 import { SubmissionOutcomeUnknown, submitIdentifiedTransaction, WALLET_SUBMISSION_TIMEOUT_MS } from "./submission.js";
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 const id = "12".repeat(32);
 const transaction = (identifiers: string[] = [id]) => ({ identifiers: vi.fn(() => identifiers), serialize: vi.fn(() => Uint8Array.of(1, 2, 3)) });
@@ -38,7 +38,7 @@ it("captures identity before broadcasting and preserves it when the connector re
 it("returns the original identifier after one successful connector submission", async () => {
   const tx = transaction(), submit = vi.fn().mockResolvedValue(undefined);
   expect(await submitIdentifiedTransaction(tx as unknown as FinalizedTransaction, submit)).toBe(id);
-  expect(submit).toHaveBeenCalledExactlyOnceWith("010203", expect.any(AbortSignal));
+  expect(submit).toHaveBeenCalledExactlyOnceWith("010203", expect.any(AbortSignal), expect.any(Function));
 });
 
 it.each(["resolve", "reject"])("ends a stalled connector wait as unknown without retrying when it later %ss", async (completion) => {
@@ -82,4 +82,20 @@ it("awaits a durable checkpoint and never broadcasts if checkpoint persistence f
   const pending = submitIdentifiedTransaction(tx as unknown as FinalizedTransaction, submit, saving);
   expect(saving).toHaveBeenCalledOnce(); expect(submit).not.toHaveBeenCalled();
   release(); await pending; expect(submit).toHaveBeenCalledOnce();
+});
+
+
+for (const clock of ["wall", "monotonic"] as const) it.each(["resolve", "reject"])(`keeps a late connector %s unknown after ${clock} expiry without dispatching timers`, async outcome => {
+  vi.useFakeTimers();
+  let wall = 1_000_000, monotonic = 100;
+  vi.spyOn(Date, "now").mockImplementation(() => wall);
+  vi.spyOn(performance, "now").mockImplementation(() => monotonic);
+  let finish!: () => void;
+  const submit = vi.fn((_serialized: string, _signal: AbortSignal) => new Promise<void>((resolve, reject) => { finish = outcome === "resolve" ? resolve : () => reject(new Error("Late connector error")); }));
+  const result = submitIdentifiedTransaction(transaction() as never, submit).catch((cause: unknown) => cause);
+  for (let n = 0; n < 8; n++) await Promise.resolve();
+  if (clock === "wall") wall += WALLET_SUBMISSION_TIMEOUT_MS; else { monotonic += WALLET_SUBMISSION_TIMEOUT_MS; wall -= WALLET_SUBMISSION_TIMEOUT_MS; }
+  finish();
+  expect(await result).toMatchObject({ transactionId: id, cause: { message: expect.stringContaining("deadline exceeded") } });
+  expect(submit).toHaveBeenCalledOnce(); expect(submit.mock.calls[0]![1].aborted).toBe(true); expect(vi.getTimerCount()).toBe(0);
 });

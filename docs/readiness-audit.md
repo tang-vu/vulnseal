@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Wallet setup, authorization, balancing and connector response now reject elapsed deadlines even when timer callbacks remain undispatched. The final authorization rechecks the guard before broadcast; wallet discovery uses a monotonic search window. Reproductions and desktop/mobile simulated-clock checks are recorded in [wallet deadline evidence](evidence/wallet-clock-deadlines.json). Native-wallet and physical suspend validation remain open.
+
 - Matching SDK deployment success now updates its encrypted browser copy with the confirmed address and retained identifier. A failed recovery update preserves the deployed session and asks for a file backup. Restoring the updated copy passes existing wallet/ledger binding checks without deploying again; see [evidence](evidence/deployment-final-copy.json).
 
 - Combined deployment now requires an encrypted browser copy before SDK work and a revision-checked identifier checkpoint before broadcast. Recovery v7 retains that identifier; storage failure, unmount or expiry cannot release a late checkpoint. SDK results must match the saved identifier. Unconfirmed v6/v7 copies reopen without a wallet and keep creation blocked. Subsequent report-transition journaling and authenticated reconciliation remain open; see [checkpoint evidence](evidence/combined-deployment-checkpoint.json).

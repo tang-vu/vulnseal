@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { FinalizedTransaction, TransactionId } from "@midnight-ntwrk/midnight-js-protocol/ledger";
+import { walletDeadline } from "./wallet-deadline.js";
 import { toHex } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
 
 export const WALLET_SUBMISSION_TIMEOUT_MS = 120_000;
@@ -14,10 +15,10 @@ export class SubmissionOutcomeUnknown extends Error {
   }
 }
 
-/** Resolve all local prerequisites before calling the connector's broadcast method. */
+/** Resolve local prerequisites first. Submit callbacks must recheck assertActive after awaited preparation and before broadcast. */
 export const submitIdentifiedTransaction = async (
   transaction: FinalizedTransaction,
-  submit: (serialized: string, signal: AbortSignal) => Promise<unknown>,
+  submit: (serialized: string, signal: AbortSignal, assertActive: () => void) => Promise<unknown>,
   beforeSubmit?: (transactionId: TransactionId) => Promise<void>,
 ): Promise<TransactionId> => {
   const identifier = transaction.identifiers()[0];
@@ -26,17 +27,10 @@ export const submitIdentifiedTransaction = async (
   await beforeSubmit?.(identifier);
   // The deadline starts only after durable local prerequisites have completed.
   // Aborting stops our wait; an already invoked wallet broadcast cannot be undone.
-  const controller = new AbortController();
-  let timer!: ReturnType<typeof setTimeout>;
-  const timeout = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => {
-      const cause = new Error("Wallet submission response deadline exceeded; the wallet may still complete the transaction");
-      controller.abort(cause);
-      reject(cause);
-    }, WALLET_SUBMISSION_TIMEOUT_MS);
-  });
-  try { await Promise.race([submit(serialized, controller.signal), timeout]); }
-  catch (cause) { throw new SubmissionOutcomeUnknown(identifier, cause); }
-  finally { clearTimeout(timer); }
+  try {
+    await walletDeadline(WALLET_SUBMISSION_TIMEOUT_MS,
+      "Wallet submission response deadline exceeded; the wallet may still complete the transaction",
+      async (assertActive, signal) => submit(serialized, signal, assertActive));
+  } catch (cause) { throw new SubmissionOutcomeUnknown(identifier, cause); }
   return identifier;
 };

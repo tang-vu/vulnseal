@@ -22,6 +22,7 @@ import type {
 } from "@vulnseal/api/types";
 import type { VulnSealPrivateState } from "@vulnseal/contract";
 import { inMemoryPrivateStateProvider } from "./in-memory-private-state-provider.js";
+import { walletDeadline } from "./wallet-deadline.js";
 import { submitIdentifiedTransaction } from "./submission.js";
 import { fetchZkArtifact } from "./fetch-zk-artifact.js";
 import { boundedProofProvider } from "./bounded-proof-provider.js";
@@ -41,9 +42,10 @@ const compatibleWallet = (): InitialAPI | undefined =>
     return version !== null && version[1] === String(connectorMajor);
   });
 
-const waitForWallet = async (timeoutMs = 1_500): Promise<InitialAPI> => {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
+const waitForWallet = async (assertActive: () => void, timeoutMs = 1_500): Promise<InitialAPI> => {
+  const start = performance.now();
+  while (performance.now() - start < timeoutMs) {
+    assertActive();
     const wallet = compatibleWallet();
     if (wallet) return wallet;
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -61,48 +63,32 @@ export const WALLET_SETUP_TIMEOUT_MS = 120_000;
 export const WALLET_AUTHORIZATION_TIMEOUT_MS = 120_000;
 export const WALLET_BALANCING_TIMEOUT_MS = 300_000;
 
-const balanceWithDeadline = async (connected: ConnectedAPI, serialized: string) => {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => reject(new Error("Wallet balancing timed out. Lace may still show or complete its request; review it before starting another attempt. VulnSeal will not submit a late result.")), WALLET_BALANCING_TIMEOUT_MS);
-  });
-  // Only the race's winner is returned to the SDK submission pipeline. The
-  // connector has no cancellation parameter; a late result must stay unused.
-  try { return await Promise.race([connected.balanceUnsealedTransaction(serialized), timeout]); }
-  finally { clearTimeout(timer); }
-};
+const balanceWithDeadline = (connected: ConnectedAPI, serialized: string) => walletDeadline(
+  WALLET_BALANCING_TIMEOUT_MS,
+  "Wallet balancing timed out. Lace may still show or complete its request; review it before starting another attempt. VulnSeal will not submit a late result.",
+  async () => connected.balanceUnsealedTransaction(serialized),
+);
 
-const assertConnectionBeforeTransaction = async (connected: ConnectedAPI, networkId: string): Promise<void> => {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => reject(new Error("Wallet authorization check timed out. This check did not submit a transaction.")), WALLET_AUTHORIZATION_TIMEOUT_MS);
-  });
-  try { await Promise.race([assertConnection(connected, networkId), timeout]); }
-  finally { clearTimeout(timer); }
-};
+const assertConnectionBeforeTransaction = (connected: ConnectedAPI, networkId: string) => walletDeadline(
+  WALLET_AUTHORIZATION_TIMEOUT_MS,
+  "Wallet authorization check timed out. This check did not submit a transaction.",
+  async () => assertConnection(connected, networkId),
+);
 
-const prepareConnection = async (networkId: string) => {
-  const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => {
-      const error = new Error("Wallet setup timed out. Lace may still show a connection request; review it before reconnecting. No transaction was submitted by this setup.");
-      controller.abort(error); reject(error);
-    }, WALLET_SETUP_TIMEOUT_MS);
-  });
-  const prepare = async () => {
-    const wallet = await waitForWallet(); controller.signal.throwIfAborted();
-    const connected = await wallet.connect(networkId); controller.signal.throwIfAborted();
-    await assertConnection(connected, networkId); controller.signal.throwIfAborted();
-    const config = await connected.getConfiguration(); controller.signal.throwIfAborted();
+const prepareConnection = (networkId: string) => walletDeadline(
+  WALLET_SETUP_TIMEOUT_MS,
+  "Wallet setup timed out. Lace may still show a connection request; review it before reconnecting. No transaction was submitted by this setup.",
+  async assertActive => {
+    const wallet = await waitForWallet(assertActive); assertActive();
+    const connected = await wallet.connect(networkId); assertActive();
+    await assertConnection(connected, networkId); assertActive();
+    const config = await connected.getConfiguration(); assertActive();
     if (!config.proverServerUri) throw new Error("Wallet has no proof-server configuration");
     if (config.networkId !== networkId) throw new Error("Wallet configuration does not match the requested Midnight network");
-    const addresses = await connected.getShieldedAddresses(); controller.signal.throwIfAborted();
+    const addresses = await connected.getShieldedAddresses(); assertActive();
     return { connected, config: { ...config, proverServerUri: config.proverServerUri }, addresses };
-  };
-  try { return await Promise.race([prepare(), timeout]); }
-  finally { clearTimeout(timer); }
-};
+  },
+);
 
 export const initializeBrowserProviders = async (
   networkId: string,
@@ -149,9 +135,9 @@ export const initializeBrowserProviders = async (
     midnightProvider: {
       submitTx: async (transaction: FinalizedTransaction): Promise<TransactionId> => {
         await assertConnectionBeforeTransaction(connected, networkId);
-        return submitIdentifiedTransaction(transaction, async (serialized, signal) => {
+        return submitIdentifiedTransaction(transaction, async (serialized, _signal, assertActive) => {
           await assertConnection(connected, networkId);
-          signal.throwIfAborted();
+          assertActive();
           return connected.submitTransaction(serialized);
         }, beforeSubmit);
       },

@@ -1,0 +1,55 @@
+{
+  "recordedAt": "2026-09-11T05:01:32.450533+00:00",
+  "baseRevision": "643fcba45ee85f320c5ac9c7b81f87664cd5f47b",
+  "reproduction": {
+    "passed": 18,
+    "failed": 4,
+    "exitCode": 1,
+    "trigger": "Authorization/balancing resumes at elapsed wall or monotonic deadline while timer callbacks remain undispatched; original pipeline returns the submitted identifier."
+  },
+  "validation": {
+    "targetedTests": {
+      "tests": 66,
+      "files": 4,
+      "seconds": 57.07,
+      "exitCode": 0
+    },
+    "desktopMobileE2E": {
+      "tests": 6,
+      "seconds": 54.7,
+      "exitCode": 0
+    },
+    "normalWebBuildAndRelease": {
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65483631,
+      "exitCode": 0
+    }
+  },
+  "rawLogSha256": {
+    "wallet-clock-reproduction": "a4a5c2beceed66e2da3282e6ddd3603130922a1600e3b151ad630d5fb0d7df9b",
+    "wallet-clock-tests": "fc37defc80b776e2ec865bd24ec0a126c8d3352c02ed8475da4d447ad12946df",
+    "wallet-clock-tests-final": "8b28f558c0b7bcb9a73c07742c72fa39324c40aae7d46d09b5c6c0bf07ec397c",
+    "wallet-clock-tests-verified": "53fb25e6a3c304537cdc0be580cbd5a22c46f9b4d72409730d8940f4522531c9",
+    "wallet-clock-browser": "91cbb4d363f3ec6aa3ea2c38fe135f50eb8459051f6c93a96a7e5ff93703b4a6",
+    "wallet-clock-release": "b81cbe663a818edf9dbd3a83bbca87a0e55ffdee8916d5e381c776978c7b8f5b",
+    "wallet-clock-release-final": "b1dbb7556c102c996c8a3053d5f0d270dc7a05010f317fb8f136bed33e5c0d15"
+  },
+  "coverage": [
+    "Independent wall and monotonic expiry without timer dispatch; backwards wall time does not extend an elapsed monotonic wait",
+    "Setup connect/status/configuration/addresses cannot start a later step after expiry",
+    "Late authorization/balancing cannot deserialize, checkpoint or submit a balanced transaction",
+    "Final authorization after durable checkpoint must recheck deadline before broadcast",
+    "Late connector resolve and reject retain unknown outcome and original identifier; no retry",
+    "Monotonic 1.5-second wallet discovery when wall time does not advance",
+    "Actual Chrome desktop/mobile simulated wall-clock jump during setup and existing IndexedDB quota flow with non-signing/non-broadcasting wallet stubs",
+    "Existing timely errors/results, timer cleanup and combined deployment/report regression"
+  ],
+  "limits": [
+    "No physical suspend/resume, native-wallet signing/broadcast or hard real-time guarantee.",
+    "An already invoked wallet broadcast may continue; its result can remain unknown.",
+    "Forward wall-clock adjustment can expire a phase conservatively.",
+    "Discovery timing refinement is unit-tested; browser cases exercise setup continuation rejection and quota handling.",
+    "No full regression or runtime image refresh after this change."
+  ]
+}
