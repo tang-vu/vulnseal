@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Proof generation now uses the same wall/monotonic continuation guard as wallet operations. A delayed resolved proof cannot reach balancing/submission merely because its timer has not dispatched; late errors are also classified as timeout. See [proof deadline evidence](evidence/proof-clock-deadlines.json). SDK proof work itself is not cancelled.
+
 - Wallet setup, authorization, balancing and connector response now reject elapsed deadlines even when timer callbacks remain undispatched. The final authorization rechecks the guard before broadcast; wallet discovery uses a monotonic search window. Reproductions and desktop/mobile simulated-clock checks are recorded in [wallet deadline evidence](evidence/wallet-clock-deadlines.json). Native-wallet and physical suspend validation remain open.
 
 - Matching SDK deployment success now updates its encrypted browser copy with the confirmed address and retained identifier. A failed recovery update preserves the deployed session and asks for a file backup. Restoring the updated copy passes existing wallet/ledger binding checks without deploying again; see [evidence](evidence/deployment-final-copy.json).

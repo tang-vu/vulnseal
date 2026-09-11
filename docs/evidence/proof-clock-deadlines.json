@@ -1,0 +1,40 @@
+{
+  "recordedAt": "2026-09-11T05:05:05.776459+00:00",
+  "baseRevision": "9755ea687ebcb1c7b96ebb0986cc154ec5cde4c7",
+  "reproduction": {
+    "passed": 5,
+    "failed": 4,
+    "exitCode": 1,
+    "trigger": "Proof resolve/reject after wall or monotonic deadline without dispatching timer; prior wrapper forwards a resolved proof and preserves a late rejection instead of expiring it."
+  },
+  "validation": {
+    "targetedTests": {
+      "tests": 62,
+      "files": 4,
+      "seconds": 19.85,
+      "exitCode": 0
+    },
+    "normalWebBuildAndRelease": {
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65483106,
+      "exitCode": 0
+    }
+  },
+  "rawLogSha256": {
+    "proof-clock-reproduction": "b06f6ec3e6e1f5e054a2881f86ba50b3c2815868f8c440bc88c79e9483b35533",
+    "proof-clock-tests": "769f8982cd28e212b2ced2c2df05477bfc9d063cfa90e3c62bc589ed5564d13d",
+    "proof-clock-release": "ce5d49df8d89e634ddc3eedf2d47aeade93987eb2d62ebb68bb109d5a82f1e1f"
+  },
+  "coverage": [
+    "Independent wall/monotonic proof expiry without timers; backwards wall movement cannot extend elapsed monotonic wait",
+    "Late proof resolve/reject never invokes downstream balance/submit; no automatic retry",
+    "Transaction/configuration pass-through, timely synchronous/asynchronous error identity and timer cleanup",
+    "Wallet phase and combined deployment checkpoint regressions after shared helper rename"
+  ],
+  "limits": [
+    "No live proof-server cancellation, physical suspend/resume or native-wallet action.",
+    "Application continuation checks do not guarantee a hard real-time UI deadline.",
+    "No new E2E, full regression or runtime image refresh."
+  ]
+}

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { FinalizedTransaction, TransactionId } from "@midnight-ntwrk/midnight-js-protocol/ledger";
-import { walletDeadline } from "./wallet-deadline.js";
+import { continuationDeadline } from "./continuation-deadline.js";
 import { toHex } from "@midnight-ntwrk/midnight-js-protocol/compact-runtime";
 
 export const WALLET_SUBMISSION_TIMEOUT_MS = 120_000;
@@ -28,7 +28,7 @@ export const submitIdentifiedTransaction = async (
   // The deadline starts only after durable local prerequisites have completed.
   // Aborting stops our wait; an already invoked wallet broadcast cannot be undone.
   try {
-    await walletDeadline(WALLET_SUBMISSION_TIMEOUT_MS,
+    await continuationDeadline(WALLET_SUBMISSION_TIMEOUT_MS,
       "Wallet submission response deadline exceeded; the wallet may still complete the transaction",
       async (assertActive, signal) => submit(serialized, signal, assertActive));
   } catch (cause) { throw new SubmissionOutcomeUnknown(identifier, cause); }

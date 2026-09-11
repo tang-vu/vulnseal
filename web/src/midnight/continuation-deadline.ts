@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Check elapsed time at continuation boundaries even when timer dispatch is delayed. */
-export async function walletDeadline<T>(duration: number, message: string, action: (assertActive: () => void, signal: AbortSignal) => Promise<T>): Promise<T> {
+export async function continuationDeadline<T>(duration: number, message: string, action: (assertActive: () => void, signal: AbortSignal) => Promise<T>): Promise<T> {
   const error = new Error(message), controller = new AbortController();
   const wallDeadline = Date.now() + duration, monotonicDeadline = performance.now() + duration;
   let closed = false;

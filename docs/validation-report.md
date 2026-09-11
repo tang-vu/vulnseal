@@ -1,5 +1,13 @@
 # Validation report
 
+## Reject proofs after elapsed deadlines -- 2026-09-11
+
+A proof-provider reproduction had **5 passed / 4 failed**: when timer callbacks remained undispatched, the old wrapper forwarded an expired resolved proof to downstream balancing/submission, and returned a late provider rejection without timeout classification. Proof generation now uses the shared continuation guard, renamed from the wallet-specific helper. It rechecks wall and monotonic deadlines on completion/error while retaining transaction/configuration forwarding and the ten-minute limit.
+
+**62 tests / 4 files** passed in **19.85 seconds**, covering independent clock expiry without timer dispatch, backwards wall time, late proof resolve/reject, timely errors/results, cleanup, wallet phases and deployment checkpoints. Normal build/typecheck and release validation passed: **8 circuits / 80 files / 65,483,106 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/proof-clock-deadlines.json) preserves the failing reproduction. The SDK exposes no operation-wide proof cancellation; server work can continue. No new E2E, native wallet, physical suspension, full regression or runtime refresh is claimed.
+
 ## Reject wallet continuations after elapsed deadlines -- 2026-09-11
 
 A reproduction produced **18 passed / 4 failed**: delayed authorization or balancing could continue through submission and return an identifier after its deadline when timer callbacks had not run. Wallet setup, authorization, balancing and connector response now share wall/monotonic continuation checks. Setup checks each awaited stage. The final authorization after checkpoint explicitly checks the submission guard before broadcast. Late connector success/rejection retains the identifier as unknown, while timely errors preserve their original identity. Discovery uses a monotonic 1.5-second window and checks the parent guard.

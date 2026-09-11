@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { ProofProvider } from "@midnight-ntwrk/midnight-js-types";
 import { boundedProofProvider, PROOF_GENERATION_TIMEOUT_MS } from "./bounded-proof-provider.js";
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 it("passes transaction/config through, returns the proof and clears the deadline", async () => {
   vi.useFakeTimers();
@@ -50,4 +50,20 @@ it.each([false, true])("preserves a provider error and clears the timer (synchro
   const proveTx = vi.fn(() => { if (synchronous) throw error; return Promise.reject(error); });
   await expect(boundedProofProvider({ proveTx }).proveTx({} as never)).rejects.toBe(error);
   expect(vi.getTimerCount()).toBe(0);
+});
+
+
+for (const clock of ["wall", "monotonic"] as const) it.each(["resolve", "reject"])(`rejects late proof %s on ${clock} expiry without timer dispatch`, async outcome => {
+  vi.useFakeTimers();
+  let wall = 1_000_000, monotonic = 100;
+  vi.spyOn(Date, "now").mockImplementation(() => wall);
+  vi.spyOn(performance, "now").mockImplementation(() => monotonic);
+  let finish!: () => void;
+  const proveTx = vi.fn(() => new Promise<any>((resolve, reject) => { finish = outcome === "resolve" ? () => resolve({}) : () => reject(new Error("Late proof rejection")); }));
+  const balance = vi.fn().mockResolvedValue({}), submit = vi.fn().mockResolvedValue("transaction-id");
+  const result = boundedProofProvider({ proveTx }).proveTx({} as never).then(balance).then(submit).catch((cause: unknown) => cause);
+  if (clock === "wall") wall += PROOF_GENERATION_TIMEOUT_MS; else { monotonic += PROOF_GENERATION_TIMEOUT_MS; wall -= PROOF_GENERATION_TIMEOUT_MS; }
+  finish();
+  expect(await result).toMatchObject({ message: expect.stringContaining("Proof generation timed out") });
+  expect(balance).not.toHaveBeenCalled(); expect(submit).not.toHaveBeenCalled(); expect(proveTx).toHaveBeenCalledOnce(); expect(vi.getTimerCount()).toBe(0);
 });

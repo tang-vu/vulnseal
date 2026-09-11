@@ -22,7 +22,7 @@ import type {
 } from "@vulnseal/api/types";
 import type { VulnSealPrivateState } from "@vulnseal/contract";
 import { inMemoryPrivateStateProvider } from "./in-memory-private-state-provider.js";
-import { walletDeadline } from "./wallet-deadline.js";
+import { continuationDeadline } from "./continuation-deadline.js";
 import { submitIdentifiedTransaction } from "./submission.js";
 import { fetchZkArtifact } from "./fetch-zk-artifact.js";
 import { boundedProofProvider } from "./bounded-proof-provider.js";
@@ -63,19 +63,19 @@ export const WALLET_SETUP_TIMEOUT_MS = 120_000;
 export const WALLET_AUTHORIZATION_TIMEOUT_MS = 120_000;
 export const WALLET_BALANCING_TIMEOUT_MS = 300_000;
 
-const balanceWithDeadline = (connected: ConnectedAPI, serialized: string) => walletDeadline(
+const balanceWithDeadline = (connected: ConnectedAPI, serialized: string) => continuationDeadline(
   WALLET_BALANCING_TIMEOUT_MS,
   "Wallet balancing timed out. Lace may still show or complete its request; review it before starting another attempt. VulnSeal will not submit a late result.",
   async () => connected.balanceUnsealedTransaction(serialized),
 );
 
-const assertConnectionBeforeTransaction = (connected: ConnectedAPI, networkId: string) => walletDeadline(
+const assertConnectionBeforeTransaction = (connected: ConnectedAPI, networkId: string) => continuationDeadline(
   WALLET_AUTHORIZATION_TIMEOUT_MS,
   "Wallet authorization check timed out. This check did not submit a transaction.",
   async () => assertConnection(connected, networkId),
 );
 
-const prepareConnection = (networkId: string) => walletDeadline(
+const prepareConnection = (networkId: string) => continuationDeadline(
   WALLET_SETUP_TIMEOUT_MS,
   "Wallet setup timed out. Lace may still show a connection request; review it before reconnecting. No transaction was submitted by this setup.",
   async assertActive => {
