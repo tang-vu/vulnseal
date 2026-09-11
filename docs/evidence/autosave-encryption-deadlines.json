@@ -1,0 +1,41 @@
+{
+  "date": "2026-09-11",
+  "scope": "Bound encryption in active combined and single-role autosave writers",
+  "behavior": [
+    "Each queued save starts a shared three-minute wall/monotonic deadline when its encryption begins.",
+    "Encryption expiry rejects the save, triggers existing writer stop/password clearing and rejects remaining queued saves before encrypting or writing them.",
+    "Late crypto results cannot enter storage; prior persisted revision and the live application snapshot remain available."
+  ],
+  "validation": {
+    "unit": {
+      "log": ".compact/autosave-encryption-tests.log",
+      "passed": 15,
+      "files": 4,
+      "seconds": 10.8,
+      "exit": 0,
+      "scope": "Six new combined/role cases cover timer expiry, undispatched wall expiry and monotonic expiry with backwards wall time; ensure no write, no second encryption and stopped future saves. Existing real-crypto ordering and autosave-panel cases also pass."
+    },
+    "browser": {
+      "log": ".compact/autosave-encryption-browser.log",
+      "passed": 6,
+      "reportedDuration": "1.1m",
+      "workers": 2,
+      "retries": 0,
+      "exit": 0,
+      "scope": "Existing desktop/mobile autosave navigation, revision conflict, program change and role storage-timeout recovery regression."
+    },
+    "release": {
+      "log": ".compact/autosave-encryption-release-final.log",
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65567386,
+      "scope": "Normal web build/typecheck and release gate restored after browser tests."
+    }
+  },
+  "limits": [
+    "New encryption-deadline tests defer mocked encryptors; browser cases are existing storage/recovery regressions, not new physical suspend or stalled-crypto browser proofs.",
+    "Initial autosave activation and already-started storage writes are outside this encryption deadline. WebCrypto itself is not cancelled.",
+    "No full regression, container refresh, native wallet ceremony or public deployment."
+  ]
+}

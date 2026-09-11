@@ -1,5 +1,11 @@
 # Validation report
 
+## Active autosave encryption deadlines -- 2026-09-11
+
+Combined and single-role autosave writers now bound encryption to three minutes once each queued save starts. Expiry follows the existing failure path: stop the writer, clear its password reference, reject queued saves and prevent a late ciphertext result from reaching storage. The live application and prior persisted copy are retained. Initial activation and already-started storage acknowledgements remain separate operations.
+
+**15 tests / 4 files passed in 10.80 seconds**, including six new timer/wall/monotonic cases across both writers and real-crypto ordering regression. **Six existing desktop/mobile browser cases passed in 1.1 minutes**, with two workers and no retries. Normal web build/typecheck and release validation passed: **8 circuits / 80 files / 65,567,386 bytes**. See [evidence and limits](evidence/autosave-encryption-deadlines.json). The new deadline boundary tests defer mocked encryption; the browser cases verify existing storage/recovery behavior.
+
 ## Manual backup encryption deadlines -- 2026-09-11
 
 Manual download/browser-copy encryption now releases both the panel and application busy state after three minutes, preserving passwords for explicit retry. Late encryption cannot start download/storage or clear a newer operation. The first panel-only implementation passed component cases but failed all four real-browser deadline cases because App still held its outer fieldset disabled. Bounding the application wait resolved that integration failure.

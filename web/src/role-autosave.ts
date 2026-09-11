@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { continuationDeadline } from "./midnight/continuation-deadline.js";
 import { encryptRoleVault, type RoleVault } from "./role-recovery.js";
 import { writeStoredRole, type StoredRole } from "./role-storage.js";
 
@@ -15,7 +16,9 @@ export class RoleAutosave {
     const snapshot = structuredClone(vault);
     const work = this.#tail.then(async () => {
       if (this.#stopped) throw new Error("Browser autosave is stopped");
-      const encrypted = await encryptRoleVault(snapshot, this.#password);
+      const encrypted = await continuationDeadline(180_000, "Browser autosave encryption timed out. This writer has stopped; keep the live session and save a separate encrypted backup.", async check => {
+        check(); const result = await encryptRoleVault(snapshot, this.#password); check(); return result;
+      });
       if (this.#stopped) throw new Error("Browser autosave is stopped");
       this.#row = await this.#write(this.#row.id, this.#row.label, encrypted, this.#row.revision);
       return this.#row;
