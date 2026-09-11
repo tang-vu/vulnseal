@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { continuationDeadline } from "./midnight/continuation-deadline.js";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { decryptRoleVault, encryptRoleVault, type RoleVault } from "./role-recovery.js";
 import { listStoredRoles, readStoredRole, writeStoredRole, type StoredRoleLabel } from "./role-storage.js";
@@ -90,7 +91,9 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved, onPersis
       {writer ? <><p>Autosave is active for role identity, deployment address, prepared/received reports, the current report or vendor program draft and working notes for each report. Receiving keys are not included.</p><button className="secondary-button" onClick={() => { writer.stop(); activeWriter.current = undefined; setWriter(undefined); setMessage("Autosave stopped. The encrypted browser copy remains stored."); }}>Stop browser autosave</button></> : vault ?
         <form onSubmit={(event) => void run(event, async () => {
           if (password !== confirmation) throw new Error("Browser-copy passwords do not match");
-          const captured = vault; const encrypted = await encryptRoleVault(captured, password);
+          const captured = vault; const encrypted = await continuationDeadline(180_000, "Autosave setup encryption timed out. Your inputs are retained; retry explicitly when ready. No browser copy was written by this attempt.", async check => {
+        check(); const result = await encryptRoleVault(captured, password); check(); return result;
+      });
           if (!mounted.current) return;
           const row = await writeStoredRole(crypto.randomUUID(), label, encrypted, null);
           if (!mounted.current) return;

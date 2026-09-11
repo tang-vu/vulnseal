@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: Apache-2.0
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
+import { RecoveryAutosavePanel } from "./RecoveryAutosavePanel.js";
+import { LocalRoleStorage } from "./LocalRoleStorage.js";
+import * as recovery from "./recovery.js";
+import * as role from "./role-recovery.js";
+import * as combinedStorage from "./recovery-storage.js";
+import * as roleStorage from "./role-storage.js";
+import { recoveryFixture } from "./test/recovery-fixture.js";
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); });
+
+it.each(["combined", "role"])("%s activation preserves retry inputs and cannot activate from expired encryption", async kind => {
+  const { snapshot } = await recoveryFixture();
+  const vault: role.RoleVault = { version: 1, role: "vendor", network: "preprod", programId: "12".repeat(32), actorSecret: "34".repeat(32), contractAddress: null, reports: [] };
+  let finishOld!: (value: string) => void, finishNew!: (value: string) => void;
+  const encrypt = kind === "combined" ? vi.spyOn(recovery, "encryptRecovery") : vi.spyOn(role, "encryptRoleVault");
+  encrypt.mockImplementationOnce(() => new Promise<string>(resolve => { finishOld = resolve; })).mockImplementationOnce(() => new Promise<string>(resolve => { finishNew = resolve; }));
+  const saved = { id: "new-copy", label: "Synthetic copy", revision: 1, updatedAt: "2026-09-11T00:00:00.000Z", encrypted: "new ciphertext" };
+  const write = kind === "combined" ? vi.spyOn(combinedStorage, "writeStoredRecovery") : vi.spyOn(roleStorage, "writeStoredRole");
+  write.mockResolvedValue(saved);
+  vi.spyOn(roleStorage, "listStoredRoles").mockResolvedValue([]);
+  const onSaved = vi.fn(), onActive = vi.fn();
+  const button = kind === "combined" ? "Enable encrypted autosave" : "Enable encrypted browser autosave";
+  const passwordLabel = kind === "combined" ? "Autosave password" : "Browser copy password";
+  const confirmationLabel = kind === "combined" ? "Confirm autosave password" : "Confirm browser copy password";
+  render(kind === "combined" ? <RecoveryAutosavePanel snapshot={snapshot} onSaved={onSaved} onActive={onActive} /> : <LocalRoleStorage vault={vault} disabled={false} onSaved={onSaved} onRestore={vi.fn()} />);
+  const password = "Synthetic activation password";
+  fireEvent.change(screen.getByLabelText(passwordLabel), { target: { value: password } });
+  fireEvent.change(screen.getByLabelText(confirmationLabel), { target: { value: password } });
+  vi.useFakeTimers();
+  const start = () => fireEvent.submit(screen.getByRole("button", { name: button }).closest("form")!);
+  start();
+  await act(async () => vi.advanceTimersByTimeAsync(180000));
+  expect(screen.getByText(/Autosave setup encryption timed out/)).toBeInTheDocument();
+  expect(screen.getByLabelText(passwordLabel)).toHaveValue(password);
+  expect(screen.getByLabelText(confirmationLabel)).toHaveValue(password);
+  expect(screen.getByRole("button", { name: button })).toBeEnabled();
+  start();
+  await act(async () => finishOld("expired ciphertext"));
+  expect(write).not.toHaveBeenCalled(); expect(onSaved).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: button })).toBeDisabled();
+  await act(async () => finishNew("new ciphertext"));
+  expect(write).toHaveBeenCalledExactlyOnceWith(expect.any(String), expect.any(String), "new ciphertext", null);
+  expect(onSaved).toHaveBeenCalledOnce();
+  expect(screen.getByRole("button", { name: kind === "combined" ? "Stop encrypted autosave" : "Stop browser autosave" })).toBeEnabled();
+});

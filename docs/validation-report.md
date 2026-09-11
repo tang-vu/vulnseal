@@ -1,5 +1,11 @@
 # Validation report
 
+## Autosave activation encryption deadlines -- 2026-09-11
+
+Initial combined/role autosave encryption now has a three-minute deadline before storage. Expiry unlocks setup controls and retains retry inputs; a late encrypted result cannot write a copy, advertise persistence or activate the writer. Storage acknowledgements remain a separate operation.
+
+**13 tests / 4 files passed in 12.69 seconds**. **Eight desktop/mobile E2E cases passed in 56.6 seconds**, with two workers and no retries. The four new cases use real PBKDF2/AES and IndexedDB, holding the first derived-key result past virtual expiry: no put occurs for the expired attempt, while explicit retry writes once and activates the writer. Normal web build/typecheck and release validation passed: **8 circuits / 80 files / 65,568,641 bytes**. [Evidence](evidence/autosave-activation-deadlines.json) records the exact scope and remaining limits.
+
 ## Active autosave encryption deadlines -- 2026-09-11
 
 Combined and single-role autosave writers now bound encryption to three minutes once each queued save starts. Expiry follows the existing failure path: stop the writer, clear its password reference, reject queued saves and prevent a late ciphertext result from reaching storage. The live application and prior persisted copy are retained. Initial activation and already-started storage acknowledgements remain separate operations.

@@ -1,0 +1,41 @@
+{
+  "date": "2026-09-11",
+  "scope": "Bound first-copy encryption when enabling combined or single-role autosave",
+  "behavior": [
+    "Initial encryption has a three-minute continuation deadline before any storage write.",
+    "Expiry releases setup controls and retains passwords/confirmation for explicit retry. An expired result cannot write the initial copy, mark the session saved or activate the writer.",
+    "Storage acknowledgement remains separately bounded; an already-started write may commit even if confirmation is delayed."
+  ],
+  "validation": {
+    "unit": {
+      "log": ".compact/autosave-activation-tests.log",
+      "passed": 13,
+      "files": 4,
+      "seconds": 12.69,
+      "exit": 0,
+      "scope": "Two activation cases reject old encryption during a newer pending retry; combined/role persistence and active-writer deadline regressions also pass."
+    },
+    "browser": {
+      "log": ".compact/autosave-activation-browser.log",
+      "passed": 8,
+      "seconds": 56.6,
+      "workers": 2,
+      "retries": 0,
+      "exit": 0,
+      "scope": "Four new combined/role desktop/mobile cases hold real PBKDF2 key results beyond virtual expiry. Real AES encryption returns late without an IndexedDB put; explicit retry performs one write and activates autosave. Four existing combined autosave cases also pass."
+    },
+    "release": {
+      "log": ".compact/autosave-activation-release-final.log",
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65568641,
+      "scope": "Normal web build/typecheck and release manifest restored after browser tests."
+    }
+  },
+  "limits": [
+    "WebCrypto is not cancelled; browser timing uses a virtual clock and delayed derived-key results, not physical suspension.",
+    "This increment does not bound role file export or browser-copy unlocking; those remain separate workflows.",
+    "No full regression, runtime-image refresh, native wallet ceremony or public deployment."
+  ]
+}

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { continuationDeadline } from "./midnight/continuation-deadline.js";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { encryptRecovery, type RecoverySnapshot } from "./recovery.js";
 import { RecoveryAutosave } from "./recovery-autosave.js";
@@ -83,7 +84,9 @@ export function RecoveryAutosavePanel({ snapshot, onSaved, onActive, onStatus, o
     try {
       if (!snapshot) throw new Error("Create the network program before enabling combined recovery autosave");
       if (password !== confirmation) throw new Error("Autosave passwords do not match");
-      const encrypted = await encryptRecovery(snapshot, password);
+      const encrypted = await continuationDeadline(180_000, "Autosave setup encryption timed out. Your inputs are retained; retry explicitly when ready. No browser copy was written by this attempt.", async check => {
+        check(); const result = await encryptRecovery(snapshot, password); check(); return result;
+      });
       if (generation.current !== pending) return;
       const row = await writeStoredRecovery(crypto.randomUUID(), "Combined autosave", encrypted, null);
       if (generation.current !== pending) return;

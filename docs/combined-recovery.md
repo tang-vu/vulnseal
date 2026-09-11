@@ -30,7 +30,7 @@ Confirm that the file was saved before removing a browser copy. The app can star
 
 **Enable encrypted autosave** creates a separate copy after password confirmation. Edits are encrypted after a short pause. Wait for the visible saved confirmation before leaving; newer edits may still be pending.
 
-Each encryption performed by an active autosave writer has a three-minute deadline, beginning when that queued save starts. Expiry stops the writer and rejects queued saves before storage; a late encryption result cannot overwrite the last saved copy. Keep the live session and export a separate encrypted file before re-enabling autosave. This deadline does not cover initial autosave activation, and already-started storage writes retain their separate acknowledgement deadline.
+Each encryption performed by an active autosave writer has a three-minute deadline, beginning when that queued save starts. Expiry stops the writer and rejects queued saves before storage; a late encryption result cannot overwrite the last saved copy. Keep the live session and export a separate encrypted file before re-enabling autosave. Initial activation also has a separate three-minute encryption deadline. Expiry leaves passwords available for explicit retry and prevents the late encrypted result from creating a copy or enabling autosave. Already-started storage writes retain their separate acknowledgement deadline.
 
 Autosave stops after a storage error, conflicting revision, program/network change or reload. It does not automatically restart when you restore a copy. **Stop encrypted autosave** retains its saved copy. The active autosave copy cannot be removed through the panel until autosave stops.
 
