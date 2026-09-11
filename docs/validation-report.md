@@ -1,5 +1,13 @@
 # Validation report
 
+## Mandatory combined report journal -- 2026-09-11
+
+Combined network report actions now require an encrypted writer. An exclusive lease saves immutable intent and report recovery material before SDK work, then confirms the identifier checkpoint before wallet broadcast. Matching SDK results produce a final recovery update; a failure of that update preserves the matching result in memory and stops autosave. V8 retains requests, identifiers and local outcome observations, with strict pending/uncertain bindings and explicit private journal lookup.
+
+Final **84 tests / 7 files** passed in **87.37 seconds**, in one invocation. Coverage includes all eight circuits, real application encryption and injected save failures, SDK identity mismatch, closed/deadline checkpoints, exclusive persistence, v8 validation and existing deployment/recovery regression. Final **12 desktop/mobile Chrome E2E checks** passed in **1.3 minutes** for autosave, browser copies and deployment recovery. These browser checks are regression coverage; native report signing and the full network report ceremony were not executed.
+
+Normal build/typecheck and release validation passed after E2E: **8 circuits / 80 files / 65,531,123 bytes**. `git diff --check` passed. [Evidence](evidence/combined-report-journal.json) records development failures caused by old test timing/identifier assumptions and a test-string encoding error, together with final green results and scope. No full repository regression, container refresh, authenticated inclusion or safe-retry claim is made.
+
 ## Checked deployment reconnect -- 2026-09-11
 
 Unconfirmed combined deployments can explicitly reconnect after the historical policy and all eight release verifier keys match. The application checks the exact joined address and current program/owner/policy, then saves a new encrypted browser copy before opening the session. Errors preserve the blocked attempt; late continuations after deadline or unmount cannot install it.

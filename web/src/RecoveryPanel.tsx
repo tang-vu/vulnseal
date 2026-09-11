@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { MAX_RECOVERY_BYTES, type RecoverySnapshot } from "./recovery.js";
 import { deleteStoredRecovery, listStoredRecoveries, readStoredRecovery, writeStoredRecovery, type StoredCopyLabel } from "./recovery-storage.js";
 
-import { RecoveryAutosavePanel } from "./RecoveryAutosavePanel.js";
+import { RecoveryAutosavePanel, type AcquireRecoveryPersistence } from "./RecoveryAutosavePanel.js";
 
 const downloadRecovery = (serialized: string, filename = "vulnseal-recovery.json") => {
   const url = URL.createObjectURL(new Blob([serialized], { type: "application/json" }));
@@ -13,7 +13,8 @@ const downloadRecovery = (serialized: string, filename = "vulnseal-recovery.json
   finally { link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
 };
 
-export function RecoveryPanel({ onAutosaveStatus, snapshot, onExport, onImport, canImport }: {
+export function RecoveryPanel({ onPersistence, onAutosaveStatus, snapshot, onExport, onImport, canImport }: {
+  readonly onPersistence?: ((acquire: AcquireRecoveryPersistence | undefined) => void) | undefined;
   readonly onAutosaveStatus?: ((status: string) => void) | undefined;
   readonly snapshot?: RecoverySnapshot | undefined;
   readonly onExport: (password: string) => Promise<string>;
@@ -107,7 +108,7 @@ export function RecoveryPanel({ onAutosaveStatus, snapshot, onExport, onImport, 
       <label>Recovery password<input type="password" autoComplete="current-password" minLength={12} required value={restorePassword} onChange={(event) => setRestorePassword(event.target.value)} disabled={!restoreAllowed || working} /></label>
       <button className="primary-button" disabled={!restoreAllowed || working}>Restore encrypted backup</button>
     </form>
-    <RecoveryAutosavePanel onStatus={onAutosaveStatus} snapshot={snapshot} onActive={setActiveAutosaveId} onSaved={(metadata) => setCopies((current) => [metadata, ...current.filter((copy) => copy.id !== metadata.id)])} />
+    <RecoveryAutosavePanel onPersistence={onPersistence} onStatus={onAutosaveStatus} snapshot={snapshot} onActive={setActiveAutosaveId} onSaved={(metadata) => setCopies((current) => [metadata, ...current.filter((copy) => copy.id !== metadata.id)])} />
     {activeAutosaveId && <p>Stop autosave before restoring another session or removing its active copy.</p>}
     <section className="form-panel" aria-label="Saved browser recovery copies">
       <h2>Saved browser copies</h2>

@@ -23,6 +23,18 @@ const fillDeploymentPassword = () => {
   fireEvent.change(screen.getByLabelText("Confirm deployment backup password"), { target: { value: deploymentPassword } });
 };
 const checkpoint = () => mocks.connect.mock.calls[0]![1](deploymentId);
+const reportIdFor = (name: string) => ({ "sealed-tx": "01", "triage-tx": "02", "accept-tx": "03", "patch-tx": "04", "restored-retest": "05" }[name] ?? "06").repeat(32);
+const reportCheckpoint = async (name: string) => { const id = reportIdFor(name); await mocks.connect.mock.calls.at(-1)![1](id); return id; };
+const enableTransactionBackup = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(screen.getByRole("button", { name: "Private recovery" }));
+  fireEvent.change(screen.getByLabelText("Autosave password"), { target: { value: deploymentPassword } });
+  fireEvent.change(screen.getByLabelText("Confirm autosave password"), { target: { value: deploymentPassword } });
+  fireEvent.submit(screen.getByRole("button", { name: "Enable encrypted autosave" }).closest("form")!);
+  await screen.findByRole("button", { name: "Stop encrypted autosave" }, { timeout: 5000 });
+  const receipt = screen.queryByRole("button", { name: "Submission receipt" });
+  if (receipt) await user.click(receipt);
+};
+
 
 
 describe("browser network workflow with mocked wallet and finalized API results", () => {
@@ -115,7 +127,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     const ledger = { ...await programConstructor(programId, snapshot.policy), ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(snapshot.vendorSecret)), reports: { member: () => true, lookup: () => ({ ...record, submissionReceipt: submissionReceipt(reportId, record.ciphertextDigest, record.researcherKey) }) } };
     const api = { contractAddress: source.contractAddress, readPublicState: vi.fn().mockResolvedValue({ ledger }), usePrivateState: vi.fn().mockResolvedValue(undefined), beginTriage: vi.fn().mockRejectedValue(new Error("Finality connection lost")) };
     let confirmLate!: (value: unknown) => void;
-    if (outcome === "timeout") api.beginTriage.mockImplementation(() => new Promise((resolve) => { confirmLate = resolve; }));
+    if (outcome === "timeout") api.beginTriage.mockImplementation(async () => { await reportCheckpoint("triage-tx"); return new Promise((resolve) => { confirmLate = resolve; }); });
     mocks.join.mockResolvedValue(api);
     const restore = async (serialized: string) => {
       await user.click(screen.getByRole("button", { name: "Private recovery" }));
@@ -128,21 +140,21 @@ describe("browser network workflow with mocked wallet and finalized API results"
     };
     render(<App />);
     await restore(await encryptRecovery(source, password));
+    await enableTransactionBackup(user);
     await user.click(screen.getByRole("button", { name: /Continue as vendor/ }));
     const triage = await screen.findByRole("button", { name: "Begin authorized triage" });
     if (outcome === "timeout") {
-      vi.useFakeTimers();
+      const timers = vi.spyOn(globalThis, "setTimeout");
       fireEvent.click(triage);
-      await act(async () => { await vi.advanceTimersByTimeAsync(DEMO_TRANSITION_TIMEOUT_MS); });
-      vi.useRealTimers();
-      expect(screen.getAllByText(/Stopped waiting for this transition/).length).toBeGreaterThan(0);
-      await act(async () => { confirmLate({ circuit: "beginTriage" }); });
-      expect(screen.getAllByText(/Stopped waiting for this transition/).length).toBeGreaterThan(0);
+      await waitFor(() => expect(confirmLate).toBeTypeOf("function"), { timeout: 5000 });
+      await act(async () => (timers.mock.calls.find(([, duration]) => duration === DEMO_TRANSITION_TIMEOUT_MS)![0] as () => void)());
+      timers.mockRestore();
+      await act(async () => confirmLate({ circuit: "beginTriage", txId: reportIdFor("triage-tx"), blockHeight: "201" }));
     } else await user.click(triage);
     await screen.findByText("Transaction outcome unknown: beginTriage");
     expect(screen.getByRole("button", { name: "Begin authorized triage" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Begin authorized triage" }));
-    expect(api.beginTriage).toHaveBeenCalledOnce();
+    await waitFor(() => expect(api.beginTriage).toHaveBeenCalledOnce(), { timeout: 5000 });
     expect(api.usePrivateState).toHaveBeenCalledOnce();
     let downloaded: Blob | undefined;
     vi.stubGlobal("URL", class extends URL { static override createObjectURL = (blob: Blob) => { downloaded = blob; return "blob:uncertain-demo"; }; static override revokeObjectURL = vi.fn(); });
@@ -155,7 +167,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
       await screen.findByText(/Encrypted backup download started/);
       const serialized = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsText(downloaded!); });
       const checked = await decryptRecovery(serialized, password);
-      expect(checked.snapshot.version).toBe(5);
+      expect(checked.snapshot.version).toBe(8);
       expect(checked.snapshot.programDraft).toBeDefined();
       expect(checked.snapshot.uncertainTransition).toBe("beginTriage");
       cleanup(); render(<App />);
@@ -194,7 +206,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     expect(api.submitReport).not.toHaveBeenCalled();
     expect(api.usePrivateState).not.toHaveBeenCalled();
     expect(mocks.deploy).not.toHaveBeenCalled();
-  }, 15_000);
+  }, 30_000);
 
   it("restores network authority only after verification and uses ledger progress newer than the backup", async () => {
     const user = userEvent.setup();
@@ -209,7 +221,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
       contractAddress: networkSnapshot.contractAddress,
       readPublicState: vi.fn().mockResolvedValueOnce({ ledger: { ...ledger, ownerKey: new Uint8Array(32) } }).mockResolvedValue({ ledger }),
       usePrivateState: vi.fn().mockResolvedValue(undefined),
-      submitRetest: vi.fn().mockImplementation(async () => { record.status = 5; record.retestCommitment.fill(8); return { circuit: "submitRetest", txId: "restored-retest", blockHeight: "901" }; }),
+      submitRetest: vi.fn().mockImplementation(async () => { record.status = 5; record.retestCommitment.fill(8); return { circuit: "submitRetest", txId: await reportCheckpoint("restored-retest"), blockHeight: "901" }; }),
     };
     mocks.join.mockResolvedValue(api);
     render(<App />);
@@ -239,19 +251,20 @@ describe("browser network workflow with mocked wallet and finalized API results"
       expect(click).toHaveBeenCalledOnce();
     } finally { click.mockRestore(); }
     expect(mocks.join.mock.calls[1]![1]).toBe(networkSnapshot.contractAddress);
-    expect(mocks.connect).toHaveBeenCalledWith("preprod");
+    expect(mocks.connect).toHaveBeenCalledWith("preprod", expect.any(Function));
+    await enableTransactionBackup(user);
     await user.click(screen.getAllByRole("button", { name: /Resolve/ })[0]!);
     await screen.findByRole("heading", { name: "Submit private retest evidence" });
     await user.click(screen.getByRole("button", { name: /Pass retest/ }));
-    await screen.findByRole("button", { name: "Generate payout authorization" });
+    await screen.findByRole("button", { name: "Generate payout authorization" }, { timeout: 5000 });
     expect(api.usePrivateState.mock.calls[0]![0].actorSecret).toEqual(hexToBytes(snapshot.researcherSecret));
     expect(api.usePrivateState.mock.calls[0]![0].report.salt).toEqual(hexToBytes(snapshot.report!.salt));
     expect(screen.getByText("Tier 4 · P1")).toBeInTheDocument();
     await user.click(screen.getAllByRole("button", { name: /Verify/ })[0]!);
     expect(screen.getByText("Ledger state")).toBeInTheDocument();
-    expect(screen.getByText("restored-retest")).toBeInTheDocument();
+    expect(screen.getByText(reportIdFor("restored-retest"))).toBeInTheDocument();
     expect(screen.queryByText("Finalized at block 202")).not.toBeInTheDocument();
-  });
+  }, 20_000);
 
   it("requires deployment after wallet connection and does not upload a phantom network report", async () => {
     const user = userEvent.setup();
@@ -272,7 +285,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     await user.click(screen.getByRole("button", { name: /Seal a vulnerability/ }));
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
-    await screen.findByText("Your report is sealed");
+    await screen.findByText("Your report is sealed", {}, { timeout: 5000 });
     await user.click(screen.getByRole("button", { name: "Guided local" }));
     expect(screen.getByText("Local report remains local")).toBeInTheDocument();
     expect(mocks.connect).not.toHaveBeenCalled();
@@ -284,7 +297,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     const api = { contractAddress: "ab".repeat(32), usePrivateState: vi.fn().mockResolvedValue(undefined), submitReport: vi.fn().mockRejectedValue(new Error("Wallet response interrupted")) };
     let finishLate!: (value: unknown) => void;
     if (outcome === "preparation timeout") api.usePrivateState.mockImplementation(() => new Promise((resolve) => { finishLate = resolve; }));
-    if (outcome === "submission timeout") api.submitReport.mockImplementation(() => new Promise((resolve) => { finishLate = resolve; }));
+    if (outcome === "submission timeout") api.submitReport.mockImplementation(async () => { await reportCheckpoint("sealed-tx"); return new Promise((resolve) => { finishLate = resolve; }); });
     const expectedSubmissions = outcome === "preparation timeout" ? 0 : 1;
     mocks.deploy.mockImplementation(async () => { await checkpoint(); return { api, evidence: { circuit: "constructor", txId: deploymentId, blockHeight: "100" } }; });
     render(<App />);
@@ -293,19 +306,20 @@ describe("browser network workflow with mocked wallet and finalized API results"
     fillDeploymentPassword();
     await user.click(screen.getByRole("button", { name: "Create program" }));
     await screen.findByRole("heading", { name: "Acme Security Program" }, { timeout: 5000 });
+    await enableTransactionBackup(user);
     await user.click(screen.getAllByRole("button", { name: /Submit/ })[0]!);
     await user.click(screen.getByRole("checkbox"));
     if (outcome === "failure") {
       await user.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
       await screen.findByText("Wallet response interrupted");
     } else {
-      vi.useFakeTimers();
+      const timers = vi.spyOn(globalThis, "setTimeout");
       fireEvent.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
-      await vi.waitFor(() => expect(api.usePrivateState).toHaveBeenCalledOnce());
-      if (outcome === "submission timeout") await vi.waitFor(() => expect(api.submitReport).toHaveBeenCalledOnce());
-      await act(async () => { await vi.advanceTimersByTimeAsync(DEMO_TRANSITION_TIMEOUT_MS); });
-      vi.useRealTimers();
-      expect(screen.getAllByText(/Stopped waiting for this transition/).length).toBeGreaterThan(0);
+      await waitFor(() => expect(finishLate).toBeTypeOf("function"), { timeout: 5000 });
+      const duration = outcome === "preparation timeout" ? 900_000 : 600_000;
+      await act(async () => (timers.mock.calls.find(([, value]) => value === duration)![0] as () => void)());
+      timers.mockRestore();
+      expect(screen.getAllByText(/Stopped waiting for/).length).toBeGreaterThan(0);
       await act(async () => { finishLate({ circuit: "submitReport", txId: "late-submit", blockHeight: "101" }); });
       expect(screen.queryByText("Your report is sealed")).not.toBeInTheDocument();
       expect(screen.queryByText("late-submit")).not.toBeInTheDocument();
@@ -348,15 +362,52 @@ describe("browser network workflow with mocked wallet and finalized API results"
       expect(api.submitReport).toHaveBeenCalledTimes(expectedSubmissions);
       expect(vi.mocked(fetch).mock.calls.filter((call) => call[1]?.method === "PUT")).toHaveLength(1);
     } finally { click.mockRestore(); }
-  }, 15_000);
+  }, 30_000);
+
+  it.each(["disabled", "intent", "identifier", "final"])("enforces real encrypted report saves when backup is %s", async failure => {
+    const user = userEvent.setup(), broadcast = vi.fn();
+    const api = { contractAddress: "ab".repeat(32), usePrivateState: vi.fn().mockResolvedValue(undefined), submitReport: vi.fn(async () => {
+      const txId = await reportCheckpoint("sealed-tx"); broadcast(); return { circuit: "submitReport", txId, blockHeight: "202" };
+    }) };
+    mocks.deploy.mockImplementation(async () => { await checkpoint(); return { api, evidence: { circuit: "constructor", txId: deploymentId, blockHeight: "100" } }; });
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Guided local" }));
+    await user.click(await screen.findByRole("button", { name: "Set up program" })); fillDeploymentPassword();
+    await user.click(screen.getByRole("button", { name: "Create program" }));
+    await screen.findByRole("heading", { name: "Acme Security Program" }, { timeout: 5000 });
+    if (failure !== "disabled") {
+      await enableTransactionBackup(user);
+      mocks.write.mockImplementation(async (id, label, encrypted, revision) => {
+        const { snapshot } = await decryptRecovery(encrypted, deploymentPassword);
+        const attempt = snapshot.reportAttempts?.at(-1);
+        if (attempt && (failure === "intent" && !attempt.transactionId || failure === "identifier" && attempt.transactionId && attempt.outcome === "unknown" || failure === "final" && attempt.outcome === "sdk-confirmed")) throw new Error(`Synthetic ${failure} checkpoint failure`);
+        return { id, label, encrypted, revision: revision + 1, updatedAt: new Date().toISOString() };
+      });
+    }
+    await user.click(screen.getAllByRole("button", { name: /Submit/ })[0]!);
+    await user.click(screen.getByRole("checkbox")); await user.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
+    if (failure === "disabled") {
+      expect(screen.getByText(/Open Private recovery and enable encrypted autosave/)).toBeInTheDocument();
+      expect(api.usePrivateState).not.toHaveBeenCalled(); expect(api.submitReport).not.toHaveBeenCalled();
+    } else if (failure === "final") {
+      await screen.findByText("Your report is sealed", {}, { timeout: 7000 });
+      expect(screen.getByText(/recovery update was not confirmed/)).toBeInTheDocument(); expect(broadcast).toHaveBeenCalledOnce();
+    } else {
+      await screen.findByText(`Synthetic ${failure} checkpoint failure`, {}, { timeout: 7000 });
+      expect(broadcast).not.toHaveBeenCalled();
+      expect(api.usePrivateState).toHaveBeenCalledTimes(failure === "intent" ? 0 : 1);
+      expect(screen.queryByText("Your report is sealed")).not.toBeInTheDocument();
+    }
+  }, 30_000);
 
   it("uses form policies, random role secrets, selected severity and rationale, and exact transaction evidence", async () => {
     const user = userEvent.setup();
     const api = {
+      contractAddress: "ab".repeat(32),
       usePrivateState: vi.fn().mockResolvedValue(undefined),
-      submitReport: vi.fn().mockResolvedValue({ circuit: "submitReport", txId: "sealed-tx", blockHeight: "202" }),
-      beginTriage: vi.fn().mockResolvedValue({ circuit: "beginTriage", txId: "triage-tx", blockHeight: "211" }),
-      acceptReport: vi.fn().mockResolvedValue({ circuit: "acceptReport", txId: "accept-tx", blockHeight: "215" }),
+      submitReport: vi.fn().mockImplementation(async () => ({ circuit: "submitReport", txId: await reportCheckpoint("sealed-tx"), blockHeight: "202" })),
+      beginTriage: vi.fn().mockImplementation(async () => ({ circuit: "beginTriage", txId: await reportCheckpoint("triage-tx"), blockHeight: "211" })),
+      acceptReport: vi.fn().mockImplementation(async () => ({ circuit: "acceptReport", txId: await reportCheckpoint("accept-tx"), blockHeight: "215" })),
       anchorPatch: vi.fn(),
       readPublicState: vi.fn().mockRejectedValueOnce(new Error("Indexer temporarily unavailable")),
     };
@@ -371,6 +422,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     fillDeploymentPassword();
     await user.click(screen.getByRole("button", { name: "Create program" }));
     await screen.findByRole("heading", { name: "Independent Security" }, { timeout: 5000 });
+    await enableTransactionBackup(user);
     const [, ownerState, constructor] = mocks.deploy.mock.calls[0]!;
     expect(constructor.responseDays).toBe(2n);
     expect(constructor.disclosureDelayDays).toBe(30n);
@@ -380,45 +432,56 @@ describe("browser network workflow with mocked wallet and finalized API results"
     await user.click(screen.getAllByRole("button", { name: /Submit/ })[0]!);
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
-    await screen.findByText("Your report is sealed");
+    await screen.findByText("Your report is sealed", {}, { timeout: 5000 });
     const researcher = api.usePrivateState.mock.calls[0]![0];
     expect(researcher.actorSecret).not.toEqual(ownerState.actorSecret);
     await user.click(screen.getByRole("button", { name: /Continue as vendor/ }));
     await user.click(await screen.findByRole("button", { name: "Begin authorized triage" }));
+    await waitFor(() => expect(screen.getByLabelText("Public severity tier")).toBeEnabled(), { timeout: 5000 });
     await user.selectOptions(screen.getByLabelText("Public severity tier"), "1");
     await user.clear(screen.getByLabelText("Private rationale"));
     await user.type(screen.getByLabelText("Private rationale"), "Reproduced with minimal impact");
     await user.click(screen.getByRole("button", { name: "Accept as P4" }));
-    await screen.findByRole("button", { name: "Continue to remediation" });
+    await screen.findByRole("button", { name: "Continue to remediation" }, { timeout: 5000 });
     expect(api.acceptReport.mock.calls[0]![1]).toBe(1n);
     expect(api.acceptReport.mock.calls[0]![2]).toEqual(await sha256(utf8("Reproduced with minimal impact")));
     await user.click(screen.getAllByRole("button", { name: /Verify/ })[0]!);
-    const submitted = screen.getByText("sealed-tx").closest(".audit-event")!;
+    const submitted = screen.getByText(reportIdFor("sealed-tx")).closest(".audit-event")!;
     expect(within(submitted as HTMLElement).getByText("Finalized at block 202")).toBeInTheDocument();
     expect(screen.queryByText(deploymentId, { selector: ".audit-transaction" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /No patch or passing retest is recorded yet/ })).toBeInTheDocument();
     expect(screen.queryByText("Reproduced with minimal impact")).not.toBeInTheDocument();
     await user.click(screen.getAllByRole("button", { name: /Resolve/ })[0]!);
     let finishPatch!: (value: unknown) => void;
-    api.anchorPatch.mockImplementation(() => new Promise((resolve) => { finishPatch = resolve; }));
+    api.anchorPatch.mockImplementation(async () => { await reportCheckpoint("patch-tx"); return new Promise((resolve) => { finishPatch = resolve; }); });
     const anchor = screen.getByRole("button", { name: "Anchor patch commitment" });
     await user.dblClick(anchor);
+    await waitFor(() => expect(finishPatch).toBeTypeOf("function"), { timeout: 5000 });
     expect(api.anchorPatch).toHaveBeenCalledTimes(1);
     expect(anchor).toBeDisabled();
-    await act(async () => { finishPatch({ circuit: "anchorPatch", txId: "patch-tx", blockHeight: "230" }); });
-    const refresh = await screen.findByRole("button", { name: "Refresh public commitments" });
+    await act(async () => { finishPatch({ circuit: "anchorPatch", txId: reportIdFor("patch-tx"), blockHeight: "230" }); });
+    const refresh = await screen.findByRole("button", { name: "Refresh public commitments" }, { timeout: 5000 });
     expect(screen.getByRole("button", { name: /Pass retest/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Fail retest/ })).toBeDisabled();
     await user.click(screen.getAllByRole("button", { name: /Verify/ })[0]!);
-    expect(screen.getByText("patch-tx")).toBeInTheDocument();
+    expect(screen.getByText(reportIdFor("patch-tx"))).toBeInTheDocument();
     api.readPublicState.mockResolvedValue({ ledger: { reports: { lookup: () => ({ status: 4, patchCommitment: new Uint8Array(32).fill(9), retestCommitment: new Uint8Array(32), payoutReceipt: new Uint8Array(32) }) } } });
     await user.click(refresh);
+    await waitFor(() => expect(finishPatch).toBeTypeOf("function"), { timeout: 5000 });
     expect(api.anchorPatch).toHaveBeenCalledTimes(1);
     expect(api.readPublicState).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole("button", { name: "Refresh public commitments" })).not.toBeInTheDocument();
-    expect(screen.getAllByText("patch-tx")).toHaveLength(1);
+    expect(screen.getAllByText(reportIdFor("patch-tx"))).toHaveLength(1);
     await user.click(screen.getAllByRole("button", { name: /Resolve/ })[0]!);
     expect(screen.getByRole("button", { name: /Pass retest/ })).toBeEnabled();
     expect(screen.getByRole("button", { name: /Fail retest/ })).toBeEnabled();
-  }, 15_000);
+    const readsBeforeJournal = vi.mocked(fetch).mock.calls.length;
+    await user.click(screen.getByRole("button", { name: "Private recovery" }));
+    const journal = screen.getByRole("region", { name: "Report transaction journal" });
+    expect(within(journal).getAllByRole("option")).toHaveLength(4);
+    await user.selectOptions(within(journal).getByLabelText("Saved report attempt"), "2");
+    expect(within(journal).getByText(/Requested state: ACCEPTED.*severity tier 1/)).toBeInTheDocument();
+    expect(within(journal).getByText("Reproduced with minimal impact")).toBeInTheDocument();
+    expect(vi.mocked(fetch).mock.calls).toHaveLength(readsBeforeJournal);
+  }, 30_000);
 });

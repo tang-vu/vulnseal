@@ -30,7 +30,9 @@ Confirm that the file was saved before removing a browser copy. The app can star
 
 Autosave stops after a storage error, conflicting revision, program/network change or reload. It does not automatically restart when you restore a copy. **Stop encrypted autosave** retains its saved copy. The active autosave copy cannot be removed through the panel until autosave stops.
 
-The deployment checkpoint does not automatically save later report work. Combined report submissions and transitions still lack mandatory identifier checkpoints. Optional autosave is not a guarantee that these actions were saved before a wallet request. Keep fresh backups and treat interrupted transactions as uncertain.
+After deployment or a network restore, enable encrypted autosave before submitting a report or changing its status. The application blocks these actions while the writer is unavailable. Each action temporarily owns the writer: it saves the report material and requested action before SDK/private-state work, then saves the transaction identifier before the wallet's broadcast call. Pending ordinary draft saves cannot overwrite these checkpoints.
+
+A matching SDK result triggers another encrypted save with the resulting status. If that final save fails, the live session retains the matching SDK confirmation and asks for a fresh file backup; the browser copy may still describe an unknown attempt. Autosave stops on an interrupted attempt or storage error. Restoring never automatically enables it.
 
 ## Restore a saved session
 
@@ -51,6 +53,14 @@ Enter and confirm a password for the new copy, then select **Connect, verify and
 A verification or storage error keeps the deployment blocked. Recovery has a three-minute application deadline; after timeout or a closed tab, a late read cannot open the session. A browser save already in progress may still commit, so inspect saved copies before repeating the reconnect step. This explicit reconnect is not permission to retry deployment.
 
 The comparison and recovery trust indexer/RPC inclusion and finality. Matching SDK-exposed verifier keys does not authenticate signatures, proofs, source-to-key generation, constructor arguments or other key versions. Current owner authority is checked separately during reconnect. Keep the original backup if evidence is missing or differs.
+
+## Review report transaction records
+
+In **Private recovery**, use **Saved report attempt** under **Report transaction journal** to inspect the action, report identifier, saved private inputs and transaction identifier. The journal retains the requested next state (including pass/fail retest), severity, rationale, patch reference and retest notes as they were when the action started. Later edits do not change that record. Its `sdk-confirmed` label records a matching SDK response, not independently authenticated finality.
+
+**Check transaction status** is an explicit read-only lookup. A missing identifier, not-found response or current ledger state does not establish retry safety. An unresolved attempt remains blocked after restore. A submitted report already present on the ledger still needs investigation; its pending backup cannot currently be promoted automatically into a completed report.
+
+Recovery v8 retains up to 1,000 report attempts. Existing v1-v7 files remain readable, but do not acquire missing historical records. Older application versions cannot read v8. The current report's encryption material is retained with the snapshot; metadata for older reports is not a substitute for their separate file backups.
 
 ## Interrupted report uploads and transactions
 

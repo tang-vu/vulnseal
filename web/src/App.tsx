@@ -40,7 +40,10 @@ import { writeStoredRecovery } from "./recovery-storage.js";
 import { CombinedDeploymentRecovery } from "./CombinedDeploymentRecovery.js";
 import { continuationDeadline } from "./midnight/continuation-deadline.js";
 import { TransactionCheck } from "./TransactionCheck.js";
-import { demoTransitionWait } from "./demo-transition-wait.js";
+import { journalReportTransaction } from "./journal-report-transaction.js";
+import type { AcquireRecoveryPersistence } from "./RecoveryAutosavePanel.js";
+import { ReportTransactionJournal } from "./ReportTransactionJournal.js";
+import type { ReportAttempt } from "./report-journal.js";
 
 type Screen =
   | "home"
@@ -164,6 +167,10 @@ function App() {
   const [programCreated, setProgramCreated] = useState(env.mode === "guided-local");
   const [programBytes, setProgramBytes] = useState(() => randomBytes(32));
   const [programPolicy, setProgramPolicy] = useState(defaultProgram);
+  const reportPersistence = useRef<AcquireRecoveryPersistence | undefined>(undefined);
+  const [reportBackupReady, setReportBackupReady] = useState(false);
+  const [reportAttempts, setReportAttempts] = useState<readonly ReportAttempt[]>([]);
+  const [reportBackupNotice, setReportBackupNotice] = useState("");
   const [autosaveNotice, setAutosaveNotice] = useState("");
   const [programDraft, setProgramDraft] = useState<ProgramDraft>(defaultProgramDraft);
   const [severity, setSeverity] = useState(3);
@@ -228,6 +235,10 @@ function App() {
       setOperation({ state: "error", label: "Transition unavailable", detail: "This action is not allowed at the report’s current stage." });
       return false;
     }
+    if (api && !reportPersistence.current) {
+      setOperation({ state: "error", label: "Encrypted transaction backup required", detail: "Open Private recovery and enable encrypted autosave before submitting a report or changing its status." });
+      return false;
+    }
     busy.current = true;
     return true;
   };
@@ -263,6 +274,11 @@ function App() {
     window.scrollTo?.({ top: 0, behavior: "auto" });
   };
 
+  const checkpointTransaction = async (id: string) => {
+    if (!deploymentCheckpoint.current) throw new Error("No durable transaction checkpoint is active; broadcast is blocked");
+    await deploymentCheckpoint.current(id);
+  };
+
   const connectWallet = async (): Promise<void> => {
     if (busy.current || providers || deploymentAttempt) return;
     if (reportId || pendingPreparation) {
@@ -272,7 +288,7 @@ function App() {
     busy.current = true;
     setOperation({ state: "working", label: "Connecting wallet", detail: "Waiting for a compatible Lace connector API." });
     try {
-      const initialized = await initializeBrowserProviders(activeNetwork, async (id) => { await deploymentCheckpoint.current?.(id); });
+      const initialized = await initializeBrowserProviders(activeNetwork, checkpointTransaction);
       setProviders(initialized);
       setRuntimeMode("midnight");
       setProgramCreated(false);
@@ -402,13 +418,13 @@ function App() {
       if (api !== undefined) {
         // Conservatively retain uncertainty even if private-state setup fails before the wallet call.
         setPendingPreparation({ ...prepared, submissionStarted: true });
-        transaction = await demoTransitionWait(() => api.usePrivateState(
+        transaction = await runReportTransaction("submitReport", "COMMITTED", () => api.usePrivateState(
           createVulnSealPrivateState(researcherSecret, {
             programId: programBytes,
             canonicalDigest: encrypted.canonicalReportDigest,
             salt,
           }),
-        ), () => api.submitReport(encrypted.ciphertextDigest));
+        ), () => api.submitReport(encrypted.ciphertextDigest), { pendingReport: { report: { envelope: encrypted.serializedEnvelope, key: bytesToHex(encrypted.key), salt: bytesToHex(salt), id: bytesToHex(commitment) }, submissionStarted: true } });
       }
       setSealed(encrypted);
       setReportSalt(salt);
@@ -424,6 +440,19 @@ function App() {
         detail: error instanceof Error ? error.message : "Unknown sealing error",
       });
     } finally { busy.current = false; }
+  };
+
+  const runReportTransaction = async (circuit: ReportAttempt["circuit"], nextStatus: ReportStatusName, prepare: () => Promise<unknown>, submit: () => Promise<TransactionEvidence>, extra: Partial<RecoverySnapshot> = {}) => {
+    if (!reportPersistence.current) throw new Error("Enable encrypted autosave through Private recovery before transacting");
+    const lease = reportPersistence.current(), wait = submissionWait(), generation = deploymentGeneration.current;
+    deploymentWait.current = wait;
+    const snapshot: RecoverySnapshot = { ...liveRecoverySnapshot, ...extra, uncertainTransition: circuit === "submitReport" ? null : circuit };
+    try {
+      return await journalReportTransaction({ snapshot, circuit, reportId: snapshot.report?.id ?? snapshot.pendingReport!.report.id, nextStatus, lease, wait, prepare, submit,
+        installCheckpoint: checkpoint => { deploymentCheckpoint.current = checkpoint; }, onAttempts: setReportAttempts, onWarning: setReportBackupNotice,
+        assertCurrent: () => { if (deploymentGeneration.current !== generation) throw new Error("Report transaction session closed"); },
+      });
+    } finally { if (deploymentWait.current === wait) deploymentWait.current = undefined; }
   };
 
   const openVendorReview = async (): Promise<void> => {
@@ -469,11 +498,12 @@ function App() {
       let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
         setUncertainTransition(kind === "triage" ? "beginTriage" : kind === "accept" ? "acceptReport" : "rejectReport");
-        transaction = await demoTransitionWait(
+        transaction = await runReportTransaction(kind === "triage" ? "beginTriage" : kind === "accept" ? "acceptReport" : "rejectReport", kind === "triage" ? "TRIAGED" : kind === "accept" ? "ACCEPTED" : "REJECTED",
           () => api.usePrivateState(createVulnSealPrivateState(vendorSecret)),
           () => kind === "triage" ? api.beginTriage(reportId)
             : kind === "accept" ? api.acceptReport(reportId, BigInt(severity), rationaleDigest!)
               : api.rejectReport(reportId, rationaleDigest!),
+          { severity: kind === "accept" ? severity : acceptedSeverity },
         );
         setUncertainTransition(null);
       }
@@ -495,7 +525,7 @@ function App() {
       let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
         setUncertainTransition("anchorPatch");
-        transaction = await demoTransitionWait(() => api.usePrivateState(
+        transaction = await runReportTransaction("anchorPatch", "PATCH_READY", () => api.usePrivateState(
           createVulnSealPrivateState(vendorSecret, undefined, {
             reportId,
             patchDigest,
@@ -524,7 +554,7 @@ function App() {
       let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
         setUncertainTransition("submitRetest");
-        transaction = await demoTransitionWait(() => api.usePrivateState(
+        transaction = await runReportTransaction("submitRetest", passed ? "RETEST_PASSED" : "RETEST_FAILED", () => api.usePrivateState(
           createVulnSealPrivateState(
             researcherSecret,
             {
@@ -560,7 +590,7 @@ function App() {
       let transaction: TransactionEvidence | undefined;
       if (api !== undefined) {
         setUncertainTransition("authorizePayout");
-        transaction = await demoTransitionWait(
+        transaction = await runReportTransaction("authorizePayout", "PAYOUT_AUTHORIZED",
           () => api.usePrivateState(createVulnSealPrivateState(vendorSecret)),
           () => api.authorizePayout(reportId, BigInt(acceptedSeverity)),
         );
@@ -582,7 +612,7 @@ function App() {
       let transaction: TransactionEvidence | undefined;
       if (api) {
         setUncertainTransition("closeReport");
-        transaction = await demoTransitionWait(
+        transaction = await runReportTransaction("closeReport", "CLOSED",
           () => api.usePrivateState(createVulnSealPrivateState(vendorSecret)),
           () => api.closeReport(reportId),
         );
@@ -619,13 +649,13 @@ function App() {
   const liveRecoverySnapshot = useMemo<RecoverySnapshot>(() => {
     const encode = (value?: Uint8Array) => value ? bytesToHex(value) : null;
     return {
-      version: deploymentTransactionId ? 7 : deploymentAttempt ? 6 : 5, ...(deploymentTransactionId ? { deploymentTransactionId } : {}), ...(deploymentAttempt ? { deploymentAttempt } : {}), programDraft, uncertainTransition, attachmentDraft, pendingReport: pendingPreparation ? { report: { envelope: pendingPreparation.sealed.serializedEnvelope, key: bytesToHex(pendingPreparation.sealed.key), salt: bytesToHex(pendingPreparation.salt), id: bytesToHex(pendingPreparation.id) }, submissionStarted: pendingPreparation.submissionStarted } : null, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
+      version: reportAttempts.length ? 8 : deploymentTransactionId ? 7 : deploymentAttempt ? 6 : 5, ...(reportAttempts.length ? { reportAttempts } : {}), ...(deploymentTransactionId ? { deploymentTransactionId } : {}), ...(deploymentAttempt ? { deploymentAttempt } : {}), programDraft, uncertainTransition, attachmentDraft, pendingReport: pendingPreparation ? { report: { envelope: pendingPreparation.sealed.serializedEnvelope, key: bytesToHex(pendingPreparation.sealed.key), salt: bytesToHex(pendingPreparation.salt), id: bytesToHex(pendingPreparation.id) }, submissionStarted: pendingPreparation.submissionStarted } : null, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
       programId: bytesToHex(programBytes), policy: programPolicy, vendorSecret: bytesToHex(vendorSecret), researcherSecret: bytesToHex(researcherSecret), draft: report,
       report: sealed && reportSalt && reportId ? { envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt), id: bytesToHex(reportId) } : null,
       status, history: events.map((event) => event.status), patch: encode(patchCommitment), retest: encode(retestCommitment), payout: encode(payoutReceipt),
       severity: acceptedSeverity, rationale, patchReference, retestNotes,
     };
-  }, [deploymentTransactionId, deploymentAttempt, programDraft, uncertainTransition, attachmentDraft, pendingPreparation, runtimeMode, activeNetwork, api, programBytes, programPolicy, vendorSecret, researcherSecret, report, sealed, reportSalt, reportId, status, events, patchCommitment, retestCommitment, payoutReceipt, acceptedSeverity, rationale, patchReference, retestNotes]);
+  }, [reportAttempts, deploymentTransactionId, deploymentAttempt, programDraft, uncertainTransition, attachmentDraft, pendingPreparation, runtimeMode, activeNetwork, api, programBytes, programPolicy, vendorSecret, researcherSecret, report, sealed, reportSalt, reportId, status, events, patchCommitment, retestCommitment, payoutReceipt, acceptedSeverity, rationale, patchReference, retestNotes]);
 
   const recoverySnapshot = runtimeMode === "midnight" && !api && !deploymentAttempt ? undefined : liveRecoverySnapshot;
 
@@ -660,7 +690,7 @@ function App() {
       let current: Awaited<ReturnType<typeof verifyRecoveryLedger>>;
       if (snapshot.mode === "midnight" && !snapshot.deploymentAttempt) {
         if (snapshot.network === "undeployed") throw new Error("A network backup must name its actual network");
-        restoredProviders = await initializeBrowserProviders(snapshot.network);
+        restoredProviders = await initializeBrowserProviders(snapshot.network, checkpointTransaction);
         restoredApi = await VulnSealApi.join(restoredProviders, snapshot.contractAddress!, createVulnSealPrivateState(hexToBytes(snapshot.vendorSecret)));
         const publicState = await restoredApi.readPublicState();
         current = await verifyRecoveryLedger(snapshot, restoredSeal, publicState.ledger);
@@ -670,7 +700,7 @@ function App() {
       const restoredStatus = current ? contractStatusName(current.status) : snapshot.status;
       setProviders(restoredProviders); setApi(restoredApi); setRuntimeMode(snapshot.mode);
       if (snapshot.mode === "midnight") setActiveNetwork(snapshot.network as typeof activeNetwork);
-      setDeploymentAttempt(snapshot.deploymentAttempt); setDeploymentTransactionId(snapshot.deploymentTransactionId);
+      setDeploymentAttempt(snapshot.deploymentAttempt); setDeploymentTransactionId(snapshot.deploymentTransactionId); setReportAttempts(snapshot.reportAttempts ?? []);
       setProgramCreated(!snapshot.deploymentAttempt); setProgramBytes(hexToBytes(snapshot.programId)); setProgramPolicy(snapshot.policy);
       setProgramDraft(snapshot.programDraft ?? { ...snapshot.policy, responseDays: String(snapshot.policy.responseDays), disclosureDays: String(snapshot.policy.disclosureDays) });
       setVendorSecret(hexToBytes(snapshot.vendorSecret)); setResearcherSecret(hexToBytes(snapshot.researcherSecret));
@@ -702,7 +732,7 @@ function App() {
       await continuationDeadline(180_000, "Deployment recovery timed out. Keep your original backup; a late browser save may have committed. Recheck before reconnecting.", async assertActive => {
         const check = () => { assertActive(); if (deploymentGeneration.current !== generation) throw new Error("Deployment recovery closed"); };
         check();
-        const connected = await initializeBrowserProviders(activeNetwork); check();
+        const connected = await initializeBrowserProviders(activeNetwork, checkpointTransaction); check();
         const joined = await VulnSealApi.join(connected, address, createVulnSealPrivateState(vendorSecret)); check();
         if (joined.contractAddress !== address) throw new Error("Connected contract differs from the checked deployment address");
         const current = await joined.readPublicState(); check();
@@ -789,6 +819,9 @@ function App() {
       {runtimeMode === "midnight" && !networkReady && !deploymentAttempt && screen !== "lookup" && <div className="truth-banner" role="status"><span>Network setup required</span>Connect Lace and create a program before submitting a report. <button className="secondary-button" onClick={() => changeScreen("create", "vendor")}>Set up program</button></div>}
       {deploymentBackupNotice && <p role="status">{deploymentBackupNotice}</p>}
       {deploymentAttempt && <div className="truth-banner" role="alert"><span>Deployment outcome unconfirmed</span>Retain an encrypted backup through Private recovery. This session cannot create another program. <button className="secondary-button" onClick={() => changeScreen("create", "vendor")}>Review deployment attempt</button></div>}
+      {api && !reportBackupReady && <div className="truth-banner" role="status"><span>Encrypted transaction backup required</span>Enable encrypted autosave before submitting reports or changing status. <button className="secondary-button" onClick={() => changeScreen("recovery")}>Set up transaction backup</button></div>}
+      {reportBackupNotice && <div className="truth-banner" role="alert">{reportBackupNotice}</div>}
+      {reportAttempts.at(-1)?.outcome === "unknown" && reportAttempts.at(-1)?.transactionId && <div className="truth-banner"><p className="public-value">Saved report transaction: {reportAttempts.at(-1)!.transactionId}</p><TransactionCheck network={activeNetwork} transactionId={reportAttempts.at(-1)!.transactionId!} contractAddress={api?.contractAddress ?? null} circuit={reportAttempts.at(-1)!.circuit} /></div>}
       {uncertainTransition && <div className="truth-banner" role="alert"><span>Transaction outcome unknown: {uncertainTransition}</span>Keep an encrypted backup through Private recovery. Further transactions and resetting this report are blocked, including after restore. A ledger refresh does not establish whether this attempt is safe to repeat.</div>}
       <div className="session-actions"><a className="secondary-button" href="./#roles" target="_blank" rel="noreferrer noopener">Open role workspace</a><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("handoff")}>Private exchange</button><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("lookup", "verifier")}>Independent verifier</button><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("recovery")}>Private recovery</button>{reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("receipt")}>Submission receipt</button>}{api && reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={exportPublicReceipt}>Download public receipt</button>}{needsRefresh && <button className="primary-button" disabled={operation.state === "working"} onClick={() => void retryPublicRead()}>Refresh public commitments</button>}</div>
       {operation.state === "error" && screen !== "seal" && (
@@ -798,7 +831,7 @@ function App() {
         </div>
       )}
       {screen !== "recovery" && autosaveNotice && <p className="operation-notice" role="status">{autosaveNotice}</p>}
-      <main id="main-content" aria-busy={operation.state === "working"}><fieldset className="workflow-controls" disabled={operation.state === "working"}>{main}<div hidden={screen !== "recovery"}><RecoveryPanel onAutosaveStatus={setAutosaveNotice} snapshot={recoverySnapshot} onExport={exportRecovery} onImport={importRecovery} canImport={!deploymentAttempt && !reportId && !pendingPreparation && !api} /></div><div hidden={screen !== "handoff"}><HandoffPanel keys={recipientKeys} onKeys={setRecipientKeys} disclosure={sealed && reportId && reportSalt ? { network: api ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null, programId: bytesToHex(programBytes), reportId: bytesToHex(reportId), envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt) } : undefined} /></div></fieldset></main>
+      <main id="main-content" aria-busy={operation.state === "working"}><fieldset className="workflow-controls" disabled={operation.state === "working"}>{main}<div hidden={screen !== "recovery"}><RecoveryPanel onPersistence={acquire => { reportPersistence.current = acquire; setReportBackupReady(Boolean(acquire)); }} onAutosaveStatus={setAutosaveNotice} snapshot={recoverySnapshot} onExport={exportRecovery} onImport={importRecovery} canImport={!deploymentAttempt && !reportId && !pendingPreparation && !api} />{screen === "recovery" && api && reportAttempts.length > 0 && <ReportTransactionJournal attempts={reportAttempts} network={activeNetwork} contractAddress={api.contractAddress} />}</div><div hidden={screen !== "handoff"}><HandoffPanel keys={recipientKeys} onKeys={setRecipientKeys} disclosure={sealed && reportId && reportSalt ? { network: api ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null, programId: bytesToHex(programBytes), reportId: bytesToHex(reportId), envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt) } : undefined} /></div></fieldset></main>
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {navigation.slice(0, 5).map((item) => (
           <button key={item.screen} className={screen === item.screen ? "active" : ""} onClick={() => changeScreen(item.screen)}>

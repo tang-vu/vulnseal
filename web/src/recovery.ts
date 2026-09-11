@@ -2,6 +2,7 @@
 import { pureCircuits, type Ledger } from "@vulnseal/contract";
 import { base64UrlToBytes, bytesToBase64Url, bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, openReport, parseCiphertextEnvelope, randomBytes, sha256, utf8, type ReportStatusName, type SealedReport, type VulnerabilityReport } from "@vulnseal/shared";
 import { programConstructor, readProgramForm, validateProgramDraft, type ProgramDraft, type ProgramPolicy } from "./program.js";
+import { validateReportJournal, type ReportAttempt } from "./report-journal.js";
 import { submissionReceipt } from "./submission-receipt.js";
 
 import { validateAttachmentDraft, type AttachmentDraft } from "./attachment-draft.js";
@@ -13,7 +14,8 @@ const buffer = (value: Uint8Array): ArrayBuffer => Uint8Array.from(value).buffer
 export const uncertainCircuits = ["beginTriage", "acceptReport", "rejectReport", "anchorPatch", "submitRetest", "authorizePayout", "closeReport"] as const;
 export type UncertainCircuit = typeof uncertainCircuits[number];
 export type RecoverySnapshot = {
-  readonly version: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  readonly version: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+  readonly reportAttempts?: readonly ReportAttempt[];
   readonly deploymentTransactionId?: string;
   readonly deploymentAttempt?: { readonly startedAt: string };
   readonly programDraft?: ProgramDraft;
@@ -81,13 +83,14 @@ const validateDraft = (input: unknown): VulnerabilityReport => {
 export const validateRecovery = async (input: unknown): Promise<{ snapshot: RecoverySnapshot; sealed: SealedReport | undefined; pendingSeal?: SealedReport | undefined }> => {
   // Capture nested caller-owned state before the first asynchronous crypto check.
   const value = object(structuredClone(input));
-  if (![1, 2, 3, 4, 5, 6, 7].includes(Number(value.version)) || typeof value.version !== "number" || !["guided-local", "midnight"].includes(String(value.mode))) throw new Error("Unsupported recovery version or mode");
+  if (![1, 2, 3, 4, 5, 6, 7, 8].includes(Number(value.version)) || typeof value.version !== "number" || !["guided-local", "midnight"].includes(String(value.mode))) throw new Error("Unsupported recovery version or mode");
   if (!["undeployed", "local", "preview", "preprod", "mainnet"].includes(String(value.network))) throw new Error("Unsupported recovery network");
+  if (value.version < 8 && value.reportAttempts !== undefined) throw new Error("Report journals require recovery version 8");
   const mode = value.mode as RecoverySnapshot["mode"];
   const contractAddress = optionalHex(value.contractAddress);
   let deploymentAttempt: RecoverySnapshot["deploymentAttempt"];
   let deploymentTransactionId: string | undefined;
-  if (value.version === 7) {
+  if (value.version === 7 || (value.version === 8 && value.deploymentTransactionId !== undefined)) {
     if (typeof value.deploymentTransactionId !== "string" || !/^(?:[a-f0-9]{64}|[a-f0-9]{66})$/.test(value.deploymentTransactionId)) throw new Error("Invalid deployment transaction identifier");
     deploymentTransactionId = value.deploymentTransactionId;
     if (mode !== "midnight" || value.network === "undeployed") throw new Error("Deployment transaction requires a network recovery");
@@ -165,7 +168,8 @@ export const validateRecovery = async (input: unknown): Promise<{ snapshot: Reco
       if (!pendingSeal || pendingSeal.canonicalReport !== canonicalizeReport(draft)) throw new Error("Pending recovery report differs from its draft");
       pendingReport = { report: checked.snapshot.report!, submissionStarted: pending.submissionStarted };
     }
-    return { snapshot: { ...snapshot, pendingReport, ...(value.version >= 4 ? { uncertainTransition: value.uncertainTransition as UncertainCircuit | null } : {}) }, sealed, pendingSeal };
+    const restored = { ...snapshot, pendingReport, ...(value.version >= 4 ? { uncertainTransition: value.uncertainTransition as UncertainCircuit | null } : {}) };
+    return { snapshot: value.version === 8 ? { ...restored, reportAttempts: validateReportJournal(value.reportAttempts, restored) } : restored, sealed, pendingSeal };
   }
   if (value.pendingReport !== undefined) throw new Error("Pending reports require recovery version 3");
   return { snapshot, sealed };

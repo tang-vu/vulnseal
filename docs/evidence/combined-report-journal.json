@@ -1,0 +1,88 @@
+{
+  "date": "2026-09-11",
+  "scope": "Mandatory encrypted checkpoints for combined report submission and all seven later circuits",
+  "behavior": [
+    "An active combined autosave writer is required before network report actions. Guided-local actions remain local.",
+    "An exclusive persistence lease cancels pending debounce and suppresses new draft writes during the transaction; existing writes stay serialized.",
+    "Before SDK/private-state work, a v8 snapshot saves report recovery material, uncertainty and immutable requested circuit/report/state/severity/private notes.",
+    "Before wallet broadcast, the same revision-checked copy must confirm the canonical 64- or 66-character transaction identifier.",
+    "SDK confirmation must match circuit and identifier. The final result is saved before releasing persistence. A final save failure preserves matching SDK confirmation in memory, stops autosave and requests a file backup.",
+    "Preparation/checkpoint wait is 15 minutes, post-checkpoint confirmation 10 minutes, final result save 1 minute. Late checkpoints cannot authorize broadcast after closure.",
+    "V8 validates journal shape, immutable inputs, unique identifiers and pending/uncertain bindings. Private recovery exposes historical requests and explicit read-only lookup."
+  ],
+  "browser": {
+    "command": "CI=1 npx playwright test e2e/recovery-autosave.spec.ts e2e/recovery-browser-copy.spec.ts e2e/combined-deployment-recovery.spec.ts",
+    "passed": 12,
+    "duration": "1.3m",
+    "exit": 0,
+    "projects": [
+      "desktop-chrome",
+      "mobile-chrome"
+    ],
+    "workers": 2,
+    "retries": 0,
+    "log": ".compact/report-journal-browser-final.log",
+    "scope": "Real-browser regression for autosave navigation/conflicts/program change, IndexedDB copies/quota/reload/download/restore, and deployment v6/v7 recovery. This does not execute the new network report ceremony in a native wallet."
+  },
+  "release": {
+    "command": "npm run build -w @vulnseal/web && node scripts/check-web-release.mjs --write-manifest",
+    "exit": 0,
+    "circuits": 8,
+    "files": 80,
+    "bytes": 65531123,
+    "normalBuildAfterE2E": true,
+    "log": ".compact/report-journal-release.log"
+  },
+  "developmentFailures": [
+    {
+      "log": ".compact/report-journal-integration.log",
+      "passed": 37,
+      "failed": 3,
+      "cause": "Existing integration assertions did not wait for new encrypted saves; one overall test deadline was also too short."
+    },
+    {
+      "log": ".compact/report-journal-app.log",
+      "passed": 26,
+      "failed": 2,
+      "cause": "Overall restored-report test deadline and interaction with still-disabled controls needed to await durable saves."
+    },
+    {
+      "log": ".compact/report-journal-tests-verified.log",
+      "passed": 83,
+      "failed": 1,
+      "cause": "One remaining audit assertion still used the old non-hex patch transaction fixture."
+    },
+    {
+      "log": ".compact/report-journal-network-final.log",
+      "passed": 16,
+      "failed": 1,
+      "cause": "New journal-view assertion contained a question mark introduced by shell encoding instead of the rendered middle dot."
+    }
+  ],
+  "limitations": [
+    "Wallet and SDK calls are mocked in application network tests. No native signing/broadcast, authenticated inclusion or proof verification is claimed.",
+    "Unknown report attempts remain blocked after restore. A pending report already present on the ledger still cannot be promoted automatically; safe retry and full effect/argument reconciliation remain open.",
+    "SDK/provider work and already-started storage operations may continue after deadlines. Physical crash/suspend behavior was not tested.",
+    "Report preparation/ciphertext upload can precede the initial transaction checkpoint.",
+    "At most 1000 entries are retained. Old report metadata does not replace separate backups of their report decryption material. V1-v7 stay readable; older application releases cannot read v8.",
+    "No full repository regression, container runtime refresh or security scan is claimed in this increment."
+  ],
+  "unit": {
+    "command": "npm run test:run -w @vulnseal/web -- src/App.network.test.tsx src/App.deployment-checkpoint.test.tsx src/RecoveryAutosavePanel.test.tsx src/journal-report-transaction.test.ts src/recovery.test.ts src/recovery-autosave.test.ts src/RecoveryPanel.test.tsx",
+    "passed": 84,
+    "files": 7,
+    "seconds": 87.37,
+    "exit": 0,
+    "log": ".compact/report-journal-tests-complete.log",
+    "coverage": [
+      "All eight circuit intent/identifier/confirmation ordering and v8 validation",
+      "Intent or identifier save failure prevents broadcast; delayed checkpoint after timeout/unmount is rejected",
+      "Missing/wrong/duplicate/malformed identifier and wrong SDK circuit preserve uncertainty",
+      "Final save failure preserves matching SDK confirmation and warns",
+      "Exclusive lease suppresses pending/new debounce writes and refuses late completion after stop/unmount",
+      "Application network tests use real encryption, validate restored authority and uncertainty, enforce required backup, and inject real encrypted intent/identifier/final write failures",
+      "Private journal displays immutable historical severity/rationale without automatic network lookup",
+      "Existing deployment checkpoints/reconnect, recovery validation, browser-copy panel and serialized writer regressions"
+    ]
+  }
+}
