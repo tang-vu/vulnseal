@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Optional container storage tracing locates most measured SQLite upload delay inside transaction commit (795 of 796 ms for the adapter call). Both traced drills passed; a separate FULL-sync journal comparison still exceeded one second in all three modes, so runtime journaling and deadlines remain unchanged. Prior untraced lost acknowledgments remain evidence of an unresolved latency limit. See [timings and experiment limits](evidence/cipherstore-commit-latency.json).
+
 - Cipherstore diagnostics now distinguish request stages, collect socket timeout counts and read back failed uploads without retrying them. Concurrent SQLite failure reproduced at 1011 ms; matching ciphertext was already stored despite the lost acknowledgment. Single-store clients now explain this uncertainty and preserve explicit same-ciphertext retry. The instrumented image passes 50 service tests and its vulnerability scan; its concurrent SQLite drill still fails. See [diagnostic evidence](evidence/cipherstore-socket-diagnostic.json). Underlying latency remains open.
 
 - Prometheus/promtool now have a source diagnostic using their actual runtime build stage and tags. Both rebuilt binary hashes and module files match prior runtime evidence. The 240-module scan reports no vulnerable symbols/imported packages and three required-module advisories only; runtime Trivy findings remain unsuppressed. See [source evidence](evidence/prometheus-source-diagnostic.json).

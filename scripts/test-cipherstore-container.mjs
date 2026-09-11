@@ -9,23 +9,31 @@ import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const args = process.argv.slice(2);
-if (args.some((arg) => !["--backend=filesystem", "--backend=sqlite", "--write-evidence"].includes(arg)) || args.filter((arg) => arg.startsWith("--backend=")).length > 1) throw new Error("Usage: test-cipherstore-container.mjs [--backend=filesystem|sqlite] [--write-evidence]");
+if (args.some((arg) => !["--backend=filesystem", "--backend=sqlite", "--write-evidence", "--trace-storage"].includes(arg)) || args.filter((arg) => arg.startsWith("--backend=")).length > 1) throw new Error("Usage: test-cipherstore-container.mjs [--backend=filesystem|sqlite] [--write-evidence] [--trace-storage]");
 const backend = args.includes("--backend=sqlite") ? "sqlite" : "filesystem";
 
 const image = "vulnseal-cipherstore:local";
 const id = randomUUID(), name = `vulnseal-container-test-${id}`, volume = `${name}-data`;
 const label = `vulnseal.container-test=${id}`;
 const distro = process.env.VULNSEAL_DOCKER_WSL_DISTRO;
+const traceStorage = args.includes("--trace-storage");
+let storageTrace = fileURLToPath(new URL('./trace-cipherstore-storage.mjs', import.meta.url));
 let retirementDrill = fileURLToPath(new URL('./test-retirement-runtime.mjs', import.meta.url));
 if (distro) {
   const match = /^([A-Za-z]):\\(.*)$/.exec(retirementDrill);
   if (!match) throw new Error('Cannot translate retirement drill path for WSL');
   retirementDrill = `/mnt/${match[1].toLowerCase()}/${match[2].replaceAll('\\', '/')}`;
+  storageTrace = `/mnt/${storageTrace[0].toLowerCase()}/${storageTrace.slice(3).replaceAll('\\', '/')}`;
 }
 const executable = distro ? "wsl.exe" : process.platform === "win32" ? "docker.exe" : "docker";
 const execute = promisify(execFile);
 // Keep the event loop available to observe HTTP socket closure during Docker work.
-const docker = async (...args) => (await execute(executable, [...(distro ? ["--distribution", distro, "--exec", "docker"] : []), ...args], { encoding: "utf8", timeout: 60_000, maxBuffer: 1024 * 1024, windowsHide: true })).stdout.trim();
+const dockerOutput = (...args) => execute(executable, [...(distro ? ["--distribution", distro, "--exec", "docker"] : []), ...args], { encoding: "utf8", timeout: 60_000, maxBuffer: 1024 * 1024, windowsHide: true });
+const docker = async (...args) => (await dockerOutput(...args)).stdout.trim();
+const containerLogs = async (tail) => {
+  const { stdout, stderr } = await dockerOutput("logs", "--tail", String(tail), name);
+  return stdout + stderr;
+};
 const failed = async (...args) => { try { await docker(...args); return false; } catch (error) { if (error.code === 1) return true; throw error; } };
 const imageId = await docker("image", "inspect", image, "--format", "{{.Id}}");
 assert.match(imageId, /^sha256:[a-f0-9]{64}$/);
@@ -69,7 +77,7 @@ async function removeOwned(kind, target) {
 }
 try {
   await docker("volume", "create", "--label", label, volume);
-  await docker("run", "--detach", "--name", name, "--label", label, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--memory", "512m", "--pids-limit", "64", "--mount", `type=volume,source=${volume},target=/data`, "--mount", `type=bind,source=${retirementDrill},target=/retirement-drill.mjs,readonly`, "--publish", "127.0.0.1::8787", "--env", `CIPHERSTORE_BACKEND=${backend}`, "--env", "CIPHERSTORE_METRICS_ENABLED=1", "--env", "CIPHERSTORE_MAX_STORED_BLOBS=1", "--env", "CIPHERSTORE_REQUEST_TIMEOUT_MS=1000", imageId);
+  await docker("run", "--detach", "--name", name, "--label", label, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--memory", "512m", "--pids-limit", "64", "--mount", `type=volume,source=${volume},target=/data`, "--mount", `type=bind,source=${retirementDrill},target=/retirement-drill.mjs,readonly`, ...(traceStorage ? ["--mount", `type=bind,source=${storageTrace},target=/storage-trace.mjs,readonly`, "--env", "NODE_OPTIONS=--import=/storage-trace.mjs"] : []), "--publish", "127.0.0.1::8787", "--env", `CIPHERSTORE_BACKEND=${backend}`, "--env", "CIPHERSTORE_METRICS_ENABLED=1", "--env", "CIPHERSTORE_MAX_STORED_BLOBS=1", "--env", "CIPHERSTORE_REQUEST_TIMEOUT_MS=1000", imageId);
   await live();
   const metrics = await request(`${await baseUrl()}/metrics`);
   assert.equal(metrics.status, 200);
@@ -160,6 +168,10 @@ try {
   evidence = { capturedAt: new Date().toISOString(), backend, imageId, nonRoot: true, readOnlyRoot: true, metricsEnabled: true, readyBeforeUpload: true, incompleteRestoreStartupRefused: true, incompleteRestoreBackupRefused: true, incompleteRestoreMarkerRetained: true, incompleteRestoreLeaseReleased: true, trickledUploadTerminated: true, quotaRejectsNewBlob: true, fullStoreRemainsReadable: true, secondWriterRefused: true, gracefulRestart: true, persistedCiphertextDecrypted: true };
   evidence.retirement = retirement;
   evidence.requestObservations = requestObservations;
+  if (traceStorage) {
+    evidence.storageTraced = true;
+    process.stderr.write(await containerLogs(200) + "\n");
+  }
 } catch (error) {
   process.stderr.write(`Container drill failed (${backend}, ${stage}): ${String(error)}\n`);
   process.stderr.write(JSON.stringify({ requestObservations }) + "\n");
@@ -182,7 +194,7 @@ try {
   for (const [index, result] of diagnostics.entries()) {
     process.stderr.write(`${["Container state", "Failure metrics", "Failed upload readback"][index]}: ${result.status === "fulfilled" ? result.value : String(result.reason)}\n`);
   }
-  try { process.stderr.write(await docker("logs", "--tail", "30", name) + "\n"); } catch {}
+  try { process.stderr.write(await containerLogs(traceStorage ? 200 : 30) + "\n"); } catch {}
   throw error;
 } finally {
   await removeOwned("container", name);

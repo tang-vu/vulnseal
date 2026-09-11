@@ -1,0 +1,869 @@
+{
+  "capturedAt": "2026-09-11T01:45:09.147Z",
+  "sourceBaseRevision": "f8b474e",
+  "imageId": "sha256:448b29f1a562dd52ce62e869b4d7ac24415499c4a383acea185011e7feea9eae",
+  "tracedDrills": {
+    "filesystem": {
+      "exitCode": 0,
+      "drill": {
+        "capturedAt": "2026-09-11T01:43:02.492Z",
+        "backend": "filesystem",
+        "imageId": "sha256:448b29f1a562dd52ce62e869b4d7ac24415499c4a383acea185011e7feea9eae",
+        "nonRoot": true,
+        "readOnlyRoot": true,
+        "metricsEnabled": true,
+        "readyBeforeUpload": true,
+        "incompleteRestoreStartupRefused": true,
+        "incompleteRestoreBackupRefused": true,
+        "incompleteRestoreMarkerRetained": true,
+        "incompleteRestoreLeaseReleased": true,
+        "trickledUploadTerminated": true,
+        "quotaRejectsNewBlob": true,
+        "fullStoreRemainsReadable": true,
+        "secondWriterRefused": true,
+        "gracefulRestart": true,
+        "persistedCiphertextDecrypted": true,
+        "retirement": {
+          "backend": "filesystem",
+          "node": "v24.20.0",
+          "retirementRuntimePassed": true,
+          "fixtureRemoved": true
+        },
+        "requestObservations": [
+          {
+            "stage": "request: GET /healthz",
+            "startedAt": "2026-09-11T01:42:36.375Z",
+            "status": 200,
+            "headersOrErrorElapsedMs": 58
+          },
+          {
+            "stage": "request: GET /metrics",
+            "startedAt": "2026-09-11T01:42:36.758Z",
+            "status": 200,
+            "headersOrErrorElapsedMs": 162
+          },
+          {
+            "stage": "initial upload: PUT /v1/blobs/sha256:102459a849846ce596146e04bd9165707d28a27b613392b5a57b3adab2a51567",
+            "startedAt": "2026-09-11T01:42:46.609Z",
+            "status": 201,
+            "headersOrErrorElapsedMs": 80
+          },
+          {
+            "stage": "idempotent upload: PUT /v1/blobs/sha256:102459a849846ce596146e04bd9165707d28a27b613392b5a57b3adab2a51567",
+            "startedAt": "2026-09-11T01:42:47.006Z",
+            "status": 200,
+            "headersOrErrorElapsedMs": 7
+          },
+          {
+            "stage": "capacity rejection: PUT /v1/blobs/sha256:1dd8c9130e3d490ac835115138d73dd8be360bd563c99dc907dada642b80adbe",
+            "startedAt": "2026-09-11T01:42:47.328Z",
+            "status": 507,
+            "headersOrErrorElapsedMs": 7
+          },
+          {
+            "stage": "request: GET /readyz",
+            "startedAt": "2026-09-11T01:42:47.667Z",
+            "status": 503,
+            "headersOrErrorElapsedMs": 5
+          },
+          {
+            "stage": "request: GET /healthz",
+            "startedAt": "2026-09-11T01:42:48.013Z",
+            "status": 200,
+            "headersOrErrorElapsedMs": 3
+          },
+          {
+            "stage": "request: GET /healthz",
+            "startedAt": "2026-09-11T01:42:57.364Z",
+            "status": 200,
+            "headersOrErrorElapsedMs": 16
+          },
+          {
+            "stage": "request: GET /v1/blobs/sha256:102459a849846ce596146e04bd9165707d28a27b613392b5a57b3adab2a51567",
+            "startedAt": "2026-09-11T01:42:57.784Z",
+            "status": 200,
+            "headersOrErrorElapsedMs": 9
+          }
+        ],
+        "storageTraced": true,
+        "cleanupCompleted": true
+      },
+      "records": [
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:36.762Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "checkReadiness",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:36.918Z",
+          "elapsedMs": 156
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:38.353Z",
+          "elapsedMs": 1
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "checkReadiness",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:38.532Z",
+          "elapsedMs": 180
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:41.303Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "checkReadiness",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:41.568Z",
+          "elapsedMs": 265
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:44.520Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:46.617Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:46.619Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "put",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:46.688Z",
+          "elapsedMs": 70
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:47.010Z",
+          "elapsedMs": 1
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:47.011Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "put",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:47.012Z",
+          "elapsedMs": 1
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:47.332Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:47.332Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "put",
+          "ok": false,
+          "completedAt": "2026-09-11T01:42:47.335Z",
+          "elapsedMs": 3
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:47.671Z",
+          "elapsedMs": 1
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "checkReadiness",
+          "ok": false,
+          "completedAt": "2026-09-11T01:42:47.672Z",
+          "elapsedMs": 2
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:48.552Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "checkReadiness",
+          "ok": false,
+          "completedAt": "2026-09-11T01:42:48.554Z",
+          "elapsedMs": 2
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:57.789Z",
+          "elapsedMs": 1
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "read",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:57.790Z",
+          "elapsedMs": 1
+        }
+      ]
+    },
+    "sqlite": {
+      "exitCode": 0,
+      "drill": {
+        "capturedAt": "2026-09-11T01:43:07.778Z",
+        "backend": "sqlite",
+        "imageId": "sha256:448b29f1a562dd52ce62e869b4d7ac24415499c4a383acea185011e7feea9eae",
+        "nonRoot": true,
+        "readOnlyRoot": true,
+        "metricsEnabled": true,
+        "readyBeforeUpload": true,
+        "incompleteRestoreStartupRefused": true,
+        "incompleteRestoreBackupRefused": true,
+        "incompleteRestoreMarkerRetained": true,
+        "incompleteRestoreLeaseReleased": true,
+        "trickledUploadTerminated": true,
+        "quotaRejectsNewBlob": true,
+        "fullStoreRemainsReadable": true,
+        "secondWriterRefused": true,
+        "gracefulRestart": true,
+        "persistedCiphertextDecrypted": true,
+        "retirement": {
+          "backend": "sqlite",
+          "node": "v24.20.0",
+          "retirementRuntimePassed": true,
+          "fixtureRemoved": true
+        },
+        "requestObservations": [
+          {
+            "stage": "request: GET /healthz",
+            "startedAt": "2026-09-11T01:42:35.647Z",
+            "error": "TypeError",
+            "causeCode": "ECONNRESET",
+            "headersOrErrorElapsedMs": 51
+          },
+          {
+            "stage": "request: GET /healthz",
+            "startedAt": "2026-09-11T01:42:36.294Z",
+            "status": 200,
+            "headersOrErrorElapsedMs": 17
+          },
+          {
+            "stage": "request: GET /metrics",
+            "startedAt": "2026-09-11T01:42:36.644Z",
+            "status": 200,
+            "headersOrErrorElapsedMs": 498
+          },
+          {
+            "stage": "initial upload: PUT /v1/blobs/sha256:d1e5dcd586385e87354f670b965d6ca0533bae13b52c8b2e72aa619bd850b76b",
+            "startedAt": "2026-09-11T01:42:49.776Z",
+            "status": 201,
+            "headersOrErrorElapsedMs": 808
+          },
+          {
+            "stage": "idempotent upload: PUT /v1/blobs/sha256:d1e5dcd586385e87354f670b965d6ca0533bae13b52c8b2e72aa619bd850b76b",
+            "startedAt": "2026-09-11T01:42:51.467Z",
+            "status": 200,
+            "headersOrErrorElapsedMs": 7
+          },
+          {
+            "stage": "capacity rejection: PUT /v1/blobs/sha256:b90e5e82836d17bbd9bad5c8c8e97231101e05a7335f165467f3c9969d0faa4b",
+            "startedAt": "2026-09-11T01:42:51.814Z",
+            "status": 507,
+            "headersOrErrorElapsedMs": 5
+          },
+          {
+            "stage": "request: GET /readyz",
+            "startedAt": "2026-09-11T01:42:52.137Z",
+            "status": 503,
+            "headersOrErrorElapsedMs": 3
+          },
+          {
+            "stage": "request: GET /healthz",
+            "startedAt": "2026-09-11T01:42:52.487Z",
+            "status": 200,
+            "headersOrErrorElapsedMs": 3
+          },
+          {
+            "stage": "request: GET /healthz",
+            "startedAt": "2026-09-11T01:43:03.199Z",
+            "status": 200,
+            "headersOrErrorElapsedMs": 14
+          },
+          {
+            "stage": "request: GET /v1/blobs/sha256:d1e5dcd586385e87354f670b965d6ca0533bae13b52c8b2e72aa619bd850b76b",
+            "startedAt": "2026-09-11T01:43:03.525Z",
+            "status": 200,
+            "headersOrErrorElapsedMs": 6
+          }
+        ],
+        "storageTraced": true,
+        "cleanupCompleted": true
+      },
+      "records": [
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "BEGIN",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:35.881Z",
+          "elapsedMs": 753
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:35.886Z",
+          "elapsedMs": 844
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "PRAGMA",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:35.883Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "BEGIN",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:36.647Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "checkReadiness",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:37.139Z",
+          "elapsedMs": 493
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "schema",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:36.647Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "COMMIT",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:37.138Z",
+          "elapsedMs": 491
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "BEGIN",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:38.536Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "checkReadiness",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:38.938Z",
+          "elapsedMs": 403
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "schema",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:38.537Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "COMMIT",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:38.938Z",
+          "elapsedMs": 401
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "BEGIN",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:40.566Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "checkReadiness",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:41.566Z",
+          "elapsedMs": 1001
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "schema",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:40.567Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "COMMIT",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:41.566Z",
+          "elapsedMs": 999
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:47.426Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:49.784Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "BEGIN",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:49.787Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "put",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:50.582Z",
+          "elapsedMs": 796
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "COMMIT",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:50.582Z",
+          "elapsedMs": 795
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:51.471Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "BEGIN",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:51.472Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "put",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:51.473Z",
+          "elapsedMs": 2
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "COMMIT",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:51.473Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:51.817Z",
+          "elapsedMs": 1
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "BEGIN",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:51.818Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "put",
+          "ok": false,
+          "completedAt": "2026-09-11T01:42:51.819Z",
+          "elapsedMs": 1
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "ROLLBACK",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:51.818Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "BEGIN",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:52.138Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "checkReadiness",
+          "ok": false,
+          "completedAt": "2026-09-11T01:42:52.139Z",
+          "elapsedMs": 1
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "ROLLBACK",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:52.139Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "BEGIN",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:53.076Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "ROLLBACK",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:53.076Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "checkReadiness",
+          "ok": false,
+          "completedAt": "2026-09-11T01:42:53.076Z",
+          "elapsedMs": 1
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "close",
+          "ok": true,
+          "completedAt": "2026-09-11T01:42:54.499Z",
+          "elapsedMs": 6
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "sqlite",
+          "operation": "PRAGMA",
+          "ok": true,
+          "completedAt": "2026-09-11T01:43:02.902Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:43:02.907Z",
+          "elapsedMs": 80
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "prepare",
+          "ok": true,
+          "completedAt": "2026-09-11T01:43:03.528Z",
+          "elapsedMs": 0
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "read",
+          "ok": true,
+          "completedAt": "2026-09-11T01:43:03.529Z",
+          "elapsedMs": 1
+        },
+        {
+          "storageTrace": true,
+          "pid": 1,
+          "thread": "http",
+          "operation": "close",
+          "ok": true,
+          "completedAt": "2026-09-11T01:43:04.377Z",
+          "elapsedMs": 5
+        }
+      ]
+    }
+  },
+  "journalComparison": {
+    "capturedAt": "2026-09-11T01:45:09.147Z",
+    "node": "v24.20.0",
+    "synchronous": "FULL",
+    "samplesPerMode": 10,
+    "results": [
+      {
+        "round": "forward",
+        "mode": "DELETE",
+        "commitMs": [
+          433,
+          297,
+          762,
+          857,
+          522
+        ]
+      },
+      {
+        "round": "forward",
+        "mode": "PERSIST",
+        "commitMs": [
+          1056,
+          851,
+          558,
+          550,
+          616
+        ]
+      },
+      {
+        "round": "forward",
+        "mode": "TRUNCATE",
+        "commitMs": [
+          482,
+          425,
+          391,
+          408,
+          799
+        ]
+      },
+      {
+        "round": "reverse",
+        "mode": "TRUNCATE",
+        "commitMs": [
+          1017,
+          383,
+          516,
+          409,
+          774
+        ]
+      },
+      {
+        "round": "reverse",
+        "mode": "PERSIST",
+        "commitMs": [
+          1140,
+          1041,
+          1192,
+          900,
+          1008
+        ]
+      },
+      {
+        "round": "reverse",
+        "mode": "DELETE",
+        "commitMs": [
+          650,
+          517,
+          483,
+          907,
+          1126
+        ]
+      }
+    ],
+    "fixtureRemoved": true
+  },
+  "journalSummary": {
+    "DELETE": {
+      "samples": 10,
+      "medianMs": 586.0,
+      "minMs": 297,
+      "maxMs": 1126,
+      "over1000ms": 1
+    },
+    "PERSIST": {
+      "samples": 10,
+      "medianMs": 954.0,
+      "minMs": 550,
+      "maxMs": 1192,
+      "over1000ms": 5
+    },
+    "TRUNCATE": {
+      "samples": 10,
+      "medianMs": 453.5,
+      "minMs": 383,
+      "maxMs": 1017,
+      "over1000ms": 1
+    }
+  },
+  "cleanup": {
+    "traceContainersAndVolumesAbsent": true,
+    "benchmarkContainerAndVolumeAbsent": true,
+    "note": "Benchmark exited 0 and removed its fixture. Initial volume owner template parsing failed under the Windows wrapper; full JSON inspection verified the exact owner label before explicit removal succeeded."
+  },
+  "interpretation": "In the traced successful upload, SQLite put took 796 ms and COMMIT 795 ms; a readiness COMMIT took 999 ms. Transaction commit dominates these observed latencies. All three journal modes exceeded 1000 ms in the separate small FULL-sync experiment. No journal-mode or deadline change is justified by these samples. Tracing changes timing and successful traced drills do not erase prior failed acknowledgments.",
+  "limits": [
+    "Single local Docker/WSL storage environment, synthetic small rows, 10 commits per mode",
+    "No controlled host load, confidence interval, production SLO or power-loss validation",
+    "Timing wraps whole SQLite exec(COMMIT); it does not separately measure individual fsync system calls"
+  ],
+  "references": [
+    "https://www.sqlite.org/pragma.html#pragma_journal_mode",
+    "https://www.sqlite.org/atomiccommit.html"
+  ],
+  "hashes": {
+    "scripts/trace-cipherstore-storage.mjs": "d384138ab22abe51ff4669a1536de6bb45fc40af6a16dd884ef519e51f70be9e",
+    "scripts/test-cipherstore-container.mjs": "635e71e7b8ae329bf84d814cc589def026c747dfc7f280ad53c53219ff3a2b8d",
+    ".compact/cipherstore-trace-sqlite.log": "0f293d6c86f1b2737ee05663642a4a30f9a116749e3162ff574a26d9916d329a",
+    ".compact/cipherstore-trace-filesystem.log": "8c37c8f2e9d7f80cc995a34b41a2ff684658a100c142c9929f603624699af8f6",
+    ".compact/journal-latency.mjs": "a2d974352116c38713df37f8a74428965142e8abc979ef6f93756a90ff445652",
+    ".compact/journal-latency.log": "c2d556b013063026a9fa490fdd87486725b5dbd2929201249c497bc3642134a3"
+  }
+}
