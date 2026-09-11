@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Combined private restoration now has a three-minute deadline across decryption, wallet initialization, join, ledger read and verification. Late responses after expiry/unmount cannot progress or install a session, and recovery inputs survive timeout. See [restore deadline evidence](evidence/private-recovery-deadlines.json). Already-started SDK work and native-wallet validation remain outside this guarantee.
+
 - Combined network reports now confirm an encrypted preparation copy before ciphertext upload. Save errors/deadlines prevent PUT, and a late upload response after unmount cannot start SDK work. See [pre-upload evidence](evidence/prepared-before-upload.json). Old preparation files can still predate a later submission; authenticated reconciliation and native-wallet validation remain open.
 
 - Full combined report journals now stop before preparation/upload or new uncertainty. The capacity message is distinct from unresolved transaction history; the last available entry still preserves its 999 predecessors. See [capacity preflight evidence](evidence/journal-capacity-preflight.json). Existing unknown markers and the 1,000-entry bound remain intact.

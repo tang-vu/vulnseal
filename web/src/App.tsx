@@ -699,44 +699,50 @@ function App() {
   const importRecovery = async (serialized: string, password: string): Promise<void> => {
     if (busy.current || deploymentAttempt || reportId || pendingPreparation || api) throw new Error("Restore in a fresh tab to preserve this active session");
     busy.current = true;
+    const recoveryGeneration = deploymentGeneration.current;
     setOperation({ state: "working", label: "Restoring private session", detail: "Decrypting and checking report bindings before replacing this tab’s draft." });
     try {
-      const { snapshot, sealed: restoredSeal, pendingSeal } = await decryptRecovery(serialized, password);
-      let restoredApi: VulnSealApi | undefined;
-      let restoredProviders: VulnSealProviders | undefined;
-      let current: Awaited<ReturnType<typeof verifyRecoveryLedger>>;
-      if (snapshot.mode === "midnight" && !snapshot.deploymentAttempt) {
-        if (snapshot.network === "undeployed") throw new Error("A network backup must name its actual network");
-        restoredProviders = await initializeBrowserProviders(snapshot.network, checkpointTransaction);
-        restoredApi = await VulnSealApi.join(restoredProviders, snapshot.contractAddress!, createVulnSealPrivateState(hexToBytes(snapshot.vendorSecret)));
-        const publicState = await restoredApi.readPublicState();
-        current = await verifyRecoveryLedger(snapshot, restoredSeal, publicState.ledger);
-      }
-      const decode = (value: string | null) => value === null ? undefined : hexToBytes(value);
-      const nonzero = (value: Uint8Array) => value.some((byte) => byte !== 0) ? value : undefined;
-      const restoredStatus = current ? contractStatusName(current.status) : snapshot.status;
-      setProviders(restoredProviders); setApi(restoredApi); setRuntimeMode(snapshot.mode);
-      if (snapshot.mode === "midnight") setActiveNetwork(snapshot.network as typeof activeNetwork);
-      setDeploymentAttempt(snapshot.deploymentAttempt); setDeploymentTransactionId(snapshot.deploymentTransactionId); setReportAttempts(snapshot.reportAttempts ?? []);
-      setProgramCreated(!snapshot.deploymentAttempt); setProgramBytes(hexToBytes(snapshot.programId)); setProgramPolicy(snapshot.policy);
-      setProgramDraft(snapshot.programDraft ?? { ...snapshot.policy, responseDays: String(snapshot.policy.responseDays), disclosureDays: String(snapshot.policy.disclosureDays) });
-      setVendorSecret(hexToBytes(snapshot.vendorSecret)); setResearcherSecret(hexToBytes(snapshot.researcherSecret));
-      setReport(snapshot.draft); setAttachmentDraft(snapshot.attachmentDraft ?? emptyAttachmentDraft); setSealed(restoredSeal); setVendorReport(undefined);
-      setPendingPreparation(snapshot.pendingReport && pendingSeal ? { sealed: pendingSeal, salt: hexToBytes(snapshot.pendingReport.report.salt), id: hexToBytes(snapshot.pendingReport.report.id), submissionStarted: snapshot.pendingReport.submissionStarted } : undefined);
-      setReportSalt(snapshot.report ? hexToBytes(snapshot.report.salt) : undefined); setReportId(snapshot.report ? hexToBytes(snapshot.report.id) : undefined);
-      setStatus(restoredStatus);
-      setPatchCommitment(current ? nonzero(current.patchCommitment) : decode(snapshot.patch));
-      setRetestCommitment(current ? nonzero(current.retestCommitment) : decode(snapshot.retest));
-      setPayoutReceipt(current ? nonzero(current.payoutReceipt) : decode(snapshot.payout));
-      const restoredSeverity = current && current.severity > 0n ? Number(current.severity) : snapshot.severity;
-      setSeverity(restoredSeverity); setAcceptedSeverity(restoredSeverity);
-      setRationale(snapshot.rationale); setPatchReference(snapshot.patchReference); setRetestNotes(snapshot.retestNotes);
-      setEvidence([]); setNeedsRefresh(false); setUncertainTransition(snapshot.uncertainTransition ?? null);
-      // Backup history is a local record, never imported finality evidence.
-      setEvents(current ? [{ status: restoredStatus, source: "ledger" }] : snapshot.history.map((entry) => ({ status: entry, source: "recovered" })));
-      changeScreen(snapshot.deploymentAttempt ? "create" : snapshot.report ? "receipt" : "submit");
-    } finally { busy.current = false; setOperation({ state: "idle" }); }
+      await continuationDeadline(180_000, "Private recovery timed out. Keep the encrypted backup and retry explicitly when ready. A late wallet or ledger response cannot install this session.", async assertActive => {
+        const check = () => { assertActive(); if (deploymentGeneration.current !== recoveryGeneration) throw new Error("Private recovery session closed"); };
+        check();
+        const { snapshot, sealed: restoredSeal, pendingSeal } = await decryptRecovery(serialized, password); check();
+        let restoredApi: VulnSealApi | undefined;
+        let restoredProviders: VulnSealProviders | undefined;
+        let current: Awaited<ReturnType<typeof verifyRecoveryLedger>>;
+        if (snapshot.mode === "midnight" && !snapshot.deploymentAttempt) {
+          if (snapshot.network === "undeployed") throw new Error("A network backup must name its actual network");
+          restoredProviders = await initializeBrowserProviders(snapshot.network, checkpointTransaction); check();
+          restoredApi = await VulnSealApi.join(restoredProviders, snapshot.contractAddress!, createVulnSealPrivateState(hexToBytes(snapshot.vendorSecret))); check();
+          const publicState = await restoredApi.readPublicState(); check();
+          current = await verifyRecoveryLedger(snapshot, restoredSeal, publicState.ledger); check();
+        }
+        const decode = (value: string | null) => value === null ? undefined : hexToBytes(value);
+        const nonzero = (value: Uint8Array) => value.some((byte) => byte !== 0) ? value : undefined;
+        const restoredStatus = current ? contractStatusName(current.status) : snapshot.status;
+        setProviders(restoredProviders); setApi(restoredApi); setRuntimeMode(snapshot.mode);
+        if (snapshot.mode === "midnight") setActiveNetwork(snapshot.network as typeof activeNetwork);
+        setDeploymentAttempt(snapshot.deploymentAttempt); setDeploymentTransactionId(snapshot.deploymentTransactionId); setReportAttempts(snapshot.reportAttempts ?? []);
+        setProgramCreated(!snapshot.deploymentAttempt); setProgramBytes(hexToBytes(snapshot.programId)); setProgramPolicy(snapshot.policy);
+        setProgramDraft(snapshot.programDraft ?? { ...snapshot.policy, responseDays: String(snapshot.policy.responseDays), disclosureDays: String(snapshot.policy.disclosureDays) });
+        setVendorSecret(hexToBytes(snapshot.vendorSecret)); setResearcherSecret(hexToBytes(snapshot.researcherSecret));
+        setReport(snapshot.draft); setAttachmentDraft(snapshot.attachmentDraft ?? emptyAttachmentDraft); setSealed(restoredSeal); setVendorReport(undefined);
+        setPendingPreparation(snapshot.pendingReport && pendingSeal ? { sealed: pendingSeal, salt: hexToBytes(snapshot.pendingReport.report.salt), id: hexToBytes(snapshot.pendingReport.report.id), submissionStarted: snapshot.pendingReport.submissionStarted } : undefined);
+        setReportSalt(snapshot.report ? hexToBytes(snapshot.report.salt) : undefined); setReportId(snapshot.report ? hexToBytes(snapshot.report.id) : undefined);
+        setStatus(restoredStatus);
+        setPatchCommitment(current ? nonzero(current.patchCommitment) : decode(snapshot.patch));
+        setRetestCommitment(current ? nonzero(current.retestCommitment) : decode(snapshot.retest));
+        setPayoutReceipt(current ? nonzero(current.payoutReceipt) : decode(snapshot.payout));
+        const restoredSeverity = current && current.severity > 0n ? Number(current.severity) : snapshot.severity;
+        setSeverity(restoredSeverity); setAcceptedSeverity(restoredSeverity);
+        setRationale(snapshot.rationale); setPatchReference(snapshot.patchReference); setRetestNotes(snapshot.retestNotes);
+        setEvidence([]); setNeedsRefresh(false); setUncertainTransition(snapshot.uncertainTransition ?? null);
+        // Backup history is a local record, never imported finality evidence.
+        setEvents(current ? [{ status: restoredStatus, source: "ledger" }] : snapshot.history.map((entry) => ({ status: entry, source: "recovered" })));
+        changeScreen(snapshot.deploymentAttempt ? "create" : snapshot.report ? "receipt" : "submit");
+      });
+    } finally { busy.current = false; if (deploymentGeneration.current === recoveryGeneration) setOperation({ state: "idle" }); }
   };
+
 
   const recoverDeployment = async (address: string, password: string) => {
     if (busy.current || !deploymentAttempt || !deploymentTransactionId || api) throw new Error("No deployment attempt is available for recovery");

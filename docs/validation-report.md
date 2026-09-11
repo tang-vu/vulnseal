@@ -1,5 +1,15 @@
 # Validation report
 
+## Private restoration deadline and lifetime -- 2026-09-11
+
+The old combined restore continued to subsequent wallet/SDK stages after unmount. A baseline run reproduced **4 failed / 1 passed** unmount cases (10 unrelated cases skipped), while preserving and restoring the edited App source exactly. An earlier title filter selected no tests and is not counted as a reproduction.
+
+Restoration now has a three-minute deadline from receipt of backup contents through decryption, wallet initialization, join, public read and ledger verification. Every awaited boundary checks both the shared deadline and App generation before progressing or installing private state. Timeout retains the panel's recovery inputs; no validation was removed and no automatic retry is introduced.
+
+**54 unique tests / 3 files** passed across a 49-test regression run (**102.72 seconds**) and the expanded 20-case boundary run (**11.13 seconds**). The latter independently tests timer, wall-clock and monotonic-clock expiry, backwards wall time and unmount at all five stages. Normal build/typecheck and release validation passed: **8 circuits / 80 files / 65,536,934 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/private-recovery-deadlines.json) records the reproduction and limits. Already-started wallet/SDK work is not cancelled. No native-wallet, physical suspend, new E2E, full regression or runtime refresh is claimed.
+
 ## Prepared recovery before ciphertext upload -- 2026-09-11
 
 Combined network report preparation now confirms the encrypted envelope, key, salt and report identifier before PUT, using an exclusive autosave lease and a one-minute save deadline. Generation checks prevent a late save/upload continuation after the session closes. Subsequent intent and identifier checkpoints remain separate; the prepared copy does not claim submission has started.

@@ -36,6 +36,8 @@ A matching SDK result triggers another encrypted save with the resulting status.
 
 ## Restore a saved session
 
+After the panel reads the selected backup, decryption, wallet connection and ledger checks have a combined three-minute deadline. If it expires, the file and password remain available for an explicit retry. A response from an expired or closed application session cannot advance to another restore stage or install the session. An already-open wallet request or SDK operation may still finish independently.
+
 Open a fresh tab on the application. In **Private recovery**, either choose a **Recovery file** or refresh and select a saved browser copy. Enter that copy's existing **Recovery password**, then select the corresponding restore button. Restoring replaces that tab's draft; the application blocks restoration over an active network program, prepared/submitted report, deployment attempt or autosave writer.
 
 | Saved state | Restore behavior |

@@ -1,0 +1,59 @@
+{
+  "date": "2026-09-11",
+  "scope": "Bound combined private restoration and reject closed-session continuations",
+  "reproduction": {
+    "log": ".compact/recovery-deadline-reproduction-unmount.log",
+    "passed": 1,
+    "failed": 4,
+    "skipped": 10,
+    "exit": 1,
+    "method": "Run unmount cases with HEAD App.tsx, preserving the edited source byte-for-byte and restoring it in a finally block.",
+    "finding": "Late decryption, connection, join and ledger-read results invoked the following restoration stage after App unmount.",
+    "earlierSelection": {
+      "log": ".compact/recovery-deadline-reproduction.log",
+      "skipped": 15,
+      "note": "The initial narrower title filter matched no cases; it is not reproduction evidence."
+    }
+  },
+  "behavior": [
+    "After the panel reads a backup, decryption through ledger verification has a shared three-minute continuation deadline.",
+    "The application checks deadline and component generation before starting and after decrypt, wallet initialization, contract join, public read and ledger verification.",
+    "Only a current, verified result installs provider/API/private session state. Late continuations cannot start subsequent stages or replace a newer restored session.",
+    "Timeout preserves recovery inputs for explicit retry. Ordinary decryption/authority errors retain their existing messages and validation."
+  ],
+  "validation": {
+    "uniqueTests": 54,
+    "files": 3,
+    "runs": [
+      {
+        "log": ".compact/recovery-deadline-tests.log",
+        "passed": 49,
+        "files": 3,
+        "seconds": 102.72,
+        "exit": 0,
+        "scope": "Initial 15 boundary cases plus existing application network and deployment checkpoint/reconnect regression."
+      },
+      {
+        "log": ".compact/recovery-deadline-boundaries.log",
+        "passed": 20,
+        "files": 1,
+        "seconds": 11.13,
+        "exit": 0,
+        "scope": "Each of five await boundaries under unmount, timer expiry, undispatched wall expiry and undispatched monotonic expiry with backwards wall time."
+      }
+    ],
+    "release": {
+      "log": ".compact/recovery-deadline-release.log",
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65536934
+    }
+  },
+  "limits": [
+    "Wallet/SDK stages are mocked in the new boundary tests; existing integration tests exercise real backup crypto and ledger-binding verification with mocked network providers.",
+    "Already-started wallet/SDK work is not cancelled. The guard blocks its continuation in this application.",
+    "The deadline starts when App receives the file/copy contents, not while the panel is reading the selected local file.",
+    "No new browser E2E, native wallet ceremony, physical suspend test, full regression or container refresh."
+  ]
+}
