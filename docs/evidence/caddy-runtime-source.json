@@ -1,0 +1,124 @@
+{
+  "recordedAt": "2026-09-11T02:51:28.920407+00:00",
+  "baseRevision": "00d9287",
+  "runtimeImageId": "sha256:be0b39587b8d795d7442ea7d4df9263344e2e39c4c2879d6e275947735ed21d9",
+  "diagnosticImageId": "sha256:8db4bc194aac2c1eb57464e4149f3da2d29b6982f920bd06777937ea4dc780c3",
+  "build": {
+    "command": "docker build --target source-check -f infra/web.Dockerfile -t vulnseal-caddy-runtime-source:local .",
+    "exitCode": 0,
+    "inheritsStage": "caddy-build",
+    "runtimeCompilerLayerCached": true,
+    "minimalContextBuildExitCode": 0,
+    "minimalContextInputs": [
+      "infra/web.Dockerfile",
+      "infra/web.Dockerfile.dockerignore",
+      "infra/caddy/go.mod",
+      "infra/caddy/go.sum",
+      "infra/caddy/main.go",
+      "infra/caddy/apply-cel-compat.sh"
+    ],
+    "minimalContextExcluded": [
+      "web/dist",
+      "generated contract artifacts"
+    ]
+  },
+  "binary": {
+    "runtimePath": "/usr/bin/caddy",
+    "diagnosticPath": "/out/caddy",
+    "runtimeSha256": "17f18ad9a6906155756ea0f558bf9b8821a415fe0bdc7bede1c83a461b2f82b4",
+    "diagnosticSha256": "17f18ad9a6906155756ea0f558bf9b8821a415fe0bdc7bede1c83a461b2f82b4",
+    "equal": true
+  },
+  "packageInventory": {
+    "command": "go list -mod=readonly -deps .",
+    "packageCount": 994,
+    "sha256": "109f8477411ca4463bd95779dbe184ce481bad12bdf092daf689f44bf5f82817",
+    "advisory": "GO-2026-5932",
+    "advisoryAffectedPackages": [
+      "golang.org/x/crypto/openpgp",
+      "golang.org/x/crypto/openpgp/packet",
+      "golang.org/x/crypto/openpgp/armor",
+      "golang.org/x/crypto/openpgp/clearsign",
+      "golang.org/x/crypto/openpgp/errors",
+      "golang.org/x/crypto/openpgp/elgamal",
+      "golang.org/x/crypto/openpgp/s2k"
+    ],
+    "matchingBuildPackages": [],
+    "advisoryJsonSha256": "f277b0400996200a7d5034c676661cd8cf18adeab1fdc5d0dc369e456ddf1fad"
+  },
+  "scan": {
+    "command": "timeout 900 govulncheck -show verbose,traces ./...",
+    "govulncheck": "v1.8.0",
+    "go": "go1.27.1",
+    "exitCode": 0,
+    "symbolFindings": 0,
+    "importedPackageFindings": 0,
+    "requiredModuleFindings": [
+      {
+        "id": "GO-2026-5932",
+        "module": "golang.org/x/crypto",
+        "version": "v0.56.0",
+        "fixedVersion": null
+      }
+    ],
+    "memoryLimitGiB": 3,
+    "goMemoryLimitGiB": 2,
+    "cpuLimit": 2,
+    "goMaxProcs": 2,
+    "pidLimit": 512,
+    "state": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2026-09-11T02:41:40.802715933Z",
+      "FinishedAt": "2026-09-11T02:49:56.256775153Z"
+    }
+  },
+  "cleanupCompleted": true,
+  "workflowValidation": {
+    "yamlParsed": true,
+    "caddyTargetMappingVerified": true,
+    "githubActionsTriggered": false
+  },
+  "rawLogSha256": {
+    "caddy-runtime-source-build.log": "9bfdf43ae1398406e0a0be8bdaaa45e59d24a58051cbc8bf98a6de11d7a5aeef",
+    "caddy-min-context-build.log": "c862c9dd8bf476c5449f859bd1d53d200a64cf2bab8ae0b521d97441ca24e74b",
+    "caddy-runtime-sha256.log": "9e6356bdd4dc58c6b751767563b48e6b5823d761254740194fa555fc62e88bff",
+    "caddy-runtime-source-scan.log": "d45d74c6ea06e0b6b2ffeea74c92736ef6dcdb96e8280a0dd9ba3d122eb40c1e",
+    "caddy-runtime-source-state.json": "fa8555248b6157e74bf937d25fab65e8c7c2dcdcc9486bed2b69490baf3708c3",
+    "caddy-runtime-source-cleanup.log": "bc39140eeb338e4a7219abfd46218c9595f93096aab6654b796254ea706cdbf8",
+    "caddy-package-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "caddy-package-initial-state.json": "5433b4e6d479101c189a68c57032f30198f40c279813616a12dde0fb06e2e3df"
+  },
+  "inputSha256": {
+    "infra/web.Dockerfile": "6601f05f01869851cd4731f302a5863be46fdd4222772d22eb62c0a000364a74",
+    "infra/web.Dockerfile.dockerignore": "2bfc93009248edf22441c8d549b324868e9cb37300c258589b4e0dc9a325c67b",
+    ".github/workflows/release-verification.yml": "a8fdc676f90a4d91551112b6df66ce1a6399c520f444c353fd14ac6a2fc54662",
+    "infra/caddy/go.mod": "f2b308a387b39cdb802e51ab1274b510569546492550a2fae6c14098604346eb",
+    "infra/caddy/go.sum": "63d5ddb64a7d5039efde0d4357bf9486ce3741ddd20843d39105e04a742b95f0",
+    "infra/caddy/main.go": "229c28ec234ef072d7dbf9ce97a956bc44411a605a9c8b27589bb8f66a5a3439",
+    "infra/caddy/apply-cel-compat.sh": "26f9be6ce532429c066c5501635b63174f4ab4b4ee9ef166b7c93eda4e5e2b8b"
+  },
+  "discardedAttempt": {
+    "description": "An initial ad-hoc standalone container command was split by Windows shell quoting. Its exit 0 did not collect the requested binary/package evidence and was not used. The owned container was removed before using the shared Docker build target.",
+    "exitCode": 0
+  },
+  "strictRuntimeSecurityGatePassed": false,
+  "limits": [
+    "Source/package evidence applies to this exact Caddy build and advisory snapshot; it is not a complete runtime security audit.",
+    "The current runtime Trivy result remains one unsuppressed UNKNOWN finding. No VEX, exception or gate change was added.",
+    "The scan took about 495 seconds locally; go list was observed waiting in D state for I/O. One run does not establish remote CI timing or its underlying storage cause.",
+    "Runtime application bytes were not rebuilt or redeployed; matcher test and Caddy compiler layers were cached.",
+    "No fresh Prometheus scan or GitHub Actions execution is claimed."
+  ],
+  "references": [
+    "https://vuln.go.dev/ID/GO-2026-5932.json",
+    "https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck"
+  ]
+}

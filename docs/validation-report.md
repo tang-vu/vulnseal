@@ -1,5 +1,13 @@
 # Validation report
 
+## Bind Caddy source diagnostics to the runtime compiler stage -- 2026-09-11
+
+The optional `infra/web.Dockerfile --target source-check` now inherits the actual runtime Caddy build and exports its dependency-package inventory. The release-verification Caddy matrix uses that target. Both the ordinary diagnostic build and a minimal-context build without `web/dist` or generated contract assets exited **0**. The runtime compiler and matcher-test layers were cached. Workflow YAML parsing, target mapping and `git diff --check` passed; no GitHub Actions run was triggered.
+
+The diagnostic binary and current web runtime binary have the same SHA-256, `17f18ad9a6906155756ea0f558bf9b8821a415fe0bdc7bede1c83a461b2f82b4`. The **994-package** build inventory includes none of the seven affected OpenPGP paths in the downloaded GO-2026-5932 advisory. The fresh govulncheck source scan exited **0**: **0 symbol findings**, **0 imported-package findings**, and **1 required-module finding** for x/crypto v0.56.0. It completed in about 495 seconds with 2 CPUs / 3 GiB RAM and no OOM. Owned container removal and an empty final ownership-label query confirmed cleanup. An initial shell-split ad-hoc command collected no valid package/hash evidence and is explicitly excluded.
+
+[Runtime-bound evidence](evidence/caddy-runtime-source.json) records exact identities, input/log hashes and limits. This narrows the applicability analysis for the current Caddy build; the strict runtime Trivy gate still fails on its unsuppressed UNKNOWN finding. No runtime application change, vulnerability exception or public deployment was made.
+
 ## Refresh the validated web runtime image -- 2026-09-11
 
 Image `sha256:be0b39587b8d795d7442ea7d4df9263344e2e39c4c2879d6e275947735ed21d9` now packages the normal web artifact covered by the consolidated regression at `6a7ec8b`: **8 circuits / 80 files / 65,418,379 bytes**, including current upload acknowledgment, recovery snapshot and recipient-key fixes. The Docker build exited **0** and validated the copied release artifact and Caddy configuration. Caddy matcher/source build layers were cached, not newly tested.

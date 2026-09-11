@@ -20,8 +20,8 @@ jobs:
       matrix:
         include:
           - component: caddy
-            dockerfile: infra/caddy-source-check.Dockerfile
-            target: ""
+            dockerfile: infra/web.Dockerfile
+            target: source-check
           - component: prometheus
             dockerfile: infra/prometheus.Dockerfile
             target: source-check
