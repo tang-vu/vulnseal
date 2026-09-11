@@ -1,0 +1,42 @@
+{
+  "recordedAt": "2026-09-11T02:56:23.551336+00:00",
+  "baseRevision": "bf6034f",
+  "checks": [
+    {
+      "name": "recovery and App components",
+      "tests": 17,
+      "files": 2,
+      "exitCode": 0
+    },
+    {
+      "name": "network App and boundary components",
+      "tests": 13,
+      "files": 2,
+      "exitCode": 0
+    },
+    {
+      "name": "Chrome desktop/mobile input retention and encrypted backup workflow",
+      "tests": 4,
+      "seconds": 58.4,
+      "exitCode": 0
+    },
+    {
+      "name": "normal web build/typecheck and release artifact validation",
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65421238,
+      "exitCode": 0
+    }
+  ],
+  "rawLogSha256": {
+    "recovery-input-tests": "9ebf1bcec3a254a3239f1c14df90ff4f23f63321b2f13d0301946bcab844c736",
+    "recovery-input-network-tests": "1efec43e3038656a765d60aa9b62cfe4d7878cb9617e22c36aebb030cbf7f812",
+    "recovery-input-browser": "c19e894a5d03a13824130b74c4f9f7fb2c18264250e7bb090e8cd13f5692d3d7",
+    "recovery-input-release": "fd7037f21c191587f1b45af2ab28319e487baa642be0ce11c9be2b8eaa0cfbab"
+  },
+  "limits": [
+    "Targeted regression only; no new full-suite result claimed.",
+    "Recovery inputs remain in browser memory, with no durable autosave or crash recovery.",
+    "No runtime container refresh, native-wallet ceremony or external deployment."
+  ]
+}

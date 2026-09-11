@@ -1,5 +1,13 @@
 # Validation report
 
+## Preserve unfinished recovery form input -- 2026-09-11
+
+Switching away from Private recovery previously unmounted its form, dropping selected files and unfinished passwords. The panel now remains mounted and hidden across in-app navigation. It requests a leave warning for unfinished inputs or active processing, offers explicit input clearing, and clears the selected restore file/password only after successful import. Failed imports retain retry input. Native file input and component state are cleared together. The active session and its independent leave warning are preserved.
+
+**30 component tests / 4 files** passed across two targeted runs: recovery/App **17**, network/App boundary **13**. **4 Chrome E2E checks** passed in **58.4 seconds**, covering desktop/mobile navigation retention, actual file selection, native close-dialog cancellation, warning removal after explicit clearing, and the existing encrypted backup restore/continued-workflow journey. The final normal web build/typecheck and release gate exited **0**, with **8 circuits / 80 files / 65,421,238 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/recovery-input-retention.json) records raw-log hashes and scope. Inputs remain in memory only; closing/reloading/crashing the tab can still lose them. In-app navigation now allows an initiated operation to finish; actual unmount retains its asynchronous invalidation checks. Runtime container refresh, durable demo recovery and native Lace verification remain separate work.
+
 ## Bind Caddy source diagnostics to the runtime compiler stage -- 2026-09-11
 
 The optional `infra/web.Dockerfile --target source-check` now inherits the actual runtime Caddy build and exports its dependency-package inventory. The release-verification Caddy matrix uses that target. Both the ordinary diagnostic build and a minimal-context build without `web/dist` or generated contract assets exited **0**. The runtime compiler and matcher-test layers were cached. Workflow YAML parsing, target mapping and `git diff --check` passed; no GitHub Actions run was triggered.

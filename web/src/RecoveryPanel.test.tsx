@@ -65,3 +65,39 @@ it("cleans a failed download, retains the password and permits an explicit retry
   expect(screen.getByText(/Encrypted backup download started/)).toBeInTheDocument();
   await act(async () => vi.runOnlyPendingTimers());
 });
+
+const leaving = () => {
+  const event = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(event); return event.defaultPrevented;
+};
+
+it.each(["Backup password", "Confirm backup password", "Recovery password", "Recovery file"])("warns for unfinished %s and clears it explicitly", label => {
+  const view = render(<RecoveryPanel onExport={vi.fn()} onImport={vi.fn()} canImport />);
+  expect(leaving()).toBe(false);
+  const input = screen.getByLabelText(label);
+  fireEvent.change(input, { target: label === "Recovery file" ? { files: [new File(["{}"], "recovery.json")] } : { value: "Unfinished recovery password" } });
+  expect(leaving()).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Clear recovery inputs" }));
+  expect(leaving()).toBe(false);
+  expect(input).toHaveValue("");
+  fireEvent.change(screen.getByLabelText("Backup password"), { target: { value: "New input" } });
+  view.unmount();
+  expect(leaving()).toBe(false);
+});
+
+it("clears the restored file and password only after successful import", async () => {
+  const file = new File(["{}"], "recovery.json");
+  Object.defineProperty(file, "text", { value: async () => "encrypted backup" });
+  const onImport = vi.fn().mockRejectedValueOnce(new Error("Wrong backup password")).mockResolvedValueOnce(undefined);
+  render(<RecoveryPanel onExport={vi.fn()} onImport={onImport} canImport />);
+  fireEvent.change(screen.getByLabelText("Recovery file"), { target: { files: [file] } });
+  fireEvent.change(screen.getByLabelText("Recovery password"), { target: { value: "Synthetic recovery password" } });
+  await act(async () => submit("Restore encrypted backup"));
+  expect(screen.getByRole("alert")).toHaveTextContent("Wrong backup password");
+  expect(leaving()).toBe(true);
+  await act(async () => submit("Restore encrypted backup"));
+  expect(onImport).toHaveBeenLastCalledWith("encrypted backup", "Synthetic recovery password");
+  expect(screen.getByLabelText("Recovery file")).toHaveValue("");
+  expect(screen.getByLabelText("Recovery password")).toHaveValue("");
+  expect(leaving()).toBe(false);
+});
