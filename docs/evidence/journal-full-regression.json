@@ -1,0 +1,92 @@
+{
+  "recordedAt": "2026-09-11T06:03:08.705071+00:00",
+  "applicationRevision": "f8ad4005127e4d091dda54e0e9e06492d64815ee",
+  "validation": {
+    "workspaces": {
+      "shared": {
+        "tests": 13,
+        "files": 1,
+        "duration": "755ms",
+        "exitCode": 0,
+        "command": "npm run test:run -w @vulnseal/shared"
+      },
+      "contract": {
+        "tests": 28,
+        "files": 3,
+        "duration": "76.93s",
+        "exitCode": 0,
+        "command": "npm run test:run -w @vulnseal/contract"
+      },
+      "api": {
+        "tests": 84,
+        "files": 7,
+        "duration": "3.48s",
+        "exitCode": 0,
+        "command": "npm run test:run -w @vulnseal/api"
+      },
+      "cipherstore": {
+        "tests": 50,
+        "files": 10,
+        "duration": "31.54s",
+        "exitCode": 0,
+        "command": "npm run test:run -w @vulnseal/cipherstore"
+      },
+      "integration": {
+        "tests": 9,
+        "files": 3,
+        "duration": "2.98s",
+        "exitCode": 0,
+        "command": "npm run test:run -w @vulnseal/integration"
+      },
+      "web": {
+        "tests": 471,
+        "files": 62,
+        "duration": "238.41s",
+        "exitCode": 0,
+        "command": "npm run test:run -w @vulnseal/web"
+      }
+    },
+    "totalWorkspaceTests": 655,
+    "fullOrdinaryE2E": {
+      "tests": 148,
+      "reportedDuration": "6.8m",
+      "workers": 2,
+      "retries": 0,
+      "exitCode": 0,
+      "command": "CI=1 npx playwright test"
+    },
+    "allWorkspaceTypecheck": {
+      "exitCode": 0,
+      "command": "npm run typecheck"
+    },
+    "fullReleaseBuild": {
+      "exitCode": 0,
+      "command": "npm run release:build",
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65531123
+    }
+  },
+  "rawLogSha256": {
+    "journal-full-shared": "f78df7f20fc14c9f243200712c28c6386c03234cd48cc9ed5ec7c4e15c761a3d",
+    "journal-full-contract": "954e01d8c0c375776b8b2a19641605889f14c6ed8d1d2bd715cd36193a989c3e",
+    "journal-full-api": "c303455f932da0881c8ba5319e705890610a20e485dc5aee0ee6c9eb6f1637c6",
+    "journal-full-cipherstore": "7aa78ed1de6a5841ca241fb1448de23d045d67dd1bbb76d1cb0b5fa547610794",
+    "journal-full-integration": "b4188da64204be8006de0b7a454260bdba2fbf70842cc54e48ca378440cc087e",
+    "journal-full-web": "6a2cf68d6a08a994b9f312bea2b0a4e2d19294c9a8510c2d863293df7acc0643",
+    "journal-full-browser": "ec8103d03305ea53899538d7ac751eb98d23d60bbe714e5c85d25da949f89183",
+    "journal-full-typecheck": "63ee661d571e9f435b543226f007c11acd980f9fe70916bd579a99701376966e",
+    "journal-full-release": "57299daf1ab1a2f175c768d5826e5552bb05f3539ead9f8fe9c75eedba6f2a79"
+  },
+  "scope": [
+    "Each workspace passed its entire unit suite in one invocation; no targeted rerun was needed.",
+    "The complete ordinary desktop Chrome / Pixel 7 E2E suite passed in one invocation with zero retries.",
+    "Root release:build checked retained contract source consistency and built all six workspaces after E2E stopped.",
+    "All checks used unchanged application source at the recorded revision."
+  ],
+  "limits": [
+    "This does not include the separate replication/cross-adapter E2E configurations or every standalone script test.",
+    "No fresh Compact key generation, native wallet signing/broadcast, physical suspend/crash or public deployment.",
+    "Green functional regression does not establish authenticated transaction reconciliation, safe retry, or overall production readiness."
+  ]
+}

@@ -1,5 +1,15 @@
 # Validation report
 
+## Complete workspace and browser regression; runtime refresh -- 2026-09-11
+
+Application revision `f8ad4005127e4d091dda54e0e9e06492d64815ee` passed every workspace unit suite: **shared 13, contract 28, API 84, cipherstore 50, integration 9, web 471** (**655 total**). The full web invocation covered **62 files in 238.41 seconds**. The complete ordinary Chrome desktop/Pixel 7 E2E invocation passed **148 tests in 6.8 minutes**, with two workers and no retries. All six workspace typechecks and the root source-check/build/release command passed. No application fix or targeted rerun was needed for this regression.
+
+The normal release contains **8 circuits / 80 files / 65,531,123 bytes**. Local image `sha256:742cdf0d01b48ddb88aecf0f36170810329bdffecb836a5f50b13c0828846350` passed the image-pinned container drill: **81 requests / 65,532,402 served bytes**, non-root/read-only execution, hosted hashes/headers/404, desktop/mobile public and deployment workers, cross-origin widget, private-exchange navigation/clear, graceful restart and owned cleanup. Both post-run label queries succeeded and found no remaining drill/scanner containers.
+
+The exact-image Trivy scan **failed with exit 1**: 32 Alpine packages had zero findings, while Caddy retained **one unsuppressed UNKNOWN GO-2026-5932** finding for `golang.org/x/crypto v0.56.0`, with no fixed version reported. The functional checks do not override that gate.
+
+[Full regression evidence](evidence/journal-full-regression.json) and [runtime evidence](evidence/journal-full-runtime.json) retain scope, log hashes and limitations. This run does not include separate replication/cross-adapter configurations, every standalone script test, new Compact key generation, native signing, authenticated reconciliation or public deployment. Overall readiness is not claimed.
+
 ## Mandatory combined report journal -- 2026-09-11
 
 Combined network report actions now require an encrypted writer. An exclusive lease saves immutable intent and report recovery material before SDK work, then confirms the identifier checkpoint before wallet broadcast. Matching SDK results produce a final recovery update; a failure of that update preserves the matching result in memory and stops autosave. V8 retains requests, identifiers and local outcome observations, with strict pending/uncertain bindings and explicit private journal lookup.

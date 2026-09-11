@@ -1,0 +1,62 @@
+{
+  "recordedAt": "2026-09-11T06:07:54.122933+00:00",
+  "applicationRevision": "f8ad4005127e4d091dda54e0e9e06492d64815ee",
+  "imageId": "sha256:742cdf0d01b48ddb88aecf0f36170810329bdffecb836a5f50b13c0828846350",
+  "localTag": "vulnseal-web:local",
+  "imageBuildExitCode": 0,
+  "containerDrill": {
+    "capturedAt": "2026-09-11T06:05:22.190Z",
+    "imageId": "sha256:742cdf0d01b48ddb88aecf0f36170810329bdffecb836a5f50b13c0828846350",
+    "origin": "http://127.0.0.1:32817",
+    "files": 80,
+    "requests": 81,
+    "bytes": 65532402,
+    "nonRoot": true,
+    "readOnlyRoot": true,
+    "headersChecked": true,
+    "missingFilesReturn404": true,
+    "desktopAndMobilePublicLookup": "passed against captured fixture; no wallet or live network",
+    "desktopAndMobilePublicWorkerDeadline": "injected busy worker reached its handler; packaged UI timed out, restarted and canceled without accepting a result",
+    "desktopAndMobileDeploymentWorker": "packaged worker decoded captured raw deployment and reported matching and mismatched policy; mocked indexer/RPC",
+    "desktopAndMobileSubmissionWidget": "real second HTTP origin loaded only two public modules from the image and opened isolated invitation review",
+    "desktopAndMobileExchangeNavigation": "unfinished input survived switching screens and cleared explicitly in the packaged app",
+    "widgetCorsChecked": true,
+    "gracefulRestart": true,
+    "cleanupCompleted": true
+  },
+  "securityScan": {
+    "exitCode": 1,
+    "os": "Alpine 3.23.5",
+    "osPackages": 32,
+    "osFindings": 0,
+    "binary": "usr/bin/caddy",
+    "findings": [
+      {
+        "id": "GO-2026-5932",
+        "severity": "UNKNOWN",
+        "module": "golang.org/x/crypto",
+        "installedVersion": "v0.56.0",
+        "fixedVersionReported": null
+      }
+    ],
+    "strictGatePassed": false,
+    "suppressed": false
+  },
+  "cleanup": {
+    "drillQueryExitCode": 0,
+    "scannerQueryExitCode": 0,
+    "drillContainers": [],
+    "scannerContainers": []
+  },
+  "rawLogSha256": {
+    "journal-full-image-build": "9996e23c72e962f70708f4a9563aa68be58d000b3abc1c84210d3c1bdc65e1fb",
+    "journal-full-container": "5f20d3ce06e7db5e90b8acd4891768ab1107533c3d4e3275ebee170c0cd17f18",
+    "journal-full-image-scan": "5b997fbfca0b988f1252fd1192623fbd4e46d8e67122fe3849e65c0deb50a130"
+  },
+  "limits": [
+    "Localhost Docker only; no public hosting or native wallet signing/broadcast.",
+    "Container worker checks use captured public evidence and mocked indexer/RPC; they do not authenticate inclusion or demonstrate the native report/deployment ceremony.",
+    "The strict security gate remains failed. No new Caddy source reachability diagnostic was run.",
+    "No fresh Compact key generation, public TLS/DNS, multi-region storage or physical suspend/crash validation."
+  ]
+}
