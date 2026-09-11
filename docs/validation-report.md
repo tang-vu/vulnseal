@@ -1,5 +1,13 @@
 # Validation report
 
+## Capture validated recovery data before export -- 2026-09-11
+
+Combined recovery validation now deep-copies input synchronously before cryptographic checks, and encryption serializes the returned validated snapshot. Previously it validated asynchronously and then serialized the original caller-owned object, allowing intervening mutations or out-of-schema fields into the encrypted export. The fix preserves the existing backup format and captures the export's starting state; subsequent work requires another backup.
+
+The **17 recovery/panel tests / 2 files** passed in **12.54 seconds**. New coverage mutates top-level and nested source fields while export validation is pending, then decrypts and checks the original snapshot. A separate check inspects the plaintext supplied to Web Crypto to ensure unrelated private fields are excluded (import normalization alone would hide that defect). The initial recovery-only run passed 13 tests; the mutation fixture was subsequently isolated from shared test data before the final suite.
+
+The targeted desktop/mobile browser suite passed **4 tests in 56.4 seconds**: encrypted backup restores in a fresh context and continues the workflow; failed retest history and the selected tier survive recovery. Mutation isolation is covered at the helper boundary, not by synthetic browser scheduling. The normal web build and release gate passed with **8 circuits / 80 files / 65,417,147 bytes**. Logs: `.compact/recovery-snapshot-tests-final.log`, `.compact/recovery-snapshot-browser.log` and `.compact/recovery-snapshot-release.log`. This does not verify native Lace recovery, pending transaction reconciliation or complete workspace regression.
+
 ## Fail container evidence publication on uncertain cleanup -- 2026-09-11
 
 Cipherstore drill cleanup previously treated every failed Docker inspection as an absent resource, including connection failures and timeouts. Cleanup now requires a successful exact-name inventory (including stopped containers); only an empty result means absence. Existing resources require the exact drill owner label before removal. Inventory, inspection and removal errors propagate through the final cleanup, preventing successful evidence output. Unexpected inventory results and foreign owner labels refuse deletion.

@@ -12,6 +12,8 @@ The Private recovery screen exports a password-encrypted JSON file. It does not 
 
 The authenticated payload contains the active program/policy, both experimental actor secrets, draft, report ciphertext/key/salt/commitment, local status history, public commitment values, and private decision/patch/retest notes. The outer envelope exposes only a format/version, algorithm/KDF, fixed iteration count, random salt/IV, and ciphertext. No report or contract identifier is required outside encryption.
 
+Validation captures a deep copy of the supplied recovery data before asynchronous cryptographic checks. Export encrypts the validated snapshot, not the original caller-owned object. Later mutations cannot change the pending export, and fields outside the recovery schema are not included in its encrypted payload. This is a snapshot of the export's starting state; later work still requires a new backup.
+
 - AES-256-GCM, 128-bit authentication tag, fresh random 96-bit IV.
 - PBKDF2-HMAC-SHA-256 with 600,000 iterations and a fresh random 128-bit salt, using browser Web Crypto and a non-extractable derived key.
 - Fixed additional authenticated data: `vulnseal:browser-recovery:v1`.

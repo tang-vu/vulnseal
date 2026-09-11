@@ -10,6 +10,31 @@ import { recoveryFixture, recoveryDraft as draft } from "./test/recovery-fixture
 const password = "test-only recovery password";
 
 describe("encrypted browser recovery", () => {
+  it("exports the captured validated snapshot despite changes during crypto validation", async () => {
+    const { snapshot } = await recoveryFixture();
+    const source = structuredClone(snapshot), expected = structuredClone(snapshot);
+    const exporting = encryptRecovery(source, password);
+    Object.assign(source, { network: "changed-after-export-start", severity: 99 });
+    Object.assign(source.report!, { key: "00".repeat(32), envelope: "changed" });
+    Object.assign(source.draft, { title: "Changed while awaiting crypto" });
+    const restored = await decryptRecovery(await exporting, password);
+    expect(restored.snapshot).toEqual(expected);
+  });
+  it("encrypts only validated recovery fields", async () => {
+    const { snapshot } = await recoveryFixture();
+    const withExtra = { ...snapshot, unrelatedPrivateNote: "Do not include outside the recovery schema" };
+    const imported = await decryptRecovery(await encryptRecovery(withExtra, password), password);
+    expect(imported.snapshot).toEqual(snapshot);
+    // Inspect the actual encrypted plaintext; import validation also removes extras.
+    const encrypt = vi.spyOn(crypto.subtle, "encrypt");
+    try {
+      await encryptRecovery(withExtra, password);
+      const bytes = encrypt.mock.calls[0]![2];
+      const serialized = new TextDecoder().decode(bytes);
+      expect(JSON.parse(serialized)).toEqual(snapshot);
+      expect(serialized).not.toContain("unrelatedPrivateNote");
+    } finally { encrypt.mockRestore(); }
+  });
   it("preserves v4 uncertainty and rejects missing, downgraded or unbound markers", async () => {
     const { snapshot } = await recoveryFixture();
     const uncertain = { ...snapshot, version: 4 as const, attachmentDraft: null, pendingReport: null, mode: "midnight" as const, network: "preprod", contractAddress: "ab".repeat(32), uncertainTransition: "beginTriage" as const };

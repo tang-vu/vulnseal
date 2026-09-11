@@ -76,7 +76,8 @@ const validateDraft = (input: unknown): VulnerabilityReport => {
 
 /** Validate decrypted input before allowing it to replace any live session. */
 export const validateRecovery = async (input: unknown): Promise<{ snapshot: RecoverySnapshot; sealed: SealedReport | undefined; pendingSeal?: SealedReport | undefined }> => {
-  const value = object(input);
+  // Capture nested caller-owned state before the first asynchronous crypto check.
+  const value = object(structuredClone(input));
   if (![1, 2, 3, 4].includes(Number(value.version)) || typeof value.version !== "number" || !["guided-local", "midnight"].includes(String(value.mode))) throw new Error("Unsupported recovery version or mode");
   if (!["undeployed", "local", "preview", "preprod", "mainnet"].includes(String(value.network))) throw new Error("Unsupported recovery network");
   const mode = value.mode as RecoverySnapshot["mode"];
@@ -159,8 +160,8 @@ const passwordKey = async (password: string, salt: Uint8Array, usage: KeyUsage):
 };
 
 export const encryptRecovery = async (snapshot: RecoverySnapshot, password: string): Promise<string> => {
-  await validateRecovery(snapshot);
-  const plaintext = utf8(JSON.stringify(snapshot));
+  const validated = await validateRecovery(snapshot);
+  const plaintext = utf8(JSON.stringify(validated.snapshot));
   if (plaintext.length > MAX_RECOVERY_BYTES / 2) throw new Error("Recovery document is too large");
   const salt = randomBytes(16);
   const iv = randomBytes(12);
