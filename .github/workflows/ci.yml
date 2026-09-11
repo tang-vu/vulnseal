@@ -61,6 +61,9 @@ jobs:
       - name: Check scanner deadlines and owned cleanup
         run: node --test scripts/scan-container.test.mjs
 
+      - name: Check cipherstore drill cleanup failure handling
+        run: node --test scripts/cipherstore-test-cleanup.test.mjs
+
       - name: Test retirement across filesystem and SQLite replicas
         run: node scripts/test-retirement-lifecycle.mjs
 

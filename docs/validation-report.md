@@ -1,5 +1,13 @@
 # Validation report
 
+## Fail container evidence publication on uncertain cleanup -- 2026-09-11
+
+Cipherstore drill cleanup previously treated every failed Docker inspection as an absent resource, including connection failures and timeouts. Cleanup now requires a successful exact-name inventory (including stopped containers); only an empty result means absence. Existing resources require the exact drill owner label before removal. Inventory, inspection and removal errors propagate through the final cleanup, preventing successful evidence output. Unexpected inventory results and foreign owner labels refuse deletion.
+
+The **14 cleanup boundary tests** passed for containers and volumes, covering successful absence, inventory/inspection/removal failures, owner mismatch, unexpected names and exact owned deletion. The CI workflow now runs this suite; local YAML parsing confirms the step is wired once, but no GitHub workflow was triggered. Script syntax and diff checks passed.
+
+The real filesystem container drill exited **0** on image `sha256:448b29f1a562dd52ce62e869b4d7ac24415499c4a383acea185011e7feea9eae`, with success captured at **2026-09-11T01:55:56.682Z** after owned cleanup. It retained retirement/restore controls, quota checks, second-writer refusal, graceful restart and ciphertext decryption. Subsequent container and volume label queries were empty. Logs: `.compact/cipherstore-cleanup-boundaries.log` and `.compact/cipherstore-verified-cleanup.log`. Failure cases use an injected Docker-command boundary; the successful path also ran against real Docker. Runtime application code/images and the unresolved SQLite latency issue are unchanged.
+
 ## Require completed ciphertext storage acknowledgments -- 2026-09-11
 
 The single-store API previously accepted every HTTP 2xx PUT response as successful storage. It now accepts only the service protocol's **201** (new copy) and **200** (identical existing copy). Other 2xx replies remain unconfirmed, preserve the saved-ciphertext retry guidance and do not count toward replication completion. Response bodies remain canceled, and no automatic upload retry was added. This checks protocol acknowledgments, not an operator's honesty or future retention.

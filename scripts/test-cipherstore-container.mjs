@@ -7,6 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { createConnection } from "node:net";
 import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { removeOwnedCipherstoreTestResource } from "./cipherstore-test-cleanup.mjs";
 
 const args = process.argv.slice(2);
 if (args.some((arg) => !["--backend=filesystem", "--backend=sqlite", "--write-evidence", "--trace-storage"].includes(arg)) || args.filter((arg) => arg.startsWith("--backend=")).length > 1) throw new Error("Usage: test-cipherstore-container.mjs [--backend=filesystem|sqlite] [--write-evidence] [--trace-storage]");
@@ -69,11 +70,7 @@ async function live() {
   throw new Error("Container did not become live within 30 seconds");
 }
 async function removeOwned(kind, target) {
-  let found;
-  try { found = await docker(kind, "inspect", "--format", kind === "volume" ? '{{index .Labels "vulnseal.container-test"}}' : '{{index .Config.Labels "vulnseal.container-test"}}', target); }
-  catch { return; }
-  assert.equal(found, id, "Refusing to remove a resource not owned by this drill");
-  await docker(kind, "rm", ...(kind === "container" ? ["--force"] : []), target);
+  await removeOwnedCipherstoreTestResource(docker, kind, target, id);
 }
 try {
   await docker("volume", "create", "--label", label, volume);
