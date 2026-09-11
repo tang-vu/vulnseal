@@ -42,7 +42,15 @@ Open a fresh tab on the application. In **Private recovery**, either choose a **
 | Network session with a contract address | Connects Lace on the saved network and checks the program/authority and applicable report bindings against the ledger. It does not deploy again. |
 | Unconfirmed deployment without a contract address | Opens without Lace, retains the saved material and keeps creation blocked. A saved identifier is shown when available. |
 
-For an unconfirmed deployment, **Check transaction status** performs a read-only observation when an identifier is present. Not found, a connection error or a status observation does not establish that retry is safe. This view does not automatically discover and adopt a contract or unlock another deployment. Keep the backup and inspect the original wallet/network records. Absence of an identifier in an earlier copy does not prove that no transaction was sent later.
+For an unconfirmed deployment, **Check transaction status** performs a read-only observation when an identifier is present. Not found, a connection error or a status observation does not establish that retry is safe. Absence of an identifier in an earlier copy does not prove that no transaction was sent later.
+
+With a saved deployment identifier, select **Compare saved deployment policy**. The worker checks the transaction hash and identifier against its bytes, binds the initial deployment state, and compares all seven saved policy fields and the eight verifier keys exposed by the SDK with this release. Only a matching result offers **Review recovery at this address**.
+
+Enter and confirm a password for the new copy, then select **Connect, verify and save recovered deployment**. Lace must connect on the saved network. The application joins the checked address and verifies the current program identifier, derived vendor owner key, policy digests and windows. It saves a new encrypted browser copy named `Recovered combined deployment` before opening the report workflow. The original copy remains available; download the new copy through **Private recovery**. This process does not deploy or submit a transaction.
+
+A verification or storage error keeps the deployment blocked. Recovery has a three-minute application deadline; after timeout or a closed tab, a late read cannot open the session. A browser save already in progress may still commit, so inspect saved copies before repeating the reconnect step. This explicit reconnect is not permission to retry deployment.
+
+The comparison and recovery trust indexer/RPC inclusion and finality. Matching SDK-exposed verifier keys does not authenticate signatures, proofs, source-to-key generation, constructor arguments or other key versions. Current owner authority is checked separately during reconnect. Keep the original backup if evidence is missing or differs.
 
 ## Interrupted report uploads and transactions
 

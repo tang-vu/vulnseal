@@ -37,6 +37,8 @@ import { parsePublicReceipt } from "./public-verification.js";
 import { submissionWait } from "./submission-wait.js";
 import { RecoveryAutosave } from "./recovery-autosave.js";
 import { writeStoredRecovery } from "./recovery-storage.js";
+import { CombinedDeploymentRecovery } from "./CombinedDeploymentRecovery.js";
+import { continuationDeadline } from "./midnight/continuation-deadline.js";
 import { TransactionCheck } from "./TransactionCheck.js";
 import { demoTransitionWait } from "./demo-transition-wait.js";
 
@@ -324,7 +326,7 @@ function App() {
           wait.assertActive();
           if (checkpointStarted) throw new Error("A deployment checkpoint already started; duplicate submission is blocked");
           checkpointStarted = true;
-          if (!/^[a-f0-9]{64}$/.test(id)) throw new Error("Invalid deployment transaction identifier; broadcast is blocked");
+          if (!/^(?:[a-f0-9]{64}|[a-f0-9]{66})$/.test(id)) throw new Error("Invalid deployment transaction identifier; broadcast is blocked");
           setDeploymentTransactionId(id);
           const next: RecoverySnapshot = { ...checkpointSnapshot, version: 7, deploymentTransactionId: id };
           const committed = await writer.save(next);
@@ -689,6 +691,32 @@ function App() {
     } finally { busy.current = false; setOperation({ state: "idle" }); }
   };
 
+  const recoverDeployment = async (address: string, password: string) => {
+    if (busy.current || !deploymentAttempt || !deploymentTransactionId || api) throw new Error("No deployment attempt is available for recovery");
+    busy.current = true;
+    const generation = deploymentGeneration.current;
+    const { deploymentAttempt: _attempt, ...material } = liveRecoverySnapshot;
+    const recovered: RecoverySnapshot = { ...material, version: 7, contractAddress: address };
+    setOperation({ state: "working", label: "Recovering deployment", detail: "Checking current program and owner authority, then saving an encrypted browser copy." });
+    try {
+      await continuationDeadline(180_000, "Deployment recovery timed out. Keep your original backup; a late browser save may have committed. Recheck before reconnecting.", async assertActive => {
+        const check = () => { assertActive(); if (deploymentGeneration.current !== generation) throw new Error("Deployment recovery closed"); };
+        check();
+        const connected = await initializeBrowserProviders(activeNetwork); check();
+        const joined = await VulnSealApi.join(connected, address, createVulnSealPrivateState(vendorSecret)); check();
+        if (joined.contractAddress !== address) throw new Error("Connected contract differs from the checked deployment address");
+        const current = await joined.readPublicState(); check();
+        await verifyRecoveryLedger(recovered, undefined, current.ledger); check();
+        const encrypted = await encryptRecovery(recovered, password); check();
+        const saved = await writeStoredRecovery(crypto.randomUUID(), "Recovered combined deployment", encrypted, null); check();
+        deploymentCheckpoint.current = undefined;
+        setProviders(connected); setApi(joined); setDeploymentAttempt(undefined); setProgramCreated(true);
+        setDeploymentBackupNotice(`Recovered deployment address saved in a new encrypted browser copy, revision ${saved.revision}. Download it through Private recovery. This recovery trusts indexer/RPC inclusion and finality.`);
+        changeScreen("submit");
+      });
+    } finally { busy.current = false; if (deploymentGeneration.current === generation) setOperation({ state: "idle" }); }
+  };
+
   const main = (() => {
     switch (screen) {
       case "home":
@@ -696,7 +724,7 @@ function App() {
       case "dashboard":
         return <Dashboard programCreated={programCreated} programPolicy={programPolicy} programBytes={programBytes} status={status} reportId={reportId} timeline={timeline} onCreate={() => changeScreen("create", "vendor")} onTriage={() => void openVendorReview()} onVerify={() => changeScreen("verify", "verifier")} />;
       case "create":
-        if (deploymentAttempt) return <section className="page narrow-page"><h1>Deployment outcome needs investigation</h1><p>The deployment attempt was recorded at {deploymentAttempt.startedAt}. Its result has not been confirmed here. Creating another program is blocked because the original may still finalize.</p><HashValue label="Attempted program identifier" value={programBytes} /><p>Program: {programPolicy.name}</p><p>Keep this tab open and save an encrypted backup through Private recovery. The backup retains the attempted program policy and authority; it does not prove finality. {deploymentTransactionId ? "The saved transaction identifier is shown below." : "This backup does not contain a transaction identifier."} Check the original wallet and network records before deciding what to do next.</p>{deploymentTransactionId && <><p className="public-value">Deployment transaction: {deploymentTransactionId}</p><TransactionCheck network={activeNetwork} transactionId={deploymentTransactionId} circuit="constructor" /></>}{operation.state !== "idle" && <OperationNotice operation={operation} />}</section>;
+        if (deploymentAttempt) return <section className="page narrow-page"><h1>Deployment outcome needs investigation</h1><p>The deployment attempt was recorded at {deploymentAttempt.startedAt}. Its result has not been confirmed here. Creating another program is blocked because the original may still finalize.</p><HashValue label="Attempted program identifier" value={programBytes} /><p>Program: {programPolicy.name}</p><p>Keep this tab open and save an encrypted backup through Private recovery. The backup retains the attempted program policy and authority; it does not prove finality. {deploymentTransactionId ? "The saved transaction identifier is shown below." : "This backup does not contain a transaction identifier."} Check the original wallet and network records before deciding what to do next.</p>{deploymentTransactionId && <><p className="public-value">Deployment transaction: {deploymentTransactionId}</p><TransactionCheck network={activeNetwork} transactionId={deploymentTransactionId} circuit="constructor" /><CombinedDeploymentRecovery snapshot={liveRecoverySnapshot} onRecover={recoverDeployment} /></>}{operation.state !== "idle" && <OperationNotice operation={operation} />}</section>;
         return <CreateProgram deploymentPasswords={deploymentPasswords} onDeploymentPasswords={setDeploymentPasswords} draft={programDraft} onChange={setProgramDraft} mode={runtimeMode} connected={providers !== undefined} operation={operation} onConnect={() => void connectWallet()} onSubmit={(event) => void createProgram(event)} />;
       case "submit":
         if (pendingPreparation) return <section className="page narrow-page"><h1>Keep the prepared report</h1><p>The exact encrypted report is retained. Save it through Private recovery before closing this tab. Editing a replacement here could lose the original encryption material.</p><p className="public-value">Report: {bytesToHex(pendingPreparation.id)}</p><PreparedReportReview report={JSON.parse(pendingPreparation.sealed.canonicalReport) as VulnerabilityReport} />{pendingPreparation.submissionStarted ? <p role="alert">Submission setup already started. Its outcome needs reconciliation; resubmission is blocked. Check your wallet and ledger before deciding what to do next.</p> : <button className="primary-button" onClick={() => void submitSealedReport()}>Retry saved report upload</button>}</section>;

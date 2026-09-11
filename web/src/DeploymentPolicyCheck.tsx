@@ -4,7 +4,7 @@ import type { DeploymentCheckInput, DeploymentCheckResult } from "./deployment-v
 import { publicEndpoints } from "./public-endpoints.js";
 import type { SavedDeploymentInputs } from "./program.js";
 
-export function DeploymentPolicyCheck({ network, transactionId, saved }: { network: string; transactionId: string; saved: SavedDeploymentInputs }) {
+export function DeploymentPolicyCheck({ network, transactionId, saved, onChooseVerifiedAddress }: { network: string; transactionId: string; saved: SavedDeploymentInputs; onChooseVerifiedAddress?: (address: string) => void }) {
   const [result, setResult] = useState<DeploymentCheckResult>();
   const [error, setError] = useState("");
   const [working, setWorking] = useState(false);
@@ -29,9 +29,11 @@ export function DeploymentPolicyCheck({ network, transactionId, saved }: { netwo
       active.postMessage({ transactionId, saved, endpoints } satisfies DeploymentCheckInput);
     } catch (cause) { stop(); setWorking(false); setError(cause instanceof Error ? cause.message : "Policy comparison could not start"); }
   };
+  const canChoose = result && result.mismatches.length === 0 && result.verifiers?.matched.length === 8 && new Set(result.verifiers.matched).size === 8 && !result.verifiers.mismatched.length && !result.verifiers.missing.length && !result.verifiers.unexpected.length;
   return <div><button type="button" className="secondary-button" disabled={working} onClick={() => void check()}>Compare saved deployment policy</button>
     {working && <><p>Comparing deployment in a background worker. This may take up to 30 seconds.</p><button type="button" className="secondary-button" onClick={() => { stop(); setWorking(false); }}>Cancel policy comparison</button></>}
     {error && <p role="alert">{error}</p>}
+    {canChoose && onChooseVerifiedAddress && <button type="button" className="secondary-button" onClick={() => onChooseVerifiedAddress(result.address)}>Review recovery at this address</button>}
     {result && <div role="status"><p>{result.mismatches.length ? `Saved deployment policy differs: ${result.mismatches.join(", ")}.` : "All seven saved deployment policy fields match the historical state reported by the indexer."}</p><p className="public-value">Deployment address: {result.address} · block {result.blockHeight} · checked {result.checkedAt}</p>{result.verifiers && <div><p>Verifier keys matching this release: {result.verifiers.matched.length} of 8.</p>{result.verifiers.mismatched.length > 0 && <p>Different verifier keys: {result.verifiers.mismatched.join(", ")}.</p>}{result.verifiers.missing.length > 0 && <p>Missing entrypoints: {result.verifiers.missing.join(", ")}.</p>}{result.verifiers.unexpected.length > 0 && <p>Unexpected entrypoints: {result.verifiers.unexpected.join(", ")}.</p>}<p>This compares the key version exposed by the SDK with files served by this release. It does not prove source-to-key generation or exclude other key versions.</p></div>}<p>The state matches the initial deployment bytes with SDK-checked transaction hash and identifiers. This comparison trusts indexer/RPC inclusion and finality. It does not authenticate signatures, proofs, deployed code, constructor arguments or vendor authority, save an address, or authorize retry.</p></div>}
   </div>;
 }

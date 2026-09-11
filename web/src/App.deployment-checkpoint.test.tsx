@@ -11,13 +11,13 @@ vi.mock("./midnight/browser-providers.js", () => ({ initializeBrowserProviders: 
 vi.mock("@vulnseal/api/api", () => ({ VulnSealApi: { deploy: mocks.deploy, join: mocks.join } }));
 vi.mock("./recovery-storage.js", async importOriginal => ({ ...await importOriginal<typeof import("./recovery-storage.js")>(), writeStoredRecovery: mocks.write }));
 import App from "./App.js";
-const password = "Synthetic durable deployment password", transactionId = "cd".repeat(32);
+const password = "Synthetic durable deployment password", transactionId = "00" + "cd".repeat(32);
 const row = (id: string, label: string, encrypted: string, revision: number | null) => ({ id, label, encrypted, revision: (revision ?? 0) + 1, updatedAt: new Date().toISOString() });
 const checkpoint = () => mocks.connect.mock.calls[0]![1](transactionId);
 beforeEach(() => {
   mocks.connect.mockReset().mockResolvedValue({}); mocks.deploy.mockReset(); mocks.join.mockReset(); mocks.write.mockReset().mockImplementation(async (...args) => row(...args as Parameters<typeof row>));
 });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 const start = async () => {
   const view = render(<App />);
   fireEvent.click(screen.getByRole("button", { name: "Guided local" }));
@@ -130,4 +130,51 @@ it.each(["saved", "storage failure"])("retains finalized deployment when its rec
     expect(mocks.join.mock.calls[0]![1]).toBe(contractAddress);
     expect(mocks.deploy).toHaveBeenCalledOnce();
   }
+}, 20_000);
+
+
+it.each(["success", "owner mismatch", "policy mismatch", "different address", "storage failure", "unmount", "timeout"])("recovers a checked deployment only after ledger verification and durable save: %s", async outcome => {
+  let worker: { onmessage?: (event: { data: unknown }) => void };
+  vi.stubGlobal("Worker", class { onmessage?: (event: { data: unknown }) => void; constructor() { worker = this; } postMessage() {} terminate() {} });
+  mocks.deploy.mockImplementation(async () => { await checkpoint(); throw new Error("Synthetic lost deployment response"); });
+  const view = await start();
+  await screen.findAllByText("Synthetic lost deployment response", {}, { timeout: 5000 });
+  const original = (await decryptRecovery(mocks.write.mock.calls[1]![2], password)).snapshot;
+  const programId = hexToBytes(original.programId), address = "ef".repeat(32);
+  const ledger = { ...await programConstructor(programId, original.policy), ownerKey: pureCircuits.deriveVendorKey(programId, hexToBytes(original.vendorSecret)) };
+  if (outcome === "owner mismatch") ledger.ownerKey = new Uint8Array(32);
+  if (outcome === "policy mismatch") ledger.responseDays = 99n;
+  let finish!: () => void;
+  const readPublicState = vi.fn().mockImplementation(() => outcome === "unmount" || outcome === "timeout" ? new Promise(resolve => { finish = () => resolve({ ledger }); }) : Promise.resolve({ ledger }));
+  mocks.join.mockResolvedValue({ contractAddress: outcome === "different address" ? "aa".repeat(32) : address, readPublicState });
+  if (outcome === "storage failure") mocks.write.mockRejectedValueOnce(new Error("Synthetic recovery quota failure"));
+  fireEvent.click(await screen.findByRole("button", { name: "Compare saved deployment policy" }));
+  act(() => worker!.onmessage?.({ data: { result: { address, blockHeight: 123, checkedAt: "now", mismatches: [], verifiers: { matched: ["submitReport", "beginTriage", "acceptReport", "rejectReport", "anchorPatch", "submitRetest", "authorizePayout", "closeReport"], mismatched: [], missing: [], unexpected: [] } } } }));
+  fireEvent.click(screen.getByRole("button", { name: "Review recovery at this address" }));
+  fireEvent.change(screen.getByLabelText("Recovered deployment backup password"), { target: { value: password } });
+  fireEvent.change(screen.getByLabelText("Confirm recovered deployment backup password"), { target: { value: password } });
+  const timers = vi.spyOn(globalThis, "setTimeout");
+  fireEvent.submit(screen.getByRole("button", { name: "Connect, verify and save recovered deployment" }).closest("form")!);
+  if (outcome === "unmount" || outcome === "timeout") {
+    await waitFor(() => expect(finish).toBeTypeOf("function"));
+    if (outcome === "unmount") view.unmount();
+    else await act(async () => (timers.mock.calls.find(([, duration]) => duration === 180_000)![0] as () => void)());
+    await act(async () => finish());
+    expect(mocks.write).toHaveBeenCalledTimes(2);
+  } else if (outcome === "success") {
+    await screen.findByRole("heading", { name: "Seal a vulnerability report" }, { timeout: 5000 });
+    expect(mocks.write).toHaveBeenCalledTimes(3);
+    const recovered = (await decryptRecovery(mocks.write.mock.calls[2]![2], password)).snapshot;
+    const { deploymentAttempt: _attempt, ...material } = original;
+    expect(recovered).toEqual({ ...material, contractAddress: address });
+    expect(mocks.write.mock.calls[2]![0]).not.toBe(mocks.write.mock.calls[0]![0]);
+    expect(mocks.write.mock.calls[2]![3]).toBeNull();
+    expect(screen.getByText(/Recovered deployment address saved/)).toBeInTheDocument();
+  } else {
+    const message = { "owner mismatch": /Recovery does not match the ledger: owner authority/, "policy mismatch": /Recovery policy windows/, "different address": /Connected contract differs/, "storage failure": /Synthetic recovery quota failure/ }[outcome];
+    await screen.findByText(message!, {}, { timeout: 5000 });
+    expect(mocks.write).toHaveBeenCalledTimes(outcome === "storage failure" ? 3 : 2);
+  }
+  if (outcome !== "success" && outcome !== "unmount") expect(screen.getByRole("heading", { name: "Deployment outcome needs investigation" })).toBeInTheDocument();
+  expect(mocks.deploy).toHaveBeenCalledOnce();
 }, 20_000);

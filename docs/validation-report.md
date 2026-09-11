@@ -1,5 +1,15 @@
 # Validation report
 
+## Checked deployment reconnect -- 2026-09-11
+
+Unconfirmed combined deployments can explicitly reconnect after the historical policy and all eight release verifier keys match. The application checks the exact joined address and current program/owner/policy, then saves a new encrypted browser copy before opening the session. Errors preserve the blocked attempt; late continuations after deadline or unmount cannot install it.
+
+The first browser run produced **8 passed / 2 failed**, exposing that captured Preprod identifiers contain 66 hex characters while the combined v7 reader and checkpoint accepted only 64. Both now accept the two identifier lengths supported by the existing transaction verifier; other 32-byte bindings are unchanged.
+
+Final application checks: **60 tests / 4 files, 58.14 seconds, exit 0**. Final Chrome desktop/mobile checks: **10 passed, 1.2 minutes, exit 0**, including real worker mismatch rejection for the captured transaction, private-material request checks and copy recovery. Normal build/typecheck and release validation: **8 circuits / 80 files / 65,497,590 bytes, exit 0**. `git diff --check` passed.
+
+[Evidence](evidence/deployment-reconnect.json) records the reproduction and scope. Successful reconnect uses mocked wallet/SDK in application tests; the browser mismatch checks use a real worker and captured public evidence. No native signing, authenticated inclusion, full regression, physical suspend or runtime refresh is claimed.
+
 ## Reject proofs after elapsed deadlines -- 2026-09-11
 
 A proof-provider reproduction had **5 passed / 4 failed**: when timer callbacks remained undispatched, the old wrapper forwarded an expired resolved proof to downstream balancing/submission, and returned a late provider rejection without timeout classification. Proof generation now uses the shared continuation guard, renamed from the wallet-specific helper. It rechecks wall and monotonic deadlines on completion/error while retaining transaction/configuration forwarding and the ten-minute limit.

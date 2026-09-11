@@ -177,14 +177,14 @@ it("round trips deployment recovery v6 and rejects conflicting workflow or downg
 });
 
 
-it("preserves v7 deployment identifiers before and after confirmed contract binding", async () => {
+it.each([64, 66])("preserves %i-character v7 deployment identifiers before and after confirmed contract binding", async length => {
   const { snapshot } = await recoveryFixture();
-  const deployment = { ...snapshot, version: 7 as const, mode: "midnight" as const, network: "preprod", contractAddress: null, report: null, history: [], programDraft: defaultProgramDraft, pendingReport: null, uncertainTransition: null, attachmentDraft: null, deploymentAttempt: { startedAt: "2026-09-11T00:00:00.000Z" }, deploymentTransactionId: "cd".repeat(32) };
+  const deployment = { ...snapshot, version: 7 as const, mode: "midnight" as const, network: "preprod", contractAddress: null, report: null, history: [], programDraft: defaultProgramDraft, pendingReport: null, uncertainTransition: null, attachmentDraft: null, deploymentAttempt: { startedAt: "2026-09-11T00:00:00.000Z" }, deploymentTransactionId: "cd".repeat(length / 2) };
   expect((await decryptRecovery(await encryptRecovery(deployment, password), password)).snapshot).toEqual(deployment);
   const { deploymentAttempt: _attempt, ...withoutAttempt } = deployment;
   const bound = { ...withoutAttempt, contractAddress: "ab".repeat(32) };
   expect((await decryptRecovery(await encryptRecovery(bound, password), password)).snapshot).toEqual(bound);
   const pending = { ...bound, pendingReport: { report: snapshot.report!, submissionStarted: true } };
   expect((await validateRecovery(pending)).snapshot).toEqual(pending);
-  for (const change of [{ version: 6 }, { deploymentTransactionId: undefined }, { deploymentTransactionId: "bad" }, { deploymentTransactionId: "CD".repeat(32) }, { mode: "guided-local" }, { deploymentAttempt: undefined }, { contractAddress: "ab".repeat(32) }]) await expect(validateRecovery({ ...deployment, ...change })).rejects.toThrow();
+  for (const change of [{ version: 6 }, { deploymentTransactionId: undefined }, { deploymentTransactionId: "bad" }, { deploymentTransactionId: "a".repeat(65) }, { deploymentTransactionId: "a".repeat(67) }, { deploymentTransactionId: "CD".repeat(32) }, { mode: "guided-local" }, { deploymentAttempt: undefined }, { contractAddress: "ab".repeat(32) }]) await expect(validateRecovery({ ...deployment, ...change })).rejects.toThrow();
 });

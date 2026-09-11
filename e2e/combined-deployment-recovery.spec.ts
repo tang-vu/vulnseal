@@ -4,12 +4,14 @@ import { readFile } from "node:fs/promises";
 import { encryptRecovery, decryptRecovery } from "../web/src/recovery.js";
 import { recoveryFixture } from "../web/src/test/recovery-fixture.js";
 import { emptyAttachmentDraft } from "../web/src/attachment-draft.js";
+import deploymentFixture from "./fixtures/preprod-deployment-state.json" with { type: "json" };
+import referenceKeys from "./fixtures/release-verifier-keys.json" with { type: "json" };
 import { defaultProgramDraft } from "../web/src/program.js";
 
 for (const version of [6, 7] as const) test(`uncertain combined deployment v${version} restores without a wallet and survives browser and file copies`, async ({ page, browser }, testInfo) => {
   const password = "Synthetic interrupted deployment";
   const { snapshot } = await recoveryFixture();
-  const attempt = { ...snapshot, version, ...(version === 7 ? { deploymentTransactionId: "cd".repeat(32) } : {}), mode: "midnight" as const, network: "preprod", contractAddress: null, report: null, history: [], programDraft: defaultProgramDraft, pendingReport: null, uncertainTransition: null, attachmentDraft: emptyAttachmentDraft, deploymentAttempt: { startedAt: "2026-09-11T00:00:00.000Z" } };
+  const attempt = { ...snapshot, version, ...(version === 7 ? { deploymentTransactionId: deploymentFixture.data.transactions[0]!.identifiers[0]! } : {}), mode: "midnight" as const, network: "preprod", contractAddress: null, report: null, history: [], programDraft: defaultProgramDraft, pendingReport: null, uncertainTransition: null, attachmentDraft: emptyAttachmentDraft, deploymentAttempt: { startedAt: "2026-09-11T00:00:00.000Z" } };
   const encrypted = await encryptRecovery(attempt, password);
   // Synthetic uncertain state; no wallet deployment is performed by this test.
   await page.goto("/");
@@ -20,6 +22,25 @@ for (const version of [6, 7] as const) test(`uncertain combined deployment v${ve
   await expect(page.getByRole("heading", { name: "Deployment outcome needs investigation" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Create program", exact: true })).toHaveCount(0);
   if (version === 7) await expect(page.getByText(`Deployment transaction: ${attempt.deploymentTransactionId}`)).toBeVisible();
+  if (version === 7) {
+    const tx = deploymentFixture.data.transactions[0]!, requests: string[] = [];
+    await page.route("**/keys/*.verifier", route => {
+      const name = new URL(route.request().url()).pathname.split("/").at(-1)!.replace(".verifier", "") as keyof typeof referenceKeys.keys;
+      return route.fulfill({ contentType: "application/octet-stream", body: Buffer.from(referenceKeys.keys[name], "hex") });
+    });
+    await page.route("https://indexer.preprod.midnight.network/api/v4/graphql", route => { requests.push(route.request().postData()!); return route.fulfill({ json: deploymentFixture }); });
+    await page.route("https://rpc.preprod.midnight.network/**", route => {
+      const body = route.request().postDataJSON(); requests.push(route.request().postData()!);
+      return route.fulfill({ json: { jsonrpc: "2.0", id: 1, result: body.method === "chain_getHeader" ? { number: `0x${(tx.block.height + 1).toString(16)}` } : `0x${tx.block.hash}` } });
+    });
+    await page.getByRole("button", { name: "Compare saved deployment policy" }).click();
+    await expect(page.getByText(/Saved deployment policy differs:/)).toBeVisible();
+    await expect(page.getByText("Verifier keys matching this release: 8 of 8.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Review recovery at this address" })).toHaveCount(0);
+    expect(requests.length).toBe(5);
+    expect(requests.join("")).not.toContain(attempt.vendorSecret);
+    expect(requests.join("")).not.toContain(attempt.researcherSecret);
+  }
   await page.getByRole("button", { name: "Private recovery", exact: true }).click();
   await expect(page.getByRole("button", { name: "Restore encrypted backup" })).toBeDisabled();
   await page.getByLabel("Backup password", { exact: true }).fill(password);

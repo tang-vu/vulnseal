@@ -59,3 +59,21 @@ it.each(["timeout", "load", "message", "empty"])("terminates worker and permits 
   expect(screen.queryByRole("status")).not.toBeInTheDocument();
   expect(instances).toHaveLength(2);
 });
+
+
+it.each(["match", "policy", "missing", "different", "unexpected", "absent", "duplicate"])("offers address review only when policy and all release keys match: %s", outcome => {
+  const onChooseVerifiedAddress = vi.fn();
+  const verifiers = { matched: ["submitReport", "beginTriage", "acceptReport", "rejectReport", "anchorPatch", "submitRetest", "authorizePayout", "closeReport"], mismatched: [] as string[], missing: [] as string[], unexpected: [] as string[] };
+  if (outcome === "missing") verifiers.missing.push("closeReport");
+  if (outcome === "different") verifiers.mismatched.push("closeReport");
+  if (outcome === "unexpected") verifiers.unexpected.push("unknown");
+  if (outcome === "duplicate") verifiers.matched[7] = "submitReport";
+  render(<DeploymentPolicyCheck network="preprod" transactionId="ef" saved={saved} onChooseVerifiedAddress={onChooseVerifiedAddress} />);
+  fireEvent.click(screen.getByRole("button", { name: "Compare saved deployment policy" }));
+  act(() => instances[0]!.onmessage?.({ data: { result: { address: "cd".repeat(32), blockHeight: 10, checkedAt: "now", mismatches: outcome === "policy" ? ["scopeDigest"] : [], ...(outcome === "absent" ? {} : { verifiers }) } } }));
+  expect(onChooseVerifiedAddress).not.toHaveBeenCalled();
+  if (outcome === "match") {
+    fireEvent.click(screen.getByRole("button", { name: "Review recovery at this address" }));
+    expect(onChooseVerifiedAddress).toHaveBeenCalledWith("cd".repeat(32));
+  } else expect(screen.queryByRole("button", { name: "Review recovery at this address" })).not.toBeInTheDocument();
+});

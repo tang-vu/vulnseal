@@ -1,0 +1,67 @@
+{
+  "date": "2026-09-11",
+  "scope": "Explicit combined deployment reconnect from saved transaction identifier",
+  "behavior": [
+    "Historical deployment bytes, seven saved policy fields and eight SDK-exposed release verifier keys must match before offering address review.",
+    "Reconnect verifies exact joined address and current program, derived vendor owner key, policy digests and windows.",
+    "A new encrypted v7 browser copy retaining the identifier is written before opening the session; the original copy is preserved.",
+    "Three-minute continuation deadline and unmount checks prevent late reads from installing a session. Already-started storage may commit late.",
+    "Combined checkpoint and recovery v7 accept canonical lowercase 64- or 66-character hex transaction identifiers. Other 32-byte bindings are unchanged."
+  ],
+  "reproduction": {
+    "command": "CI=1 npx playwright test e2e/combined-deployment-recovery.spec.ts e2e/deployment-policy.spec.ts",
+    "passed": 8,
+    "failed": 2,
+    "exit": 1,
+    "cause": "Captured Preprod transaction uses 66-character identifiers; v7 initially reused the 64-character key/commitment validator. Both desktop and mobile failed before restoration. The deployment checkpoint had the same restriction and was corrected too.",
+    "log": ".compact/deployment-reconnect-browser.log"
+  },
+  "unit": {
+    "command": "npm run test:run -w @vulnseal/web -- src/App.deployment-checkpoint.test.tsx src/App.network.test.tsx src/DeploymentPolicyCheck.test.tsx src/recovery.test.ts",
+    "passed": 60,
+    "files": 4,
+    "seconds": 58.14,
+    "exit": 0,
+    "log": ".compact/deployment-reconnect-tests-final.log",
+    "coverage": [
+      "Success with decrypted saved-copy equality and no second deployment",
+      "Owner/policy/address mismatch; failed storage; late ledger read after timeout/unmount",
+      "Policy/key mismatch, missing/unexpected/duplicate/absent verifier comparison prevents address selection",
+      "64- and 66-character recovery round trips; malformed lengths rejected; checkpoint suite uses 66-character identifier"
+    ]
+  },
+  "limitations": [
+    "Successful wallet/SDK reconnect is mocked in application tests. Browser checks use captured network evidence and actual worker, with mismatching local intent.",
+    "No native wallet signing, authenticated inclusion or proof/signature verification, physical suspend test, full regression or container refresh.",
+    "Verifier comparison does not establish source-to-key generation or exclude other key versions.",
+    "Combined report submissions/transitions still lack mandatory durable identifier journals."
+  ],
+  "browser": {
+    "command": "CI=1 npx playwright test e2e/combined-deployment-recovery.spec.ts e2e/deployment-policy.spec.ts",
+    "passed": 10,
+    "duration": "1.2m",
+    "exit": 0,
+    "projects": [
+      "desktop-chrome",
+      "mobile-chrome"
+    ],
+    "workers": 2,
+    "retries": 0,
+    "log": ".compact/deployment-reconnect-browser-final.log",
+    "coverage": [
+      "v6/v7 file and browser recovery, exact encrypted copy download and isolated restore",
+      "Captured 66-character deployment identifier and real historical-state worker reject mismatching combined intent without exposing authority secrets in requests",
+      "Role policy mismatch, raw initial-state substitution, verifier mismatch, busy-worker timeout/cancel/retry",
+      "Initial real IndexedDB quota failure prevents synthetic-wallet balance/broadcast"
+    ]
+  },
+  "release": {
+    "command": "npm run build -w @vulnseal/web && node scripts/check-web-release.mjs --write-manifest",
+    "exit": 0,
+    "circuits": 8,
+    "files": 80,
+    "bytes": 65497590,
+    "log": ".compact/deployment-reconnect-release.log",
+    "normalBuildAfterE2E": true
+  }
+}

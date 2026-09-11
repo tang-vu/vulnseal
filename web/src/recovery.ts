@@ -88,7 +88,8 @@ export const validateRecovery = async (input: unknown): Promise<{ snapshot: Reco
   let deploymentAttempt: RecoverySnapshot["deploymentAttempt"];
   let deploymentTransactionId: string | undefined;
   if (value.version === 7) {
-    deploymentTransactionId = hex(value.deploymentTransactionId);
+    if (typeof value.deploymentTransactionId !== "string" || !/^(?:[a-f0-9]{64}|[a-f0-9]{66})$/.test(value.deploymentTransactionId)) throw new Error("Invalid deployment transaction identifier");
+    deploymentTransactionId = value.deploymentTransactionId;
     if (mode !== "midnight" || value.network === "undeployed") throw new Error("Deployment transaction requires a network recovery");
   } else if (value.deploymentTransactionId !== undefined) throw new Error("Deployment transaction identifiers require recovery version 7");
   if (value.version === 6 || (value.version === 7 && contractAddress === null)) {
