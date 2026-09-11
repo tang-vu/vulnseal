@@ -1,5 +1,13 @@
 # Validation report
 
+## Opt-in encrypted combined recovery autosave -- 2026-09-11
+
+The combined demo now shares a memoized recovery-v5 snapshot between file export and optional autosave. Enabling requires a password and a confirmed initial browser copy. Subsequent changes are captured after a 750 ms pause, encrypted and written serially with revision checks. Status remains visible across screens. Conflicts/failures stop the writer while keeping the live draft and saved copy; changing program/network/contract binding stops the old writer. Restoration and removal of the active autosave copy are disabled until it stops. Reload restores from the saved encrypted copy without retaining the autosave password or automatically restarting a writer.
+
+An initial build exited **2** because the new writer retained three mechanically renamed `writeStoredCopy` references; these were corrected to the recovery adapter. Typecheck then passed. **46 unit/component tests / 5 files** passed in **44.02 seconds**, including captured queued snapshots/copy identity, serialized revisions, conflict/stop behavior and existing App/network recovery uncertainty checks. **8 E2E checks** passed in **56.4 seconds** on Chrome desktop/mobile: actual reload restoration of confirmed autosave, revision-conflict preservation, program-change stop, manual browser-copy quota/reload/removal and recovery-input retention/close dialogs. The final normal web build/typecheck and release check exited **0**, with **8 circuits / 80 files / 65,454,274 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/recovery-autosave.json) records initial failure and final checks. Autosave is not awaited before wallet calls and does not supply transaction identifiers or safe retry. Debounced/in-flight changes, browser eviction/device failure and undeployed-network recovery remain limitations. Stopping prevents future queued work but cannot undo an already-started storage transaction. No native-wallet action, full regression or runtime image refresh is claimed.
+
 ## Store and restore encrypted combined browser checkpoints -- 2026-09-11
 
 Private recovery now creates manual encrypted browser copies, lists their metadata, restores selected copies through existing password/ledger validation and removes only a selected revision. Each save creates a new random ID and preserves earlier checkpoints. The password is cleared only after a confirmed save. Browser-copy writes store the encrypted recovery envelope with a fixed label, ID, timestamp and revision; a separate IndexedDB database prevents mixing combined and single-role backups.

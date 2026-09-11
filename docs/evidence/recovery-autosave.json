@@ -1,0 +1,54 @@
+{
+  "recordedAt": "2026-09-11T03:19:40.508348+00:00",
+  "baseRevision": "5b2c9b9",
+  "checks": {
+    "initialBuild": {
+      "exitCode": 2,
+      "failure": "Mechanical adapter extraction left writeStoredCopy references in the new writer. Corrected to writeStoredRecovery before validation."
+    },
+    "typecheck": {
+      "exitCode": 0
+    },
+    "targetedTests": {
+      "tests": 46,
+      "files": 5,
+      "seconds": 44.02,
+      "exitCode": 0
+    },
+    "browser": {
+      "tests": 8,
+      "seconds": 56.4,
+      "projects": [
+        "desktop-chrome",
+        "mobile-chrome"
+      ],
+      "exitCode": 0
+    },
+    "normalWebBuildAndRelease": {
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65454274,
+      "exitCode": 0
+    }
+  },
+  "rawLogSha256": {
+    "recovery-autosave-build": "709c43bcdcc309b742b56c31887ff2cbfb8e91f6f93b958482c75d42b80bcc10",
+    "recovery-autosave-typecheck": "e46cc40234199e52e1bf5e1db8f21c8befbead50c4410dc7edfba8141b69c5c8",
+    "recovery-autosave-tests": "af1fda7a4fbecb194dd761b71a073c622c899e4494c38fe43e10f173f8051081",
+    "recovery-autosave-e2e": "53cb474b6c2b9b5a7568cde946c9d7c2008c5f5cb4d37d69a68e86d8bf4afd07",
+    "recovery-autosave-release": "a0f551ad18d1c1eba55dd0484f65e7e695fb8b556c0cacab7282bf95cdf4be32"
+  },
+  "coverage": [
+    "Queued snapshot and initial copy-identity capture, revision sequencing, conflict stop and explicit stop before queued persistence",
+    "Encrypted autosave confirmation after navigation, reload restore and revision-conflict preservation of committed copy and live unsaved draft",
+    "Program-binding changes stop the old writer",
+    "Existing manual browser quota/reload/removal and recovery-input close-warning journeys",
+    "App/network recovery including retained transaction uncertainty"
+  ],
+  "limits": [
+    "Opt-in debounce autosave, not a durable pre-wallet journal or safe-retry mechanism.",
+    "Only confirmed snapshots are recoverable; later changes, receiving keys and child-form passwords are not implicitly backed up.",
+    "Stop cannot undo an already-started IndexedDB write; browser storage eviction or device failure requires separate backups.",
+    "Undeployed network recovery, native-wallet validation, full regression and runtime image refresh remain separate work."
+  ]
+}

@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { MAX_RECOVERY_BYTES } from "./recovery.js";
+import { MAX_RECOVERY_BYTES, type RecoverySnapshot } from "./recovery.js";
 import { deleteStoredRecovery, listStoredRecoveries, readStoredRecovery, writeStoredRecovery, type StoredCopyLabel } from "./recovery-storage.js";
 
-export function RecoveryPanel({ onExport, onImport, canImport }: {
+import { RecoveryAutosavePanel } from "./RecoveryAutosavePanel.js";
+
+export function RecoveryPanel({ onAutosaveStatus, snapshot, onExport, onImport, canImport }: {
+  readonly onAutosaveStatus?: ((status: string) => void) | undefined;
+  readonly snapshot?: RecoverySnapshot | undefined;
   readonly onExport: (password: string) => Promise<string>;
   readonly onImport: (serialized: string, password: string) => Promise<void>;
   readonly canImport: boolean;
@@ -17,9 +21,11 @@ export function RecoveryPanel({ onExport, onImport, canImport }: {
   const [working, setWorking] = useState(false);
   const [copies, setCopies] = useState<StoredCopyLabel[]>([]);
   const [selectedCopy, setSelectedCopy] = useState("");
+  const [activeAutosaveId, setActiveAutosaveId] = useState<string>();
+  const restoreAllowed = canImport && !activeAutosaveId;
   const fileInput = useRef<HTMLInputElement>(null);
   const generation = useRef(0), busy = useRef(false), importAllowed = useRef(canImport);
-  importAllowed.current = canImport;
+  importAllowed.current = restoreAllowed;
   const hasInputs = Boolean(password || confirmation || restorePassword || file);
   useEffect(() => {
     if (!hasInputs && !working) return;
@@ -92,11 +98,13 @@ export function RecoveryPanel({ onExport, onImport, canImport }: {
     })}>
       <h2>Restore a saved session</h2>
       <p>Restore in a fresh tab. An existing draft is replaced. Network recovery connects Lace and checks the contract and report on the file’s network; it does not submit a transaction.</p>
-      {!canImport && <p role="status">This tab already has a prepared report, sealed report or deployed program. Open a fresh tab to restore without replacing it.</p>}
-      <label>Recovery file<input ref={fileInput} type="file" accept=".json,application/json" required disabled={!canImport || working} onChange={(event) => setFile(event.target.files?.[0])} /></label>
-      <label>Recovery password<input type="password" autoComplete="current-password" minLength={12} required value={restorePassword} onChange={(event) => setRestorePassword(event.target.value)} disabled={!canImport || working} /></label>
-      <button className="primary-button" disabled={!canImport || working}>Restore encrypted backup</button>
+      {!restoreAllowed && <p role="status">This tab has an active program/report or autosave writer. Open a fresh tab to restore without replacing it.</p>}
+      <label>Recovery file<input ref={fileInput} type="file" accept=".json,application/json" required disabled={!restoreAllowed || working} onChange={(event) => setFile(event.target.files?.[0])} /></label>
+      <label>Recovery password<input type="password" autoComplete="current-password" minLength={12} required value={restorePassword} onChange={(event) => setRestorePassword(event.target.value)} disabled={!restoreAllowed || working} /></label>
+      <button className="primary-button" disabled={!restoreAllowed || working}>Restore encrypted backup</button>
     </form>
+    <RecoveryAutosavePanel onStatus={onAutosaveStatus} snapshot={snapshot} onActive={setActiveAutosaveId} onSaved={(metadata) => setCopies((current) => [metadata, ...current.filter((copy) => copy.id !== metadata.id)])} />
+    {activeAutosaveId && <p>Stop autosave before restoring another session or removing its active copy.</p>}
     <section className="form-panel" aria-label="Saved browser recovery copies">
       <h2>Saved browser copies</h2>
       <p>Copies contain both experimental roles and stay encrypted on this browser and site. Saving is manual: only the state at the last confirmed save can be recovered. Keep the password separately and retain a file backup for another device.</p>
@@ -109,7 +117,7 @@ export function RecoveryPanel({ onExport, onImport, canImport }: {
         {copies.map((copy) => <option key={copy.id} value={copy.id}>{copy.label} ? {new Date(copy.updatedAt).toLocaleString()} ? {copy.id.slice(0, 8)}</option>)}
       </select></label>
       <p>To restore, enter the Recovery password above. Removing a selected copy deletes only that browser copy, not downloaded files or the active session.</p>
-      <button type="button" className="primary-button" disabled={!canImport || !selectedCopy || working} onClick={(event) => void run(event, async (isCurrent) => {
+      <button type="button" className="primary-button" disabled={!restoreAllowed || !selectedCopy || working} onClick={(event) => void run(event, async (isCurrent) => {
         if (!importAllowed.current) throw new Error("Restore in a fresh tab to preserve this active session");
         const saved = await readStoredRecovery(selectedCopy);
         if (!isCurrent()) return;
@@ -117,7 +125,7 @@ export function RecoveryPanel({ onExport, onImport, canImport }: {
         await onImport(saved.encrypted, restorePassword);
         if (isCurrent()) { setRestorePassword(""); setFile(undefined); if (fileInput.current) fileInput.current.value = ""; }
       })}>Restore selected browser copy</button>
-      <button type="button" className="secondary-button" disabled={!selectedCopy || working} onClick={(event) => void run(event, async (isCurrent) => {
+      <button type="button" className="secondary-button" disabled={!selectedCopy || selectedCopy === activeAutosaveId || working} onClick={(event) => void run(event, async (isCurrent) => {
         const selected = copies.find((copy) => copy.id === selectedCopy);
         if (!selected) throw new Error("Refresh and select a browser copy first");
         await deleteStoredRecovery(selected.id, selected.revision);

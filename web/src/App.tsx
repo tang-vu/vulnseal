@@ -150,6 +150,7 @@ function App() {
   const [programCreated, setProgramCreated] = useState(env.mode === "guided-local");
   const [programBytes, setProgramBytes] = useState(() => randomBytes(32));
   const [programPolicy, setProgramPolicy] = useState(defaultProgram);
+  const [autosaveNotice, setAutosaveNotice] = useState("");
   const [programDraft, setProgramDraft] = useState<ProgramDraft>(defaultProgramDraft);
   const [severity, setSeverity] = useState(3);
   const [acceptedSeverity, setAcceptedSeverity] = useState(3);
@@ -554,21 +555,25 @@ function App() {
     changeScreen("submit", "researcher");
   };
 
+  const recoverySnapshot = useMemo<RecoverySnapshot | undefined>(() => {
+    if (runtimeMode === "midnight" && !api) return undefined;
+    const encode = (value?: Uint8Array) => value ? bytesToHex(value) : null;
+    return {
+      version: 5, programDraft, uncertainTransition, attachmentDraft, pendingReport: pendingPreparation ? { report: { envelope: pendingPreparation.sealed.serializedEnvelope, key: bytesToHex(pendingPreparation.sealed.key), salt: bytesToHex(pendingPreparation.salt), id: bytesToHex(pendingPreparation.id) }, submissionStarted: pendingPreparation.submissionStarted } : null, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
+      programId: bytesToHex(programBytes), policy: programPolicy, vendorSecret: bytesToHex(vendorSecret), researcherSecret: bytesToHex(researcherSecret), draft: report,
+      report: sealed && reportSalt && reportId ? { envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt), id: bytesToHex(reportId) } : null,
+      status, history: events.map((event) => event.status), patch: encode(patchCommitment), retest: encode(retestCommitment), payout: encode(payoutReceipt),
+      severity: acceptedSeverity, rationale, patchReference, retestNotes,
+    };
+  }, [programDraft, uncertainTransition, attachmentDraft, pendingPreparation, runtimeMode, activeNetwork, api, programBytes, programPolicy, vendorSecret, researcherSecret, report, sealed, reportSalt, reportId, status, events, patchCommitment, retestCommitment, payoutReceipt, acceptedSeverity, rationale, patchReference, retestNotes]);
+
   const exportRecovery = async (password: string): Promise<string> => {
     if (busy.current) throw new Error("Wait for the current operation to finish");
     if (runtimeMode === "midnight" && !api) throw new Error("Create the network program before exporting its recovery material");
     busy.current = true;
     setOperation({ state: "working", label: "Encrypting recovery file", detail: "Deriving a password key locally. No private material is uploaded." });
     try {
-      const encode = (value?: Uint8Array) => value ? bytesToHex(value) : null;
-      const snapshot: RecoverySnapshot = {
-        version: 5, programDraft, uncertainTransition, attachmentDraft, pendingReport: pendingPreparation ? { report: { envelope: pendingPreparation.sealed.serializedEnvelope, key: bytesToHex(pendingPreparation.sealed.key), salt: bytesToHex(pendingPreparation.salt), id: bytesToHex(pendingPreparation.id) }, submissionStarted: pendingPreparation.submissionStarted } : null, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
-        programId: bytesToHex(programBytes), policy: programPolicy, vendorSecret: bytesToHex(vendorSecret), researcherSecret: bytesToHex(researcherSecret), draft: report,
-        report: sealed && reportSalt && reportId ? { envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt), id: bytesToHex(reportId) } : null,
-        status, history: events.map((event) => event.status), patch: encode(patchCommitment), retest: encode(retestCommitment), payout: encode(payoutReceipt),
-        severity: acceptedSeverity, rationale, patchReference, retestNotes,
-      };
-      return await encryptRecovery(snapshot, password);
+      return await encryptRecovery(recoverySnapshot!, password);
     } finally { busy.current = false; setOperation({ state: "idle" }); }
   };
 
@@ -700,7 +705,8 @@ function App() {
           <span>{operation.detail}</span>
         </div>
       )}
-      <main id="main-content" aria-busy={operation.state === "working"}><fieldset className="workflow-controls" disabled={operation.state === "working"}>{main}<div hidden={screen !== "recovery"}><RecoveryPanel onExport={exportRecovery} onImport={importRecovery} canImport={!reportId && !pendingPreparation && !api} /></div><div hidden={screen !== "handoff"}><HandoffPanel keys={recipientKeys} onKeys={setRecipientKeys} disclosure={sealed && reportId && reportSalt ? { network: api ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null, programId: bytesToHex(programBytes), reportId: bytesToHex(reportId), envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt) } : undefined} /></div></fieldset></main>
+      {screen !== "recovery" && autosaveNotice && <p className="operation-notice" role="status">{autosaveNotice}</p>}
+      <main id="main-content" aria-busy={operation.state === "working"}><fieldset className="workflow-controls" disabled={operation.state === "working"}>{main}<div hidden={screen !== "recovery"}><RecoveryPanel onAutosaveStatus={setAutosaveNotice} snapshot={recoverySnapshot} onExport={exportRecovery} onImport={importRecovery} canImport={!reportId && !pendingPreparation && !api} /></div><div hidden={screen !== "handoff"}><HandoffPanel keys={recipientKeys} onKeys={setRecipientKeys} disclosure={sealed && reportId && reportSalt ? { network: api ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null, programId: bytesToHex(programBytes), reportId: bytesToHex(reportId), envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt) } : undefined} /></div></fieldset></main>
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {navigation.slice(0, 5).map((item) => (
           <button key={item.screen} className={screen === item.screen ? "active" : ""} onClick={() => changeScreen(item.screen)}>
