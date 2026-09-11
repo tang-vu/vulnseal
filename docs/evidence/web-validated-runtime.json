@@ -1,0 +1,58 @@
+{
+  "recordedAt": "2026-09-11T02:31:23.588540+00:00",
+  "applicationRevision": "6a7ec8b8f88026d1fd7330e747126509977aeab2",
+  "applicationRegression": "docs/evidence/regression-dfe75c2.json",
+  "imageId": "sha256:be0b39587b8d795d7442ea7d4df9263344e2e39c4c2879d6e275947735ed21d9",
+  "imageConfigId": "sha256:580fec3bdfd780e536ed1fa47944de2f8913e4a01255cfd53adc80fe1d2ac1d5",
+  "build": {
+    "command": "docker build -f infra/web.Dockerfile -t vulnseal-web:local .",
+    "exitCode": 0,
+    "artifactFiles": 80,
+    "artifactBytes": 65418379,
+    "circuits": 8,
+    "rawLogSha256": "4faffd78ba235dd31e7730e8dc256591b3bdae8ca65509b1aac372d0bf3547f4",
+    "caddyMatcherTests": "cached layer; not rerun in this build"
+  },
+  "containerDrill": {
+    "command": "VULNSEAL_DOCKER_WSL_DISTRO=Ubuntu node scripts/test-web-container.mjs --write-evidence",
+    "exitCode": 0,
+    "imagePinnedBeforeLaunch": true,
+    "evidence": "docs/evidence/web-container-drill.json",
+    "capturedAt": "2026-09-11T02:29:44.524Z",
+    "requests": 81,
+    "transferredBytes": 65419658,
+    "cleanupCompleted": true,
+    "rawLogSha256": "fd6a78067ea89b1d6d09d8818d86f18f035538ea8fe71b7c6fbaa2c9f3423b51"
+  },
+  "scanner": {
+    "command": "sh scripts/scan-container.sh sha256:be0b39587b8d795d7442ea7d4df9263344e2e39c4c2879d6e275947735ed21d9",
+    "exitCode": 1,
+    "completed": true,
+    "os": "Alpine 3.23.5",
+    "osPackages": 32,
+    "osFindings": 0,
+    "goFindings": 1,
+    "findings": [
+      {
+        "id": "GO-2026-5932",
+        "severity": "UNKNOWN",
+        "module": "golang.org/x/crypto",
+        "installed": "v0.56.0",
+        "fixedVersion": null
+      }
+    ],
+    "suppressedFindings": 0,
+    "rawLogSha256": "2251d39fb1cb9c163a7f4e48e69dd5c651dffdd7d19f0d9850089169b6a1d1f1"
+  },
+  "cleanup": {
+    "webTestContainerLabelQueryEmpty": true,
+    "scannerContainerLabelQueryEmpty": true
+  },
+  "limits": [
+    "No new source-level Go reachability scan; historical source diagnostic is separate and does not waive the runtime scanner finding",
+    "Container drill verifies hosted artifact hashes and its listed flows; detailed backup/disclosure behavior has separate source-artifact E2E coverage in the regression record",
+    "No public TLS/DNS hosting, deployment or native-wallet verification",
+    "Strict runtime security gate remains failed"
+  ],
+  "drillSourceSha256": "e4b5053163aac83f7d9c205ce6300e09495a5ba8f21b8b2ac5ae4003311072aa"
+}

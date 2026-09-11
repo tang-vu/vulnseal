@@ -18,10 +18,12 @@ const manifest = await checkWebRelease();
 const id = randomUUID(), name = `vulnseal-web-test-${id}`, image = "vulnseal-web:local";
 const distro = process.env.VULNSEAL_DOCKER_WSL_DISTRO;
 const docker = (...args) => execFileSync(distro ? "wsl.exe" : process.platform === "win32" ? "docker.exe" : "docker", [...(distro ? ["--distribution", distro, "--exec", "docker"] : []), ...args], { encoding: "utf8", timeout: 60_000, maxBuffer: 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] }).trim();
+const imageId = docker("image", "inspect", image, "--format", "{{.Id}}");
+assert.match(imageId, /^sha256:[a-f0-9]{64}$/);
 const request = (origin, pathname, options = {}) => fetch(origin + pathname, { ...options, redirect: "error", signal: AbortSignal.timeout(5000) });
 let created = false, result;
 try {
-  docker("run", "--detach", "--name", name, "--label", `vulnseal.web-test=${id}`, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--memory", "256m", "--pids-limit", "64", "--publish", "127.0.0.1::8080", image);
+  docker("run", "--detach", "--name", name, "--label", `vulnseal.web-test=${id}`, "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true", "--memory", "256m", "--pids-limit", "64", "--publish", "127.0.0.1::8080", imageId);
   created = true;
   let origin = `http://${docker("port", name, "8080/tcp")}`;
   async function ready() {
@@ -34,6 +36,7 @@ try {
   }
   await ready();
   const inspection = JSON.parse(docker("inspect", name))[0];
+  assert.equal(inspection.Image, imageId);
   assert.equal(inspection.Config.User, "65532:65532");
   assert.equal(inspection.HostConfig.ReadonlyRootfs, true);
   assert.equal(docker("exec", name, "id", "-u"), "65532");

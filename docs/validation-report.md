@@ -1,5 +1,13 @@
 # Validation report
 
+## Refresh the validated web runtime image -- 2026-09-11
+
+Image `sha256:be0b39587b8d795d7442ea7d4df9263344e2e39c4c2879d6e275947735ed21d9` now packages the normal web artifact covered by the consolidated regression at `6a7ec8b`: **8 circuits / 80 files / 65,418,379 bytes**, including current upload acknowledgment, recovery snapshot and recipient-key fixes. The Docker build exited **0** and validated the copied release artifact and Caddy configuration. Caddy matcher/source build layers were cached, not newly tested.
+
+The web container drill now resolves the image ID before launch, runs that immutable reference and checks the container's image ID. Syntax validation and the real updated drill passed. The drill exited **0** at **2026-09-11T02:29:44.524Z**, verified all 80 hosted file hashes through 81 requests, checked non-root/read-only execution, headers/404s, desktop/mobile public and deployment workers, timeout/retry/cancel, cross-origin widget isolation, exchange navigation/clear-input behavior and graceful restart. It published evidence only after owned cleanup completed.
+
+The scan targeted the same image ID and completed with exit **1**: zero Alpine 3.23.5 findings across 32 OS packages, and one unsuppressed UNKNOWN **GO-2026-5932** finding for `golang.org/x/crypto v0.56.0` in Caddy, with no fixed version reported. The strict security gate remains failed. Final web-test and scanner container label queries were empty. [Image/build/scan evidence](evidence/web-validated-runtime.json) and [container drill](evidence/web-container-drill.json) retain exact identifiers and raw-log hashes. Detailed backup/disclosure E2E coverage remains in the linked source-artifact regression; this drill is not a public deployment, native-wallet verification or new Go source scan.
+
 ## Consolidated regression and bounded web test workers -- 2026-09-11
 
 At application revision `dfe75c23aad5feda27057bdc1b448e3059546025`, `npm run validate` completed all six workspace builds/typechecks. Shared **13**, contract **28**, API **84**, cipherstore **50** and integration **9** tests passed. Web initially had **361 passed / 1 failed**: the App retry test still expected the raw fetch error replaced by the retained-ciphertext recovery guidance. The corrected assertion retains same-ciphertext retry and leave-warning checks. Its first correction mistakenly queried an alert role absent from this progress screen; that failed attempt is retained too.
