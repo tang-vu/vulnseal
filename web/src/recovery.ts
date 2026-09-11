@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { pureCircuits, type Ledger } from "@vulnseal/contract";
 import { base64UrlToBytes, bytesToBase64Url, bytesToHex, canonicalizeReport, contractStatusName, hexToBytes, openReport, parseCiphertextEnvelope, randomBytes, sha256, utf8, type ReportStatusName, type SealedReport, type VulnerabilityReport } from "@vulnseal/shared";
-import { programConstructor, readProgramForm, type ProgramPolicy } from "./program.js";
+import { programConstructor, readProgramForm, validateProgramDraft, type ProgramDraft, type ProgramPolicy } from "./program.js";
 import { submissionReceipt } from "./submission-receipt.js";
 
 import { validateAttachmentDraft, type AttachmentDraft } from "./attachment-draft.js";
@@ -13,7 +13,8 @@ const buffer = (value: Uint8Array): ArrayBuffer => Uint8Array.from(value).buffer
 export const uncertainCircuits = ["beginTriage", "acceptReport", "rejectReport", "anchorPatch", "submitRetest", "authorizePayout", "closeReport"] as const;
 export type UncertainCircuit = typeof uncertainCircuits[number];
 export type RecoverySnapshot = {
-  readonly version: 1 | 2 | 3 | 4;
+  readonly version: 1 | 2 | 3 | 4 | 5;
+  readonly programDraft?: ProgramDraft;
   readonly uncertainTransition?: UncertainCircuit | null;
   readonly pendingReport?: { readonly report: NonNullable<RecoverySnapshot["report"]>; readonly submissionStarted: boolean } | null;
   readonly attachmentDraft?: AttachmentDraft | null;
@@ -78,7 +79,7 @@ const validateDraft = (input: unknown): VulnerabilityReport => {
 export const validateRecovery = async (input: unknown): Promise<{ snapshot: RecoverySnapshot; sealed: SealedReport | undefined; pendingSeal?: SealedReport | undefined }> => {
   // Capture nested caller-owned state before the first asynchronous crypto check.
   const value = object(structuredClone(input));
-  if (![1, 2, 3, 4].includes(Number(value.version)) || typeof value.version !== "number" || !["guided-local", "midnight"].includes(String(value.mode))) throw new Error("Unsupported recovery version or mode");
+  if (![1, 2, 3, 4, 5].includes(Number(value.version)) || typeof value.version !== "number" || !["guided-local", "midnight"].includes(String(value.mode))) throw new Error("Unsupported recovery version or mode");
   if (!["undeployed", "local", "preview", "preprod", "mainnet"].includes(String(value.network))) throw new Error("Unsupported recovery network");
   const mode = value.mode as RecoverySnapshot["mode"];
   const contractAddress = optionalHex(value.contractAddress);
@@ -115,8 +116,9 @@ export const validateRecovery = async (input: unknown): Promise<{ snapshot: Reco
     sealed = { canonicalReport, canonicalReportDigest, key: hexToBytes(report.key), envelope, serializedEnvelope: report.envelope, ciphertextDigest, contentAddress: `sha256:${bytesToHex(ciphertextDigest)}` };
     if ((mode === "guided-local" && history[0] !== "COMMITTED") || history.at(-1) !== status) throw new Error("Recovery history does not match its report");
   } else if (history.length !== 0 || status !== "COMMITTED") throw new Error("Recovery history has no report");
+  if (value.version < 5 && value.programDraft !== undefined) throw new Error("Program drafts require recovery version 5");
   const snapshot: RecoverySnapshot = {
-    version: value.version as RecoverySnapshot["version"], ...(value.version >= 2 ? { attachmentDraft: value.attachmentDraft === null ? null : validateAttachmentDraft(value.attachmentDraft) } : {}), mode, network: String(value.network), contractAddress, programId, policy, vendorSecret, researcherSecret, draft, report, status, history,
+    version: value.version as RecoverySnapshot["version"], ...(value.version === 5 ? { programDraft: validateProgramDraft(value.programDraft) } : {}), ...(value.version >= 2 ? { attachmentDraft: value.attachmentDraft === null ? null : validateAttachmentDraft(value.attachmentDraft) } : {}), mode, network: String(value.network), contractAddress, programId, policy, vendorSecret, researcherSecret, draft, report, status, history,
     patch: optionalHex(value.patch), retest: optionalHex(value.retest), payout: optionalHex(value.payout), severity: Number(value.severity),
     rationale: text(value.rationale, "rationale"), patchReference: text(value.patchReference, "patch reference"), retestNotes: text(value.retestNotes, "retest notes"),
   };
@@ -131,7 +133,7 @@ export const validateRecovery = async (input: unknown): Promise<{ snapshot: Reco
     if ((snapshot.patch !== null) !== patched || (snapshot.retest !== null) !== retested || (snapshot.payout !== null) !== history.includes("PAYOUT_AUTHORIZED")) throw new Error("Recovery commitments do not match the workflow");
   }
   if (value.version < 4 && value.uncertainTransition !== undefined) throw new Error("Uncertain transitions require recovery version 4");
-  if (value.version === 4 && value.uncertainTransition !== null && (!uncertainCircuits.includes(value.uncertainTransition as UncertainCircuit) || mode !== "midnight" || !report)) throw new Error("Invalid uncertain recovery transition");
+  if (value.version >= 4 && value.uncertainTransition !== null && (!uncertainCircuits.includes(value.uncertainTransition as UncertainCircuit) || mode !== "midnight" || !report)) throw new Error("Invalid uncertain recovery transition");
   let pendingSeal: SealedReport | undefined;
   if (value.version >= 3) {
     let pendingReport: RecoverySnapshot["pendingReport"] = null;
@@ -142,12 +144,12 @@ export const validateRecovery = async (input: unknown): Promise<{ snapshot: Reco
       const material = object(pending.report);
       if (Object.keys(material).sort().join() !== "envelope,id,key,salt") throw new Error("Invalid pending recovery report");
       // Reuse all envelope/commitment checks without treating this local preparation as a completed report.
-      const checked = await validateRecovery({ ...snapshot, version: 2, report: material, status: "COMMITTED", history: ["COMMITTED"] });
+      const checked = await validateRecovery({ ...snapshot, version: 2, programDraft: undefined, report: material, status: "COMMITTED", history: ["COMMITTED"] });
       pendingSeal = checked.sealed;
       if (!pendingSeal || pendingSeal.canonicalReport !== canonicalizeReport(draft)) throw new Error("Pending recovery report differs from its draft");
       pendingReport = { report: checked.snapshot.report!, submissionStarted: pending.submissionStarted };
     }
-    return { snapshot: { ...snapshot, pendingReport, ...(value.version === 4 ? { uncertainTransition: value.uncertainTransition as UncertainCircuit | null } : {}) }, sealed, pendingSeal };
+    return { snapshot: { ...snapshot, pendingReport, ...(value.version >= 4 ? { uncertainTransition: value.uncertainTransition as UncertainCircuit | null } : {}) }, sealed, pendingSeal };
   }
   if (value.pendingReport !== undefined) throw new Error("Pending reports require recovery version 3");
   return { snapshot, sealed };

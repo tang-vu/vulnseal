@@ -25,7 +25,7 @@ import {
 } from "@vulnseal/shared";
 import { initializeBrowserProviders } from "./midnight/browser-providers.js";
 import { workflowTimeline, workflowStatement, type WorkflowEvent, type WorkflowTimeline } from "./workflow.js";
-import { defaultProgram, readProgramForm, programConstructor, severityLabel, type ProgramPolicy } from "./program.js";
+import { defaultProgram, defaultProgramDraft, readProgramForm, programConstructor, severityLabel, type ProgramDraft, type ProgramPolicy } from "./program.js";
 import { encryptRecovery, decryptRecovery, verifyRecoveryLedger, type RecoverySnapshot, type UncertainCircuit } from "./recovery.js";
 import { RecoveryPanel } from "./RecoveryPanel.js";
 import { PublicLookup } from "./PublicLookup.js";
@@ -150,6 +150,7 @@ function App() {
   const [programCreated, setProgramCreated] = useState(env.mode === "guided-local");
   const [programBytes, setProgramBytes] = useState(() => randomBytes(32));
   const [programPolicy, setProgramPolicy] = useState(defaultProgram);
+  const [programDraft, setProgramDraft] = useState<ProgramDraft>(defaultProgramDraft);
   const [severity, setSeverity] = useState(3);
   const [acceptedSeverity, setAcceptedSeverity] = useState(3);
   const [rationale, setRationale] = useState("Authorization is missing after organization lookup. Reproduced in the test tenant.");
@@ -176,7 +177,7 @@ function App() {
   const initialDraftState = useRef(draftState);
   // Download initiation cannot prove that a recovery file was saved. Keep the
   // guard while this tab holds report/authority material or edited private input.
-  const hasPrivateSessionMaterial = Boolean(api || sealed || reportId || pendingPreparation || uncertainTransition || recipientKeys || programPolicy !== defaultProgram || draftState !== initialDraftState.current);
+  const hasPrivateSessionMaterial = Boolean(JSON.stringify(programDraft) !== JSON.stringify(defaultProgramDraft) || api || sealed || reportId || pendingPreparation || uncertainTransition || recipientKeys || programPolicy !== defaultProgram || draftState !== initialDraftState.current);
   useEffect(() => {
     if (!hasPrivateSessionMaterial && operation.state !== "working") return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -561,7 +562,7 @@ function App() {
     try {
       const encode = (value?: Uint8Array) => value ? bytesToHex(value) : null;
       const snapshot: RecoverySnapshot = {
-        version: 4, uncertainTransition, attachmentDraft, pendingReport: pendingPreparation ? { report: { envelope: pendingPreparation.sealed.serializedEnvelope, key: bytesToHex(pendingPreparation.sealed.key), salt: bytesToHex(pendingPreparation.salt), id: bytesToHex(pendingPreparation.id) }, submissionStarted: pendingPreparation.submissionStarted } : null, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
+        version: 5, programDraft, uncertainTransition, attachmentDraft, pendingReport: pendingPreparation ? { report: { envelope: pendingPreparation.sealed.serializedEnvelope, key: bytesToHex(pendingPreparation.sealed.key), salt: bytesToHex(pendingPreparation.salt), id: bytesToHex(pendingPreparation.id) }, submissionStarted: pendingPreparation.submissionStarted } : null, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
         programId: bytesToHex(programBytes), policy: programPolicy, vendorSecret: bytesToHex(vendorSecret), researcherSecret: bytesToHex(researcherSecret), draft: report,
         report: sealed && reportSalt && reportId ? { envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt), id: bytesToHex(reportId) } : null,
         status, history: events.map((event) => event.status), patch: encode(patchCommitment), retest: encode(retestCommitment), payout: encode(payoutReceipt),
@@ -603,6 +604,7 @@ function App() {
       setProviders(restoredProviders); setApi(restoredApi); setRuntimeMode(snapshot.mode);
       if (snapshot.mode === "midnight") setActiveNetwork(snapshot.network as typeof activeNetwork);
       setProgramCreated(true); setProgramBytes(hexToBytes(snapshot.programId)); setProgramPolicy(snapshot.policy);
+      setProgramDraft(snapshot.programDraft ?? { ...snapshot.policy, responseDays: String(snapshot.policy.responseDays), disclosureDays: String(snapshot.policy.disclosureDays) });
       setVendorSecret(hexToBytes(snapshot.vendorSecret)); setResearcherSecret(hexToBytes(snapshot.researcherSecret));
       setReport(snapshot.draft); setAttachmentDraft(snapshot.attachmentDraft ?? emptyAttachmentDraft); setSealed(restoredSeal); setVendorReport(undefined);
       setPendingPreparation(snapshot.pendingReport && pendingSeal ? { sealed: pendingSeal, salt: hexToBytes(snapshot.pendingReport.report.salt), id: hexToBytes(snapshot.pendingReport.report.id), submissionStarted: snapshot.pendingReport.submissionStarted } : undefined);
@@ -628,7 +630,7 @@ function App() {
       case "dashboard":
         return <Dashboard programCreated={programCreated} programPolicy={programPolicy} programBytes={programBytes} status={status} reportId={reportId} timeline={timeline} onCreate={() => changeScreen("create", "vendor")} onTriage={() => void openVendorReview()} onVerify={() => changeScreen("verify", "verifier")} />;
       case "create":
-        return <CreateProgram mode={runtimeMode} connected={providers !== undefined} operation={operation} onConnect={() => void connectWallet()} onSubmit={(event) => void createProgram(event)} />;
+        return <CreateProgram draft={programDraft} onChange={setProgramDraft} mode={runtimeMode} connected={providers !== undefined} operation={operation} onConnect={() => void connectWallet()} onSubmit={(event) => void createProgram(event)} />;
       case "submit":
         if (pendingPreparation) return <section className="page narrow-page"><h1>Keep the prepared report</h1><p>The exact encrypted report is retained. Save it through Private recovery before closing this tab. Editing a replacement here could lose the original encryption material.</p><p className="public-value">Report: {bytesToHex(pendingPreparation.id)}</p><PreparedReportReview report={JSON.parse(pendingPreparation.sealed.canonicalReport) as VulnerabilityReport} />{pendingPreparation.submissionStarted ? <p role="alert">Submission setup already started. Its outcome needs reconciliation; resubmission is blocked. Check your wallet and ledger before deciding what to do next.</p> : <button className="primary-button" onClick={() => void submitSealedReport()}>Retry saved report upload</button>}</section>;
         return <ReportWizard attachmentDraft={attachmentDraft} onAttachmentDraftChange={setAttachmentDraft} report={report} onChange={setReport} onSeal={() => void submitSealedReport()} />;
@@ -802,17 +804,17 @@ function Dashboard({ programCreated, programPolicy, programBytes, status, report
   );
 }
 
-function CreateProgram({ mode, connected, operation, onConnect, onSubmit }: { readonly mode: RuntimeMode; readonly connected: boolean; readonly operation: Operation; readonly onConnect: () => void; readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+function CreateProgram({ draft, onChange, mode, connected, operation, onConnect, onSubmit }: { readonly draft: ProgramDraft; readonly onChange: (draft: ProgramDraft) => void; readonly mode: RuntimeMode; readonly connected: boolean; readonly operation: Operation; readonly onConnect: () => void; readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
   return (
     <section className="page narrow-page">
       <PageHeading eyebrow="Vendor setup" title="Create a disclosure program" detail="Publish the minimum policy surface researchers need. Sensitive internal procedures stay off-ledger." />
       <form className="form-panel" onSubmit={onSubmit}>
         <div className="form-section"><span className="step-number">01</span><div><h2>Program identity</h2><p>This name is for the interface. Each program receives a random public identifier.</p></div></div>
-        <label>Program name<input name="name" defaultValue={defaultProgram.name} required /></label>
-        <div className="field-grid"><label>Primary scope<input name="primaryScope" defaultValue={defaultProgram.primaryScope} required /></label><label>Additional scope<input name="additionalScope" defaultValue={defaultProgram.additionalScope} /></label></div>
+        <label>Program name<input name="name" value={draft.name} onChange={(event) => onChange({ ...draft, name: event.target.value })} required /></label>
+        <div className="field-grid"><label>Primary scope<input name="primaryScope" value={draft.primaryScope} onChange={(event) => onChange({ ...draft, primaryScope: event.target.value })} required /></label><label>Additional scope<input name="additionalScope" value={draft.additionalScope} onChange={(event) => onChange({ ...draft, additionalScope: event.target.value })} /></label></div>
         <div className="form-section"><span className="step-number">02</span><div><h2>Response and disclosure policy</h2><p>These values become public commitments and coarse policy fields.</p></div></div>
-        <div className="field-grid"><label>First response target<select name="responseDays" defaultValue="7"><option value="2">2 days</option><option value="7">7 days</option><option value="14">14 days</option></select></label><label>Coordinated disclosure window<select name="disclosureDays" defaultValue="90"><option value="30">30 days</option><option value="60">60 days</option><option value="90">90 days</option></select></label></div>
-        <label>Reward policy<textarea name="rewardPolicy" defaultValue={defaultProgram.rewardPolicy} rows={4} required /></label>
+        <div className="field-grid"><label>First response target<select name="responseDays" value={draft.responseDays} onChange={(event) => onChange({ ...draft, responseDays: event.target.value })}><option value="2">2 days</option><option value="7">7 days</option><option value="14">14 days</option></select></label><label>Coordinated disclosure window<select name="disclosureDays" value={draft.disclosureDays} onChange={(event) => onChange({ ...draft, disclosureDays: event.target.value })}><option value="30">30 days</option><option value="60">60 days</option><option value="90">90 days</option></select></label></div>
+        <label>Reward policy<textarea name="rewardPolicy" value={draft.rewardPolicy} onChange={(event) => onChange({ ...draft, rewardPolicy: event.target.value })} rows={4} required /></label>
         <div className="reveal-box"><span aria-hidden="true">◈</span><div><strong>What becomes public?</strong><p>Program identifier, authorization key, scope digest, response targets, and policy digests. Internal contacts and triage playbooks do not.</p></div></div>
         {mode === "midnight" && !connected && <div className="inline-error"><strong>Wallet disconnected</strong><span>Connect Lace before deployment.</span><button type="button" className="secondary-button" onClick={onConnect}>Connect Lace</button></div>}
         {operation.state !== "idle" && <OperationNotice operation={operation} />}

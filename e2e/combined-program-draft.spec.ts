@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: Apache-2.0
+import { expect, test, type Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+
+const createScreen = async (page: Page) => {
+  await page.getByRole("button", { name: "VulnSeal home", exact: true }).click();
+  await page.getByRole("button", { name: "Explore the demo" }).click();
+  await page.getByRole("button", { name: "New program" }).click();
+};
+test("unfinished combined program draft survives navigation and encrypted file recovery", async ({ page, context }, testInfo) => {
+  await page.goto("/");
+  await createScreen(page);
+  await page.getByLabel("Program name", { exact: true }).fill("");
+  await page.getByLabel("Primary scope").fill("  draft.example.test  ");
+  await page.getByLabel("Reward policy").fill("Private unfinished policy\n\n");
+  await page.getByLabel("First response target").selectOption("14");
+  await page.getByLabel("Coordinated disclosure window").selectOption("30");
+  await page.getByRole("button", { name: "Private recovery", exact: true }).click();
+  await createScreen(page);
+  await expect(page.getByLabel("Program name", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("Primary scope")).toHaveValue("  draft.example.test  ");
+  const warning = page.waitForEvent("dialog");
+  await page.close({ runBeforeUnload: true });
+  const dialog = await warning;
+  expect(dialog.type()).toBe("beforeunload");
+  await dialog.dismiss();
+  await page.getByRole("button", { name: "Private recovery", exact: true }).click();
+  await page.getByLabel("Backup password", { exact: true }).fill("Synthetic program draft backup");
+  await page.getByLabel("Confirm backup password").fill("Synthetic program draft backup");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download encrypted backup" }).click();
+  const filename = testInfo.outputPath("program-draft.json");
+  await (await download).saveAs(filename);
+  expect(await readFile(filename, "utf8")).not.toContain("Private unfinished policy");
+  await page.close();
+  const restored = await context.newPage();
+  await restored.goto("/");
+  await restored.getByRole("button", { name: "Private recovery", exact: true }).click();
+  await restored.getByLabel("Recovery file").setInputFiles(filename);
+  await restored.getByLabel("Recovery password", { exact: true }).fill("Synthetic program draft backup");
+  await restored.getByRole("button", { name: "Restore encrypted backup" }).click();
+  await expect(restored.getByRole("heading", { name: "Seal a vulnerability report" })).toBeVisible();
+  await createScreen(restored);
+  await expect(restored.getByLabel("Program name", { exact: true })).toHaveValue("");
+  await expect(restored.getByLabel("Primary scope")).toHaveValue("  draft.example.test  ");
+  await expect(restored.getByLabel("Reward policy")).toHaveValue("Private unfinished policy\n\n");
+  await expect(restored.getByLabel("First response target")).toHaveValue("14");
+  await expect(restored.getByLabel("Coordinated disclosure window")).toHaveValue("30");
+  await restored.getByRole("button", { name: "Create program", exact: true }).click();
+  await expect(restored.getByLabel("Program name", { exact: true })).toBeVisible();
+  await restored.getByLabel("Program name", { exact: true }).fill("Recovered program");
+  await restored.getByRole("button", { name: "Create program", exact: true }).click();
+  await expect(restored.getByRole("heading", { name: "Recovered program" })).toBeVisible();
+});

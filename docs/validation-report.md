@@ -1,5 +1,13 @@
 # Validation report
 
+## Recover incomplete combined program drafts -- 2026-09-11
+
+The combined Create program form now stores its six text/window fields in application state instead of uncontrolled DOM defaults. Incomplete text, whitespace and selected windows survive navigation and enable a leave warning. Recovery v5 includes this draft separately from the active validated policy. Versions 1?4 remain readable and initialize the form from their saved policy; downgraded draft fields and malformed/oversized drafts are rejected. Existing pending-report and transaction-uncertainty checks remain enforced. Creation still validates required fields and supported windows before building constructor inputs.
+
+The initial component run had **41 passed / 2 failed** because network export assertions expected v4. After updating that expectation and retaining their uncertainty/restore checks, the full targeted rerun passed **43 tests / 4 files in 41.76 seconds**. **6 E2E tests** passed in **57.9 seconds** across Chrome desktop/mobile: exact incomplete draft/file recovery, native leave-warning cancellation, required-field validation followed by program creation, edited policy display, and continued report workflow after backup restore. The final normal web build/typecheck and release gate exited **0** with **8 circuits / 80 files / 65,424,038 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/combined-program-draft.json) records both component attempts and log hashes. This adds explicit snapshot recovery, not automatic persistence or deployment-attempt reconciliation. Undeployed network sessions still cannot export combined recovery. Older application versions cannot read v5 backups. No native-wallet transaction or runtime image refresh was performed.
+
 ## Preserve unfinished recovery form input -- 2026-09-11
 
 Switching away from Private recovery previously unmounted its form, dropping selected files and unfinished passwords. The panel now remains mounted and hidden across in-app navigation. It requests a leave warning for unfinished inputs or active processing, offers explicit input clearing, and clears the selected restore file/password only after successful import. Failed imports retain retry input. Native file input and component state are cleared together. The active session and its independent leave warning are preserved.

@@ -105,7 +105,8 @@ describe("browser network workflow with mocked wallet and finalized API results"
       await screen.findByText(/Encrypted backup download started/);
       const serialized = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsText(downloaded!); });
       const checked = await decryptRecovery(serialized, password);
-      expect(checked.snapshot.version).toBe(4);
+      expect(checked.snapshot.version).toBe(5);
+      expect(checked.snapshot.programDraft).toBeDefined();
       expect(checked.snapshot.uncertainTransition).toBe("beginTriage");
       cleanup(); render(<App />);
       await restore(serialized);

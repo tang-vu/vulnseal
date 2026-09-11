@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { pureCircuits, type Ledger } from "@vulnseal/contract";
 import { hexToBytes } from "@vulnseal/shared";
-import { programConstructor } from "./program.js";
+import { defaultProgramDraft, programConstructor } from "./program.js";
 import { decryptRecovery, encryptRecovery, validateRecovery, verifyRecoveryLedger } from "./recovery.js";
 import { submissionReceipt } from "./submission-receipt.js";
 import { recoveryFixture, recoveryDraft as draft } from "./test/recovery-fixture.js";
@@ -10,6 +10,21 @@ import { recoveryFixture, recoveryDraft as draft } from "./test/recovery-fixture
 const password = "test-only recovery password";
 
 describe("encrypted browser recovery", () => {
+  it("preserves incomplete v5 program drafts separately from policy and pending report material", async () => {
+    const { snapshot, sealed } = await recoveryFixture();
+    const programDraft = { ...defaultProgramDraft, name: "", primaryScope: "  unfinished scope  ", rewardPolicy: "first line\n\n", responseDays: "14", disclosureDays: "30" };
+    const pending = { ...snapshot, version: 5 as const, programDraft, uncertainTransition: null, attachmentDraft: null, report: null, history: [], pendingReport: { report: snapshot.report!, submissionStarted: false } };
+    const restored = await decryptRecovery(await encryptRecovery(pending, password), password);
+    expect(restored.snapshot).toEqual(pending);
+    expect(restored.snapshot.policy).toEqual(snapshot.policy);
+    expect(restored.pendingSeal?.serializedEnvelope).toBe(sealed.serializedEnvelope);
+    for (const invalid of [undefined, null, { ...programDraft, name: 7 }, { ...programDraft, extra: "ignored?" }, { ...programDraft, name: "x".repeat(65537) }]) {
+      await expect(validateRecovery({ ...pending, programDraft: invalid })).rejects.toThrow(/program draft|Program draft/);
+    }
+    await expect(validateRecovery({ ...pending, version: 4 })).rejects.toThrow("require recovery version 5");
+    await expect(validateRecovery({ ...pending, uncertainTransition: undefined })).rejects.toThrow("Invalid uncertain recovery transition");
+  });
+
   it("exports the captured validated snapshot despite changes during crypto validation", async () => {
     const { snapshot } = await recoveryFixture();
     const source = structuredClone(snapshot), expected = structuredClone(snapshot);

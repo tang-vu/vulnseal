@@ -1,0 +1,46 @@
+{
+  "recordedAt": "2026-09-11T03:01:56.869823+00:00",
+  "baseRevision": "f11bcc4",
+  "snapshotVersion": 5,
+  "checks": {
+    "initialTargetedComponents": {
+      "passed": 41,
+      "failed": 2,
+      "exitCode": 1,
+      "failure": "Network export tests still expected snapshot version 4. Updated to version 5 while retaining uncertainty/restore assertions."
+    },
+    "finalTargetedComponents": {
+      "tests": 43,
+      "files": 4,
+      "seconds": 41.76,
+      "exitCode": 0
+    },
+    "browser": {
+      "tests": 6,
+      "seconds": 57.9,
+      "projects": [
+        "desktop-chrome",
+        "mobile-chrome"
+      ],
+      "exitCode": 0
+    },
+    "normalWebBuildAndRelease": {
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65424038,
+      "exitCode": 0
+    }
+  },
+  "rawLogSha256": {
+    "combined-program-draft-tests": "351e3f575cb48455bb7b8b06ca4c2f3d71592be6309e0d771160323c552feefb",
+    "combined-program-draft-tests-final": "4b72bb8f0bcea77b9c858fcee6de8b63d0843896ad7ab6e94f675cd47c0afe37",
+    "combined-program-draft-browser": "bf528297bf4af0088f7c43693c370683e474be3ea224bac00819e2e48b50e4fe",
+    "combined-program-draft-release": "69e69b56de60f217dca4d10f78980fdc15ade95acff3ccb0841d2bdcdbd8b295"
+  },
+  "limits": [
+    "Explicit encrypted-file recovery and in-memory draft retention, not automatic persistence.",
+    "Undeployed network sessions still cannot export combined recovery; deployment attempt recovery is not added.",
+    "Legacy v1-v4 snapshots remain readable; old application releases cannot read v5 files.",
+    "No fresh runtime image, native-wallet deployment or full-suite regression claimed."
+  ]
+}
