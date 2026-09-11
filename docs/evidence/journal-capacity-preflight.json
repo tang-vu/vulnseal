@@ -1,0 +1,54 @@
+{
+  "date": "2026-09-11",
+  "scope": "Preflight full or unresolved combined report journals before changing submission state",
+  "reproduction": {
+    "log": ".compact/journal-limit-reproduction.log",
+    "exit": 1,
+    "failed": 1,
+    "finding": "A valid restored v8 snapshot with 1000 SDK-confirmed historical entries acquired the writer, marked beginTriage uncertain, then rejected the journal before any SDK call. The UI incorrectly rendered Transaction outcome unknown."
+  },
+  "change": [
+    "A shared reportJournalBlockReason distinguishes unresolved history from capacity; MAX_REPORT_ATTEMPTS also supplies the recovery validator limit.",
+    "App beginAction checks the journal before acquiring busy state, preparing/uploading a new report or marking a transition uncertain.",
+    "The transaction helper retains a second guard that releases persistence without saving, stopping the writer, installing a checkpoint, changing journal entries or invoking SDK work.",
+    "Existing unknown markers are not cleared automatically; the 1000-entry bound and recovery v8 format remain unchanged."
+  ],
+  "validation": {
+    "uniqueTests": 40,
+    "files": 3,
+    "runs": [
+      {
+        "log": ".compact/journal-limit-verified.log",
+        "passed": 39,
+        "failed": 1,
+        "seconds": 90.06,
+        "exit": 1,
+        "remainingFailure": "New UI assertion expected one copy of the limit message, which is rendered in two operation notices. Both other files passed."
+      },
+      {
+        "log": ".compact/journal-limit-ui.log",
+        "passed": 1,
+        "failed": 0,
+        "seconds": 9.62,
+        "exit": 0,
+        "scope": "Corrected duplicate-message locator and exercised real encrypted restore/activation with mocked wallet/ledger, capacity refusal, retained writer, no new uncertainty and no ciphertext upload."
+      }
+    ],
+    "boundaryCoverage": [
+      "999 confirmed entries accept and persist the 1000th while preserving prior history.",
+      "Full and unresolved journals do not install a checkpoint or invoke save/prepare/submit."
+    ],
+    "release": {
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65532494,
+      "log": ".compact/journal-limit-release.log"
+    }
+  },
+  "limits": [
+    "No new full regression, browser E2E, native wallet ceremony or container refresh.",
+    "This does not add journal archival/rotation or permit another transaction after the journal reaches capacity.",
+    "Previously saved uncertainty is still retained; this is not transaction reconciliation or retry authorization."
+  ]
+}

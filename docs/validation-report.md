@@ -1,5 +1,13 @@
 # Validation report
 
+## Full journal preflight -- 2026-09-11
+
+A failing application reproduction restored 1,000 confirmed journal entries and attempted triage. The application displayed new transaction uncertainty even though the capacity guard prevented SDK work. A shared preflight now distinguishes capacity from unresolved history and runs before changing submission state or preparing/uploading a new report. The helper also releases its lease without side effects if called directly with a blocked journal.
+
+**40 unique tests / 3 files** passed across the regression invocation and corrected UI rerun. The initial post-fix invocation had 39 passed and one duplicate-message locator failure; that UI test subsequently passed. Coverage includes real encrypted restore/activation, preservation of the active writer, no phantom uncertainty/upload, no checkpoint installation for rejected journals, and retention of all prior entries when recording the 1,000th attempt. Normal build/typecheck and release validation passed: **8 circuits / 80 files / 65,532,494 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/journal-capacity-preflight.json) preserves the reproduction and test scope. Existing uncertainty is not automatically cleared. No journal rotation, new E2E/native-wallet check, full regression or runtime refresh is claimed.
+
 ## Complete workspace and browser regression; runtime refresh -- 2026-09-11
 
 Application revision `f8ad4005127e4d091dda54e0e9e06492d64815ee` passed every workspace unit suite: **shared 13, contract 28, API 84, cipherstore 50, integration 9, web 471** (**655 total**). The full web invocation covered **62 files in 238.41 seconds**. The complete ordinary Chrome desktop/Pixel 7 E2E invocation passed **148 tests in 6.8 minutes**, with two workers and no retries. All six workspace typechecks and the root source-check/build/release command passed. No application fix or targeted rerun was needed for this regression.

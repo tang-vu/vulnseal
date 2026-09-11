@@ -60,7 +60,7 @@ In **Private recovery**, use **Saved report attempt** under **Report transaction
 
 **Check transaction status** is an explicit read-only lookup. A missing identifier, not-found response or current ledger state does not establish retry safety. An unresolved attempt remains blocked after restore. A submitted report already present on the ledger still needs investigation; its pending backup cannot currently be promoted automatically into a completed report.
 
-Recovery v8 retains up to 1,000 report attempts. Existing v1-v7 files remain readable, but do not acquire missing historical records. Older application versions cannot read v8. The current report's encryption material is retained with the snapshot; metadata for older reports is not a substitute for their separate file backups.
+Recovery v8 retains up to 1,000 report attempts. At capacity, further report actions stop before preparation, upload or SDK work, with a specific full-journal message. Export and retain the journal; the session cannot record another transaction. Reaching capacity does not create a new unknown-transaction marker or stop ordinary autosave. Existing unknown attempts remain blocked. Existing v1-v7 files remain readable, but do not acquire missing historical records. Older application versions cannot read v8. The current report's encryption material is retained with the snapshot; metadata for older reports is not a substitute for their separate file backups.
 
 ## Interrupted report uploads and transactions
 

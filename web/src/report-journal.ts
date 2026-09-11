@@ -9,10 +9,16 @@ export type ReportAttempt = {
   readonly request: { readonly nextStatus: ReportStatusName; readonly severity: number; readonly rationale: string; readonly patchReference: string; readonly retestNotes: string };
   readonly outcome: "unknown" | "sdk-confirmed";
 };
+export const MAX_REPORT_ATTEMPTS = 1000;
+export function reportJournalBlockReason(attempts: readonly ReportAttempt[] = []): string | undefined {
+  if (attempts.some(entry => entry.outcome === "unknown")) return "Retain the existing report journal and reconcile its unresolved attempt before continuing";
+  if (attempts.length >= MAX_REPORT_ATTEMPTS) return "Report journal reached its 1,000-entry limit. Export and retain this journal. This session cannot record another report transaction.";
+  return undefined;
+}
 const circuits = ["submitReport", "beginTriage", "acceptReport", "rejectReport", "anchorPatch", "submitRetest", "authorizePayout", "closeReport"];
 export const validTransactionIdentifier = (value: unknown): value is string => typeof value === "string" && /^(?:[a-f0-9]{64}|[a-f0-9]{66})$/.test(value);
 export function validateReportJournal(value: unknown, snapshot: RecoverySnapshot): readonly ReportAttempt[] {
-  if (!Array.isArray(value) || !value.length || value.length > 1000 || snapshot.mode !== "midnight" || !snapshot.contractAddress) throw new Error("Invalid report transaction journal");
+  if (!Array.isArray(value) || !value.length || value.length > MAX_REPORT_ATTEMPTS || snapshot.mode !== "midnight" || !snapshot.contractAddress) throw new Error("Invalid report transaction journal");
   const identifiers = new Set<string>();
   return value.map((entry: ReportAttempt, index) => {
     if (!entry || typeof entry !== "object" || Array.isArray(entry) || Object.keys(entry).sort().join() !== (entry.transactionId === undefined ? "circuit,outcome,reportId,request,startedAt" : "circuit,outcome,reportId,request,startedAt,transactionId")) throw new Error("Invalid report journal fields");

@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Full combined report journals now stop before preparation/upload or new uncertainty. The capacity message is distinct from unresolved transaction history; the last available entry still preserves its 999 predecessors. See [capacity preflight evidence](evidence/journal-capacity-preflight.json). Existing unknown markers and the 1,000-entry bound remain intact.
+
 - Combined report submission and all seven later circuits now require an exclusive encrypted autosave lease, an intent save before SDK work and an identifier save before broadcast. Recovery v8 retains immutable private requests and SDK-observed outcomes; unknown attempts remain blocked. See [the recovery guide](combined-recovery.md) and [84-test evidence](evidence/combined-report-journal.json). Authenticated report reconciliation, safe retry and native-wallet validation remain open.
 
 - Combined unconfirmed deployment can explicitly reconnect after historical policy/release-key comparison, current program/owner checks and a new encrypted browser save. Captured Preprod evidence also exposed and fixed rejection of 33-byte transaction identifiers in the checkpoint/v7 reader. See [reconnect evidence](evidence/deployment-reconnect.json) and the [recovery guide](combined-recovery.md). Native-wallet reconnect and authenticated inclusion remain unverified.

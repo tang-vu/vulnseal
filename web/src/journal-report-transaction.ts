@@ -2,7 +2,7 @@
 import type { TransactionEvidence } from "@vulnseal/api/types";
 import type { ReportStatusName } from "@vulnseal/shared";
 import type { RecoverySnapshot } from "./recovery.js";
-import { validTransactionIdentifier, type ReportAttempt } from "./report-journal.js";
+import { reportJournalBlockReason, validTransactionIdentifier, type ReportAttempt } from "./report-journal.js";
 import type { RecoveryPersistenceLease } from "./RecoveryAutosavePanel.js";
 import { submissionWait } from "./submission-wait.js";
 import { continuationDeadline } from "./midnight/continuation-deadline.js";
@@ -17,7 +17,8 @@ export async function journalReportTransaction(options: {
   const { lease, wait, assertCurrent } = options;
   const base = structuredClone(options.snapshot);
   const previous = base.reportAttempts ?? [];
-  if (previous.length >= 1000 || previous.some(entry => entry.outcome === "unknown")) { lease.release(); throw new Error("Retain the existing report journal and reconcile its unresolved attempt before continuing"); }
+  const blocked = reportJournalBlockReason(previous);
+  if (blocked) { lease.release(); throw new Error(blocked); }
   let attempt: ReportAttempt = { circuit: options.circuit, reportId: options.reportId, startedAt: new Date().toISOString(), request: { nextStatus: options.nextStatus, severity: base.severity, rationale: base.rationale, patchReference: base.patchReference, retestNotes: base.retestNotes }, outcome: "unknown" };
   const snapshot = (): RecoverySnapshot => ({ ...base, version: 8, reportAttempts: [...previous, attempt] });
   let checkpointStarted = false;

@@ -43,7 +43,7 @@ import { TransactionCheck } from "./TransactionCheck.js";
 import { journalReportTransaction } from "./journal-report-transaction.js";
 import type { AcquireRecoveryPersistence } from "./RecoveryAutosavePanel.js";
 import { ReportTransactionJournal } from "./ReportTransactionJournal.js";
-import type { ReportAttempt } from "./report-journal.js";
+import { reportJournalBlockReason, type ReportAttempt } from "./report-journal.js";
 
 type Screen =
   | "home"
@@ -233,6 +233,11 @@ function App() {
     }
     if (allowed && (!reportId || !allowed.includes(status))) {
       setOperation({ state: "error", label: "Transition unavailable", detail: "This action is not allowed at the report’s current stage." });
+      return false;
+    }
+    const journalBlock = api ? reportJournalBlockReason(reportAttempts) : undefined;
+    if (journalBlock) {
+      setOperation({ state: "error", label: "Report transaction cannot start", detail: journalBlock });
       return false;
     }
     if (api && !reportPersistence.current) {

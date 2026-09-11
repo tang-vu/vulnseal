@@ -76,3 +76,26 @@ it("rejects altered journal bindings, identifiers, legacy fields and unresolved 
   await expect(validateRecovery({ ...unknown, version: 5 })).rejects.toThrow("version 8");
   await expect(validateRecovery({ ...confirmed, reportAttempts: [confirmed.reportAttempts![0], confirmed.reportAttempts![0]] })).rejects.toThrow("duplicate");
 });
+
+
+it.each(["full", "unresolved"])("rejects a %s journal without installing a checkpoint or changing attempts", async reason => {
+  const { options } = await setup();
+  const attempt: ReportAttempt = { circuit: "beginTriage", reportId: options.reportId, startedAt: "2026-09-11T00:00:00.000Z", outcome: reason === "full" ? "sdk-confirmed" : "unknown", transactionId: id, request: { nextStatus: "TRIAGED", severity: 3, rationale: "Old decision", patchReference: "", retestNotes: "" } };
+  options.snapshot = { ...options.snapshot, reportAttempts: Array.from({ length: reason === "full" ? 1000 : 1 }, (_, index) => ({ ...attempt, transactionId: (index + 1).toString(16).padStart(64, "0") })) };
+  const install = vi.fn(); options.installCheckpoint = install;
+  await expect(journalReportTransaction(options)).rejects.toThrow(reason === "full" ? "1,000-entry limit" : "unresolved attempt");
+  expect(options.lease.release).toHaveBeenCalledOnce(); expect(options.lease.stop).not.toHaveBeenCalled();
+  expect(install).not.toHaveBeenCalled(); expect(options.onAttempts).not.toHaveBeenCalled();
+  expect(options.lease.save).not.toHaveBeenCalled(); expect(options.prepare).not.toHaveBeenCalled(); expect(options.submit).not.toHaveBeenCalled();
+});
+it("records the last available attempt without losing the preceding 999 entries", async () => {
+  const { options, saves } = await setup();
+  const previous: ReportAttempt[] = Array.from({ length: 999 }, (_, index) => ({ circuit: "beginTriage", reportId: options.reportId, startedAt: "2026-09-11T00:00:00.000Z", outcome: "sdk-confirmed", transactionId: (index + 1).toString(16).padStart(64, "0"), request: { nextStatus: "TRIAGED", severity: 3, rationale: `Old decision ${index}`, patchReference: "", retestNotes: "" } }));
+  options.snapshot = { ...options.snapshot, reportAttempts: previous };
+  await journalReportTransaction(options);
+  for (const snapshot of saves) {
+    expect(snapshot.reportAttempts).toHaveLength(1000);
+    expect(snapshot.reportAttempts!.slice(0, 999)).toEqual(previous);
+    expect((await validateRecovery(snapshot)).snapshot).toEqual(snapshot);
+  }
+});
