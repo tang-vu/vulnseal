@@ -68,12 +68,14 @@ export class CipherstoreClient {
       }).catch((cause: unknown) => {
         throw new Error("Ciphertext upload did not receive a response. The ciphertext may already be stored. Keep your saved report and retry its identical ciphertext when storage is reachable; no contract submission was started by this upload.", { cause });
       });
-      // PUT status is sufficient; do not buffer an arbitrary response body.
+      // The storage protocol acknowledges creation with 201 or an existing copy
+      // with 200. Other 2xx responses do not acknowledge completed storage.
       void response.body?.cancel().catch(() => {});
       if (response.status === 507) throw new Error("Ciphertext storage is full. Keep your draft and contact the storage operator before retrying.");
       if (response.status === 503) throw new Error("Ciphertext storage is temporarily busy or unavailable. Keep your draft and try again shortly.");
       if (response.status === 410) throw new RetiredCiphertextError("This ciphertext is retired by the storage operator. Keep your saved report and contact the operator; repeating the upload will not resolve this policy refusal.");
       if (!response.ok) throw new Error(`Cipherstore PUT failed with HTTP ${response.status}`);
+      if (response.status !== 200 && response.status !== 201) throw new Error(`Cipherstore returned HTTP ${response.status} without a supported storage acknowledgment. The ciphertext may already be stored. Keep your saved report and retry its identical ciphertext when the storage operator confirms availability.`);
     });
   }
 

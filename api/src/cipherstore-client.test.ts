@@ -47,6 +47,15 @@ describe("CipherstoreClient", () => {
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it.each([202, 204, 206])("does not treat HTTP %i as a completed storage acknowledgment", async (status) => {
+    const cancel = vi.fn();
+    const response = status === 204 ? new Response(null, { status }) : new Response(new ReadableStream({ cancel }), { status });
+    const fetchMock = vi.fn(async () => response); vi.stubGlobal("fetch", fetchMock);
+    const body = "{}", address = `sha256:${createHash("sha256").update(body).digest("hex")}`;
+    await expect(new CipherstoreClient("https://a.test").put(address, body)).rejects.toThrow("without a supported storage acknowledgment");
+    expect(fetchMock).toHaveBeenCalledOnce();
+    if (status !== 204) expect(cancel).toHaveBeenCalledOnce();
+  });
   it("aborts a stalled upload without retrying or claiming that the server discarded it", async () => {
     let signal: AbortSignal | undefined;
     const fetchMock = vi.fn((_url, options) => new Promise<Response>((_resolve, reject) => {
@@ -144,6 +153,13 @@ describe("CipherstoreClient", () => {
 });
 
 describe("replicated ciphertext", () => {
+  it("counts only supported completed acknowledgments across replicas", async () => {
+    const body = "{}", address = `sha256:${createHash("sha256").update(body).digest("hex")}`;
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(null, { status: 201 })).mockResolvedValueOnce(new Response(null, { status: 202 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(new ReplicatedCipherstoreClient(["https://a.test", "https://b.test"]).put(address, body)).rejects.toThrow("1 of 2 stores acknowledged");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
   it("reports a replica retirement refusal without telling the caller to retry an unavailable store", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(null, { status: 201 })).mockResolvedValueOnce(new Response(null, { status: 410 }));
     vi.stubGlobal("fetch", fetchMock);

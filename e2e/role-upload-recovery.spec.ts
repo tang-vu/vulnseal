@@ -5,7 +5,7 @@ import { decryptRoleVault, encryptRoleVault } from "../web/src/role-recovery.js"
 import { recoveryDraft } from "../web/src/test/recovery-fixture.js";
 import { validateDisclosure } from "../web/src/handoff.js";
 
-test("a prepared role report survives a lost upload response and reuploads identical ciphertext after file recovery", async ({ page, context }, testInfo) => {
+for (const failure of ["lost response", "HTTP 202"] as const) test(`a prepared role report survives ${failure} and reuploads identical ciphertext after file recovery`, async ({ page, context }, testInfo) => {
   const password = "Keep the exact prepared report safe";
   const initial = await encryptRoleVault({ version: 3, role: "researcher", network: "preprod", contractAddress: "ab".repeat(32), programId: "12".repeat(32), actorSecret: "34".repeat(32), reports: [], submissionAttempts: [], draft: recoveryDraft }, password);
   const writes: { url: string; body: string | null }[] = [];
@@ -22,7 +22,7 @@ test("a prepared role report survives a lost upload response and reuploads ident
         const accepted = await route.fetch();
         expect(accepted.ok()).toBe(true);
         await accepted.dispose();
-        return route.abort("connectionreset");
+        return failure === "lost response" ? route.abort("connectionreset") : route.fulfill({ status: 202, headers: { "access-control-allow-origin": "http://127.0.0.1:4173" }, body: "" });
       }
     }
     return route.continue();
@@ -61,6 +61,8 @@ test("a prepared role report survives a lost upload response and reuploads ident
   await page.getByRole("button", { name: "Reports" }).click();
   await page.getByRole("button", { name: "Upload saved ciphertext" }).click();
   await expect(page.getByRole("alert")).toContainText("Ciphertext upload was not confirmed");
+  if (failure === "HTTP 202") await expect(page.getByRole("alert")).toContainText("HTTP 202 without a supported storage acknowledgment");
+  await expect(page.getByText(/Storage acknowledged the saved ciphertext/)).toHaveCount(0);
   expect(writes).toEqual([{ url: `http://127.0.0.1:8797/v1/blobs/sha256:${opened.ciphertextDigest}`, body: disclosure.envelope }]);
   await expect(page.getByLabel("Workspace report")).toHaveValue(disclosure.reportId);
   await page.close();

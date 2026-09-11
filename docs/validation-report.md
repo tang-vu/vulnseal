@@ -1,5 +1,13 @@
 # Validation report
 
+## Require completed ciphertext storage acknowledgments -- 2026-09-11
+
+The single-store API previously accepted every HTTP 2xx PUT response as successful storage. It now accepts only the service protocol's **201** (new copy) and **200** (identical existing copy). Other 2xx replies remain unconfirmed, preserve the saved-ciphertext retry guidance and do not count toward replication completion. Response bodies remain canceled, and no automatic upload retry was added. This checks protocol acknowledgments, not an operator's honesty or future retention.
+
+All **84 API tests / 7 files** passed in **3.32 seconds**, including 202/204/206 refusal, response-body cancellation and one-of-two acknowledgment counting. API build passed. The extended desktop/mobile file-recovery journey passed **4 E2E tests in 48.5 seconds**, with two workers and no retries: a real local store receives ciphertext, then the browser sees either a dropped response or substituted 202. The 202 fixture supplies the explicit allowed-origin header and asserts the actual HTTP 202 acknowledgment error, so a CORS failure cannot satisfy this check. Neither reports successful storage. An isolated context restores the encrypted backup, explicitly reuploads identical bytes, verifies the real stored body and opens the private report. No Lace connection or contract submission occurs in this offline journey.
+
+The final normal web build and release gate passed with **8 circuits / 80 files / 65,416,976 bytes**. Logs are `.compact/cipherstore-ack-status-tests.log`, `.compact/cipherstore-ack-status-browser-final.log` and `.compact/cipherstore-ack-status-release-verified.log`. The initial browser run passed in 51.6 seconds before the explicit CORS/status assertion was added. This targeted check does not clear the outstanding SQLite latency issue, refresh runtime images or establish a complete workspace/native-wallet regression.
+
 ## Measure SQLite commit latency without weakening durability -- 2026-09-11
 
 An opt-in container-drill preload now times storage adapter operations and SQLite transaction-control calls without recording SQL, arguments, paths or ciphertext. Traces are bounded to 200 records per process/thread instance. The drill also fixes log collection to include container stderr, which the earlier stdout-only Docker helper omitted. Syntax checks passed. Both actual container drills with tracing exited **0** on image `448b29f1...ea9eae`, retaining the existing 1000 ms timeout, retirement/restore controls, quota checks, restart/decryption and owned cleanup.

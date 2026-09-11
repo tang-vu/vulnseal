@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Ciphertext clients now count only HTTP 200/201 as completed upload acknowledgments. Unsupported 2xx responses remain unconfirmed and cannot inflate replication completion. API checks cover 202/204/206 and partial replication; desktop/mobile recovery tests cover retained ciphertext, encrypted backup restore and explicit identical retry after a substituted 202 or lost response. This verifies response handling, not operator honesty or long-term retention.
+
 - Optional container storage tracing locates most measured SQLite upload delay inside transaction commit (795 of 796 ms for the adapter call). Both traced drills passed; a separate FULL-sync journal comparison still exceeded one second in all three modes, so runtime journaling and deadlines remain unchanged. Prior untraced lost acknowledgments remain evidence of an unresolved latency limit. See [timings and experiment limits](evidence/cipherstore-commit-latency.json).
 
 - Cipherstore diagnostics now distinguish request stages, collect socket timeout counts and read back failed uploads without retrying them. Concurrent SQLite failure reproduced at 1011 ms; matching ciphertext was already stored despite the lost acknowledgment. Single-store clients now explain this uncertainty and preserve explicit same-ciphertext retry. The instrumented image passes 50 service tests and its vulnerability scan; its concurrent SQLite drill still fails. See [diagnostic evidence](evidence/cipherstore-socket-diagnostic.json). Underlying latency remains open.
