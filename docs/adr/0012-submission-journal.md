@@ -26,8 +26,19 @@ Users can reopen the encrypted browser copy or export its encrypted file and ins
 
 The active role session disables further transactions when any submission action fails after its durable checkpoint, including an ordinary SDK/transport error as well as the confirmation deadline. The checkpoint identifier remains available after the wait closes. The workspace clears the connected session and ledger view while retaining the vault, journal and backup controls; it does not replace the original error or record a failed/finalized outcome. Reconnect and deployment-address shortcuts stay unavailable in that session.
 
-Errors before the checkpoint do not trigger this uncertainty lock. In particular, a rejected encrypted save prevents the wallet callback from proceeding. A post-checkpoint error could also be a wallet rejection or a failed reauthorization before submission; the generic exception alone cannot establish that, so the same conservative lock applies. Reopening a workspace is not reconciliation or permission to retry. Durable cross-session retry policy and native-wallet interruption evidence remain open.
+Ordinary errors before the checkpoint do not trigger this uncertainty lock; expiry of the preparation deadline below is a conservative exception. In particular, a rejected encrypted save prevents the wallet callback from proceeding. A post-checkpoint error could also be a wallet rejection or a failed reauthorization before submission; the generic exception alone cannot establish that, so the same conservative lock applies. Reopening a workspace is not reconciliation or permission to retry. Durable cross-session retry policy and native-wallet interruption evidence remain open.
 
 ## Operation context extension
 
 [ADR 0017](0017-submission-intent-context.md) extends new entries with local circuit/report intent in payload version 5, while preserving unknown intent for older entries. This does not authenticate transaction contents or make retries safe.
+
+
+## Preparation and checkpoint lifetime
+
+Each `duringSubmission` action has a 15-minute preparation deadline from entry until its durable checkpoint. After the checkpoint, a separate 10-minute confirmation deadline begins. This bounds the wrapped SDK deployment/execute call, not earlier wallet connection, input construction or later public reads, which retain their own existing behavior. Expiry closes the wait immediately; the same wait cannot be reused. Workspace unmount also closes it.
+
+The checkpoint captures its wait and operation context before asynchronous journal preparation, checks that wait before writing, and uses that captured wait after persistence. It cannot use an optional reference that may have been cleared or replaced. A checkpoint arriving after expiry/unmount cannot authorize the subsequent connector broadcast.
+
+Preparation expiry disables transactions in the active session, clears its connected session/ledger view and remounts the local-storage panel to stop the old autosave writer. This blocks queued stale saves and late persistence continuations from reviving the old submission. The open vault and file-backup controls remain available. A storage transaction already started may still commit a journal entry; retain the latest browser copy and inspect it separately. No failed/successful on-chain outcome is inferred and no automatic retry is provided.
+
+Local tests hold either the SDK before its checkpoint or the journal's storage completion, expire the preparation wait, then release that work. The broadcast continuation remains uncalled in both cases; the latter retains the committed encrypted identifier. These are mocked provider/storage boundary checks, not native Lace cancellation or proof that an already invoked wallet operation can be undone. Browser/OS scheduling can delay timer execution. The combined demo still does not register this durable identifier checkpoint.

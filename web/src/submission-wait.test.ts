@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, expect, it, vi } from "vitest";
-import { submissionWait, SUBMISSION_CONFIRMATION_TIMEOUT_MS, SubmissionConfirmationTimeout } from "./submission-wait.js";
+import { submissionWait, SUBMISSION_CONFIRMATION_TIMEOUT_MS, SUBMISSION_PREPARATION_TIMEOUT_MS, SubmissionPreparationTimeout, SubmissionConfirmationTimeout } from "./submission-wait.js";
 
 afterEach(() => vi.useRealTimers());
 
-it.each(["resolve", "reject"])("starts only at the saved checkpoint and ignores late %s", async (outcome) => {
+it.each(["resolve", "reject"])("starts confirmation at the saved checkpoint and ignores late %s", async (outcome) => {
   vi.useFakeTimers();
   const wait = submissionWait();
   let finish!: (value: string) => void;
   let fail!: (error: Error) => void;
   const continuation = vi.fn();
   const result = wait.run(() => new Promise<string>((resolve, reject) => { finish = resolve; fail = reject; })).then(continuation).catch((error: unknown) => error);
-  expect(vi.getTimerCount()).toBe(0);
-  await vi.advanceTimersByTimeAsync(SUBMISSION_CONFIRMATION_TIMEOUT_MS * 2);
+  expect(vi.getTimerCount()).toBe(1);
+  await vi.advanceTimersByTimeAsync(SUBMISSION_PREPARATION_TIMEOUT_MS - 1);
   wait.checkpoint("saved-id");
   await vi.advanceTimersByTimeAsync(SUBMISSION_CONFIRMATION_TIMEOUT_MS - 1);
   let settled = false; void result.then(() => { settled = true; });
@@ -39,4 +39,25 @@ it("returns timely results, preserves failures and clears deadlines", async () =
   await expect(beforeCheckpoint.run(() => { throw error; })).rejects.toBe(error);
   expect(beforeCheckpoint.transactionId).toBeUndefined();
   expect(vi.getTimerCount()).toBe(0);
+});
+
+it.each(["timeout", "cancel"])("blocks a late durable checkpoint after preparation %s", async (reason) => {
+  vi.useFakeTimers(); const wait = submissionWait();
+  let finish!: () => void; const broadcast = vi.fn();
+  const result = wait.run(async () => { await new Promise<void>(resolve => { finish = resolve; }); wait.checkpoint("late-id"); broadcast(); }).catch((error: unknown) => error);
+  if (reason === "timeout") await vi.advanceTimersByTimeAsync(SUBMISSION_PREPARATION_TIMEOUT_MS);
+  else wait.cancel();
+  const error = await result;
+  if (reason === "timeout") expect(error).toBeInstanceOf(SubmissionPreparationTimeout);
+  expect(wait.transactionId).toBeUndefined();
+  finish(); await vi.advanceTimersByTimeAsync(0);
+  expect(broadcast).not.toHaveBeenCalled();
+  expect(() => wait.assertActive()).toThrow("closed");
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it("can cancel an unused wait without invoking an action", async () => {
+  const wait = submissionWait(), action = vi.fn(); wait.cancel();
+  await expect(wait.run(action)).rejects.toThrow("cannot be reused");
+  expect(action).not.toHaveBeenCalled();
 });

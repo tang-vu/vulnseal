@@ -31,7 +31,7 @@ import { ReportEffectCheck } from "./ReportEffectCheck.js";
 import { TransactionCheck } from "./TransactionCheck.js";
 import { RecoveryJournal } from "./RecoveryJournal.js";
 import { LocalRoleStorage } from "./LocalRoleStorage.js";
-import { submissionWait } from "./submission-wait.js";
+import { submissionWait, SubmissionPreparationTimeout } from "./submission-wait.js";
 
 const env = validateEnvironment(import.meta.env);
 const blank: VulnerabilityReport = { schemaVersion: 1, title: "", affectedAsset: "", weakness: "", summary: "", reproductionSteps: [], impact: "", suggestedRemediation: "", researcherContact: "", attachments: [] };
@@ -70,6 +70,8 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const deploymentInputs = useRef<SavedDeploymentInputs | undefined>(undefined);
   const confirmationWait = useRef<ReturnType<typeof submissionWait> | undefined>(undefined);
   const [recoveryRequired, setRecoveryRequired] = useState(false);
+  const [persistenceGeneration, setPersistenceGeneration] = useState(0);
+  useEffect(() => () => confirmationWait.current?.cancel(), []);
   const requireJournal = () => {
     if (recoveryRequired) throw new Error("This session lost transaction confirmation. Reconcile its saved identifier before restoring a fresh session; transactions remain disabled here.");
     if (currentVault.current) assertSubmissionCapacity(currentVault.current);
@@ -81,24 +83,30 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
     const wait = submissionWait(); confirmationWait.current = wait;
     try { return await wait.run(action); }
     catch (cause) {
-      // Once the durable hook returned, a generic SDK/transport error cannot prove non-submission.
-      if (wait.transactionId !== undefined) { setRecoveryRequired(true); setSession(undefined); setSnapshot(undefined); }
+      // A saved checkpoint or expired preparation wait prevents this session from retrying.
+      if (wait.transactionId !== undefined || cause instanceof SubmissionPreparationTimeout) { setRecoveryRequired(true); setSession(undefined); setSnapshot(undefined); }
+      // Remount stops the old writer; an already-started storage transaction may still commit.
+      if (cause instanceof SubmissionPreparationTimeout) { persistJournal.current = undefined; setPersistenceGeneration((value) => value + 1); }
       throw cause;
     } finally { confirmationWait.current = undefined; submissionIntent.current = undefined; submissionNotes.current = null; retestChoice.current = null; retestPatch.current = undefined; deploymentInputs.current = undefined; }
   };
   const recordSubmission = async (transactionId: string) => {
-    const current = currentVault.current, persist = persistJournal.current;
+    const current = currentVault.current, persist = persistJournal.current, wait = confirmationWait.current;
     if (!current || !persist) throw new Error("Enable encrypted browser autosave before submitting a role transaction. No transaction was sent.");
     if (current.submissionAttempts?.some((entry) => entry.transactionId === transactionId)) throw new Error("This transaction is already recorded. Reconcile its identifier before trying again.");
     if (!submissionIntent.current) throw new Error("Submission intent is missing. No transaction was sent.");
     if (submissionIntent.current.circuit === "constructor" && !deploymentInputs.current) throw new Error("Deployment inputs are missing. No transaction was sent.");
-    let updated = await withSubmissionAttempt(current, transactionId, submissionIntent.current);
-    if (deploymentInputs.current) updated = await withDeploymentInputs(updated, transactionId, deploymentInputs.current);
-    if (submissionNotes.current) updated = await withSubmissionNotes(updated, transactionId, submissionNotes.current);
-    if (retestChoice.current !== null) updated = await withRetestChoice(updated, transactionId, retestChoice.current, retestPatch.current);
+    if (!wait) throw new Error("Submission wait is missing. No transaction was sent.");
+    wait.assertActive();
+    const intent = submissionIntent.current, deployment = deploymentInputs.current, notes = submissionNotes.current, passed = retestChoice.current, patch = retestPatch.current;
+    let updated = await withSubmissionAttempt(current, transactionId, intent);
+    if (deployment) updated = await withDeploymentInputs(updated, transactionId, deployment);
+    if (notes) updated = await withSubmissionNotes(updated, transactionId, notes);
+    if (passed !== null) updated = await withRetestChoice(updated, transactionId, passed, patch);
+    wait.assertActive();
     await persist(updated);
     currentVault.current = updated; setVault(updated); setSaved(updated);
-    confirmationWait.current?.checkpoint(transactionId);
+    wait.checkpoint(transactionId);
   };
   const [session, setSession] = useState<RoleSession>();
   const [snapshot, setSnapshot] = useState<PublicContractSnapshot>();
@@ -234,7 +242,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
       {keys && <p className="operation-notice">Receiving keys are held in this tab. Keep their separate encrypted key backup before leaving; the role backup does not include them.</p>}
       {receipt && <p className="operation-notice public-value">Finalized {receipt.circuit}: {receipt.txId} at block {receipt.blockHeight}. A failed follow-up read does not erase this transaction.</p>}
       {!vault && <label><input type="checkbox" checked={offlineRestore} onChange={(event) => setOfflineRestore(event.target.checked)} />Restore backups without connecting Lace</label>}
-      <LocalRoleStorage vault={vault} disabled={working} onSaved={setSaved} onPersistence={(persist) => { persistJournal.current = persist; }} onRestore={(restored) => lock(async () => {
+      <LocalRoleStorage key={persistenceGeneration} vault={vault} disabled={working} onSaved={setSaved} onPersistence={(persist) => { persistJournal.current = persist; }} onRestore={(restored) => lock(async () => {
         if (vault) throw new Error("Restore in a fresh tab to preserve the open workspace");
         const joined = restored.contractAddress && !offlineRestore ? await joinRoleVault(restored, recordSubmission) : undefined;
         setVault(restored); setSaved(restored); setSession(joined?.session); setSnapshot(joined?.snapshot); setSelectedId(restored.reports[0]?.reportId ?? "");

@@ -1,0 +1,61 @@
+{
+  "recordedAt": "2026-09-11T03:45:20.914074+00:00",
+  "baseRevision": "78110cc",
+  "preparationDeadlineMs": 900000,
+  "confirmationDeadlineMs": 600000,
+  "checks": {
+    "firstTargetedRun": {
+      "passed": 22,
+      "failed": 6,
+      "exitCode": 1
+    },
+    "expandedTargetedRun": {
+      "passed": 26,
+      "failed": 6,
+      "exitCode": 1
+    },
+    "failureAndFix": "The new missing/closed wait guard initially ran before existing autosave/intent guards, changing six expected error messages. Preserved the prior synchronous guard order without relaxing the captured-wait checks.",
+    "finalTargetedRun": {
+      "tests": 33,
+      "files": 5,
+      "seconds": 91.48,
+      "exitCode": 0
+    },
+    "browser": {
+      "tests": 18,
+      "reportedDuration": "1.3m",
+      "projects": [
+        "desktop-chrome",
+        "mobile-chrome"
+      ],
+      "exitCode": 0
+    },
+    "normalWebBuildAndRelease": {
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65457959,
+      "exitCode": 0
+    }
+  },
+  "coverage": [
+    "Separate preparation/confirmation timers, early cancellation and closed-wait rejection",
+    "Actual RoleWorkspace with mocked SDK/storage: expiry before checkpoint and during journal write; late completion never invokes broadcast",
+    "A late committed encrypted journal retains its transaction identifier; active session cannot redeploy",
+    "Existing finalized/uncertain deployment, report intent/retest context and constructor-input checkpoint tests",
+    "Existing browser role journal/file/device recovery, concurrent IndexedDB writes, removal and workspace switching"
+  ],
+  "rawLogSha256": {
+    "role-preparation-tests": "eaf985d93994c32ec74d80f8b12c3aa8c1f81c6f5a68503952d40a46b73ac1de",
+    "role-preparation-tests-final": "a1f74fcddcd9f960ddd2476aecef7d025547e7c1a8a82c1695249773b125ca52",
+    "role-preparation-tests-verified": "57062b78cf6b761e87d06853ad6d1f8103772c79371a1edf9799bd40e11fd964",
+    "role-preparation-browser": "4c4e285b66d0c9f4fc53a171cca818b45a8be2353f419b1cff2f8f3c8783f95a",
+    "role-preparation-release": "2ea1916ee74c79880cd614a811ec875eeef8ed18c7d3a0d47fa033c2f6c1ad31"
+  },
+  "limits": [
+    "Preparation deadline covers duringSubmission SDK work, not earlier connection/input construction or later reads.",
+    "Timer scheduling may be delayed by browser/OS suspension; no hard real-time guarantee.",
+    "Stopping the old writer cannot undo an already-started storage transaction. A committed entry still needs inspection.",
+    "Mocked provider boundaries establish application ordering, not native Lace cancellation or chain finality.",
+    "Combined-demo durable identifier journaling and native-wallet release validation remain open; no runtime image refresh or full regression claimed."
+  ]
+}
