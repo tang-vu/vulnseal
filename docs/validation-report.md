@@ -1,5 +1,11 @@
 # Validation report
 
+## Recovery runtime refresh -- 2026-09-11
+
+Application source `819eb1e` was packaged as immutable image `sha256:b0326bec6b1f25415f8a62faf5e0d5efe4bc892c4e8e919a0e5ada9c86fd040e`. Image build and its embedded release gate passed. The localhost container drill passed **80 files / 81 requests / 65,556,773 served bytes**, including release-manifest delivery, hashes/headers/404, non-root/read-only execution, desktop/mobile public/worker/widget/exchange journeys, restart and owned cleanup.
+
+The exact-image Trivy scan downloaded a fresh database and exited **1**: Alpine 3.23.5 had no reported OS findings across 32 packages; Caddy retained one unsuppressed **UNKNOWN GO-2026-5932** finding for `golang.org/x/crypto v0.56.0`, without a reported fixed version. The strict security gate remains failed. Both final ownership-label container queries exited 0 with no remaining containers. See [image-bound evidence](evidence/recovery-full-runtime.json); no public deployment, native wallet ceremony or new source reachability diagnostic is claimed.
+
 ## Full web recovery regression -- 2026-09-11
 
 Unchanged application source `819eb1e3274a1bc44d37bc706a80b8df1417e3f5` passed the complete **509-test web suite / 66 files in 277.90 seconds** and all **154 ordinary desktop/mobile browser cases in 6.9 minutes**, with two workers and no retries. This refresh includes journal capacity preflight, preparation saved before upload, private recovery deadlines, offline inspection and reading sealed/prepared reports separately from edited drafts.

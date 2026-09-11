@@ -1,0 +1,66 @@
+{
+  "recordedAt": "2026-09-11T07:13:06.671771+00:00",
+  "applicationRevision": "819eb1e3274a1bc44d37bc706a80b8df1417e3f5",
+  "imageId": "sha256:b0326bec6b1f25415f8a62faf5e0d5efe4bc892c4e8e919a0e5ada9c86fd040e",
+  "localTag": "vulnseal-web:local",
+  "imageBuildExitCode": 0,
+  "containerDrill": {
+    "capturedAt": "2026-09-11T07:12:00.294Z",
+    "imageId": "sha256:b0326bec6b1f25415f8a62faf5e0d5efe4bc892c4e8e919a0e5ada9c86fd040e",
+    "origin": "http://127.0.0.1:32819",
+    "files": 80,
+    "requests": 81,
+    "bytes": 65556773,
+    "nonRoot": true,
+    "readOnlyRoot": true,
+    "headersChecked": true,
+    "missingFilesReturn404": true,
+    "desktopAndMobilePublicLookup": "passed against captured fixture; no wallet or live network",
+    "desktopAndMobilePublicWorkerDeadline": "injected busy worker reached its handler; packaged UI timed out, restarted and canceled without accepting a result",
+    "desktopAndMobileDeploymentWorker": "packaged worker decoded captured raw deployment and reported matching and mismatched policy; mocked indexer/RPC",
+    "desktopAndMobileSubmissionWidget": "real second HTTP origin loaded only two public modules from the image and opened isolated invitation review",
+    "desktopAndMobileExchangeNavigation": "unfinished input survived switching screens and cleared explicitly in the packaged app",
+    "widgetCorsChecked": true,
+    "gracefulRestart": true,
+    "cleanupCompleted": true
+  },
+  "securityScan": {
+    "exitCode": 1,
+    "os": "Alpine 3.23.5",
+    "osPackages": 32,
+    "osFindings": 0,
+    "binary": "usr/bin/caddy",
+    "findings": [
+      {
+        "id": "GO-2026-5932",
+        "severity": "UNKNOWN",
+        "module": "golang.org/x/crypto",
+        "installedVersion": "v0.56.0",
+        "fixedVersionReported": null
+      }
+    ],
+    "strictGatePassed": false,
+    "suppressed": false,
+    "databaseRefresh": "Trivy downloaded its vulnerability database during this run."
+  },
+  "cleanup": {
+    "scannerContainers": [],
+    "drillQueryExitCode": 0,
+    "scannerQueryExitCode": 0,
+    "drillContainers": []
+  },
+  "rawLogSha256": {
+    "recovery-runtime-image-build": "cfa862be9f8dcf93484e1809417417d8d6acab21a0022b1d74e18548410d62ce",
+    "recovery-runtime-container": "3c0564e50ea2c96960a3ee79440e8f35b7aac5794b6e3ded015dc99f313a6d8e",
+    "recovery-runtime-image-scan": "94e6354d9a7d636aa86ce462c7a650918bafe60483a946d7972ad1bcdc18a069"
+  },
+  "limits": [
+    "Localhost Docker only; no public hosting or native wallet signing/broadcast.",
+    "Container worker checks use captured public evidence and mocked indexer/RPC; they do not authenticate inclusion or demonstrate the native report/deployment ceremony.",
+    "The strict security gate remains failed. No new Caddy source reachability diagnostic was run.",
+    "No fresh Compact key generation, public TLS/DNS, multi-region storage or physical suspend/crash validation.",
+    "The packaged drill exercises existing public/worker/widget/exchange journeys. New offline report inspection is covered by the separate 154-case source browser run, not a new container-specific inspection case."
+  ],
+  "buildRevision": "bbd726e",
+  "sourceRegression": "recovery-full-regression.json"
+}
