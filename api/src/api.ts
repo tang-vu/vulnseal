@@ -121,18 +121,28 @@ export class VulnSealApi {
   }
 
   async readPublicState(): Promise<PublicContractSnapshot> {
+    const deadlineError = new Error("Public state read timed out. Retry the read when the indexer is available; this does not change transaction finality.");
+    const wallDeadline = Date.now() + PUBLIC_STATE_TIMEOUT_MS;
+    const monotonicDeadline = performance.now() + PUBLIC_STATE_TIMEOUT_MS;
+    const assertActive = () => {
+      if (Date.now() >= wallDeadline || performance.now() >= monotonicDeadline) throw deadlineError;
+    };
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => reject(new Error("Public state read timed out. Retry the read when the indexer is available; this does not change transaction finality.")), PUBLIC_STATE_TIMEOUT_MS);
+      timer = setTimeout(() => reject(deadlineError), PUBLIC_STATE_TIMEOUT_MS);
     });
     try {
       const state = await Promise.race([
         this.providers.publicDataProvider.queryContractState(this.contractAddress),
         timeout,
       ]);
+      assertActive();
       if (state === null) throw new Error("Contract state is unavailable from the indexer");
-      return { contractAddress: this.contractAddress, ledger: ledger(state.data) };
-    } finally { clearTimeout(timer); }
+      const decoded = ledger(state.data);
+      assertActive();
+      return { contractAddress: this.contractAddress, ledger: decoded };
+    } catch (error) { assertActive(); throw error; }
+    finally { clearTimeout(timer); }
   }
 
   private async call(
