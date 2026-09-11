@@ -149,3 +149,12 @@ Only an SDK result matching both circuit and saved identifier produces `sdk-conf
 V8 requires a deployed network snapshot and 1-1,000 report journal entries; the deployment identifier remains optional for older deployed sessions. Validation checks exact fields, allowed circuit/target-state pairs, severity, bounded private strings, report identifiers, timestamps and unique transaction identifiers. Only the final entry may be unknown, and it must bind the pending submission or the current uncertain circuit/report. Confirmed entries require their identifier. V1?v7 reject the new field, while remaining readable. Existing pending-report envelope/commitment checks and network authority checks still apply. Old application releases reject v8.
 
 The private recovery journal exposes recorded inputs and explicit transaction lookup. This does not authenticate inclusion, reconcile all report effects/arguments, authorize safe retry, or turn a pending report already on the ledger into a completed recovery. Native-wallet execution, physical crash/suspend validation and independent backups remain necessary release work. Ciphertext preparation/upload can still precede the initial transaction checkpoint.
+
+
+## Prepared copy before combined network upload (2026-09-11)
+
+The combined network flow now takes a separate exclusive save immediately after sealing and before ciphertext upload. The snapshot retains the exact envelope, key, salt and derived report identifier with `pendingReport.submissionStarted=false`. It uses the existing v7/v8 snapshot shape and encrypted-copy revision checks. A one-minute continuation deadline or save failure stops the writer and does not release PUT. A transaction already being written to browser storage can still commit after timeout.
+
+App generation checks run around asynchronous preparation and after upload. Closing the tab cannot let a late save or PUT response start SDK/private-state work. Once upload succeeds in the current session, the existing transaction-intent and identifier checkpoints run normally. Retrying a prepared upload reuses its material and confirms another preparation save. Guided-local mode retains its existing optional backup behavior.
+
+An old preparation file is not proof that submission never started later. Latest-revision retention, explicit uncertainty and network reconciliation remain necessary. See [validation evidence](../evidence/prepared-before-upload.json).

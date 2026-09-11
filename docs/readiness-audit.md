@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Combined network reports now confirm an encrypted preparation copy before ciphertext upload. Save errors/deadlines prevent PUT, and a late upload response after unmount cannot start SDK work. See [pre-upload evidence](evidence/prepared-before-upload.json). Old preparation files can still predate a later submission; authenticated reconciliation and native-wallet validation remain open.
+
 - Full combined report journals now stop before preparation/upload or new uncertainty. The capacity message is distinct from unresolved transaction history; the last available entry still preserves its 999 predecessors. See [capacity preflight evidence](evidence/journal-capacity-preflight.json). Existing unknown markers and the 1,000-entry bound remain intact.
 
 - Combined report submission and all seven later circuits now require an exclusive encrypted autosave lease, an intent save before SDK work and an identifier save before broadcast. Recovery v8 retains immutable private requests and SDK-observed outcomes; unknown attempts remain blocked. See [the recovery guide](combined-recovery.md) and [84-test evidence](evidence/combined-report-journal.json). Authenticated report reconciliation, safe retry and native-wallet validation remain open.

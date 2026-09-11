@@ -64,6 +64,10 @@ Recovery v8 retains up to 1,000 report attempts. At capacity, further report act
 
 ## Interrupted report uploads and transactions
 
+In network mode, the application saves the prepared encrypted envelope, decryption key, salt and report identifier before upload. Wait for **Saving report preparation** to finish. If that save fails or times out, upload does not start; retain this tab and export a backup, then resolve storage and re-enable autosave before retrying. A storage write already in progress may still commit.
+
+This prepared copy records that submission had not started when it was captured. Later submission can make it stale, so keep the latest committed revision and fresh file backups. Restoring an older unstarted marker does not prove that no later transaction was sent. Closing the tab while an upload is pending prevents its late response from starting SDK work in that closed session.
+
 If ciphertext upload was interrupted before submission setup started, the combined demo keeps the prepared report. **Retry saved report upload** reuses its ciphertext, key, salt and report identifier. Back it up before closing. Once network submission setup starts, retry remains blocked because the transaction may still finalize. See [prepared-report recovery](adr/0022-pending-demo-preparation.md).
 
 Private recovery does not include receiving keys from **Private exchange**, unfinished child-form passwords or a wallet seed. Retain the receiving-key backup separately. A leave warning is best effort and does not save data; crashes and mobile app termination may bypass it.

@@ -311,7 +311,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     await user.click(screen.getByRole("checkbox"));
     if (outcome === "failure") {
       await user.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
-      await screen.findByText("Wallet response interrupted");
+      await screen.findByText("Wallet response interrupted", {}, { timeout: 5000 });
     } else {
       const timers = vi.spyOn(globalThis, "setTimeout");
       fireEvent.click(screen.getByRole("button", { name: /Encrypt & seal/ }));
@@ -364,13 +364,15 @@ describe("browser network workflow with mocked wallet and finalized API results"
     } finally { click.mockRestore(); }
   }, 30_000);
 
-  it.each(["disabled", "intent", "identifier", "final"])("enforces real encrypted report saves when backup is %s", async failure => {
+  it.each(["disabled", "preparation", "intent", "identifier", "final", "closed upload"])("enforces real encrypted report saves when backup is %s", async failure => {
     const user = userEvent.setup(), broadcast = vi.fn();
     const api = { contractAddress: "ab".repeat(32), usePrivateState: vi.fn().mockResolvedValue(undefined), submitReport: vi.fn(async () => {
       const txId = await reportCheckpoint("sealed-tx"); broadcast(); return { circuit: "submitReport", txId, blockHeight: "202" };
     }) };
     mocks.deploy.mockImplementation(async () => { await checkpoint(); return { api, evidence: { circuit: "constructor", txId: deploymentId, blockHeight: "100" } }; });
-    render(<App />);
+    const view = render(<App />);
+    let finishUpload!: () => void;
+    if (failure === "closed upload") vi.mocked(fetch).mockImplementation(() => new Promise(resolve => { finishUpload = () => resolve(new Response(JSON.stringify({ stored: true }), { status: 201 })); }));
     await user.click(screen.getByRole("button", { name: "Guided local" }));
     await user.click(await screen.findByRole("button", { name: "Set up program" })); fillDeploymentPassword();
     await user.click(screen.getByRole("button", { name: "Create program" }));
@@ -379,6 +381,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
       await enableTransactionBackup(user);
       mocks.write.mockImplementation(async (id, label, encrypted, revision) => {
         const { snapshot } = await decryptRecovery(encrypted, deploymentPassword);
+        if (failure === "preparation" && snapshot.pendingReport && !snapshot.pendingReport.submissionStarted) throw new Error("Synthetic preparation checkpoint failure");
         const attempt = snapshot.reportAttempts?.at(-1);
         if (attempt && (failure === "intent" && !attempt.transactionId || failure === "identifier" && attempt.transactionId && attempt.outcome === "unknown" || failure === "final" && attempt.outcome === "sdk-confirmed")) throw new Error(`Synthetic ${failure} checkpoint failure`);
         return { id, label, encrypted, revision: revision + 1, updatedAt: new Date().toISOString() };
@@ -389,13 +392,23 @@ describe("browser network workflow with mocked wallet and finalized API results"
     if (failure === "disabled") {
       expect(screen.getByText(/Open Private recovery and enable encrypted autosave/)).toBeInTheDocument();
       expect(api.usePrivateState).not.toHaveBeenCalled(); expect(api.submitReport).not.toHaveBeenCalled();
+    } else if (failure === "closed upload") {
+      await waitFor(() => expect(finishUpload).toBeTypeOf("function"), { timeout: 7000 });
+      const copy = (await decryptRecovery(mocks.write.mock.calls.at(-1)![2], deploymentPassword)).snapshot;
+      expect(copy.pendingReport?.submissionStarted).toBe(false);
+      expect(copy.pendingReport?.report.envelope).toBe(vi.mocked(fetch).mock.calls.at(-1)![1]?.body);
+      expect(copy.pendingReport?.report.key).toHaveLength(64); expect(copy.pendingReport?.report.salt).toHaveLength(64);
+      expect(copy.reportAttempts).toBeUndefined();
+      view.unmount(); await act(async () => finishUpload());
+      expect(api.usePrivateState).not.toHaveBeenCalled(); expect(api.submitReport).not.toHaveBeenCalled(); expect(broadcast).not.toHaveBeenCalled();
     } else if (failure === "final") {
       await screen.findByText("Your report is sealed", {}, { timeout: 7000 });
       expect(screen.getByText(/recovery update was not confirmed/)).toBeInTheDocument(); expect(broadcast).toHaveBeenCalledOnce();
     } else {
       await screen.findByText(`Synthetic ${failure} checkpoint failure`, {}, { timeout: 7000 });
       expect(broadcast).not.toHaveBeenCalled();
-      expect(api.usePrivateState).toHaveBeenCalledTimes(failure === "intent" ? 0 : 1);
+      if (failure === "preparation") expect(vi.mocked(fetch).mock.calls.some(([, request]) => request?.method === "PUT")).toBe(false);
+      expect(api.usePrivateState).toHaveBeenCalledTimes(failure === "intent" || failure === "preparation" ? 0 : 1);
       expect(screen.queryByText("Your report is sealed")).not.toBeInTheDocument();
     }
   }, 30_000);

@@ -1,0 +1,46 @@
+{
+  "date": "2026-09-11",
+  "scope": "Durable combined network report preparation before ciphertext upload",
+  "behavior": [
+    "After sealing, save the ciphertext envelope, decryption key, salt and report identifier through an exclusive encrypted autosave lease before invoking ciphertext PUT.",
+    "The copy retains pendingReport.submissionStarted=false; transaction intent and identifier checkpoints remain separate later stages.",
+    "The preparation save has a one-minute continuation deadline. Errors stop the writer and prevent upload. Already-started storage may still commit.",
+    "Generation checks reject preparation/upload continuations after App unmount, including a successful delayed PUT response before SDK setup.",
+    "Upload retries reuse the retained sealed report and save its preparation again; no recovery format changes. Guided-local mode does not acquire a mandatory writer."
+  ],
+  "validation": {
+    "unit": {
+      "command": "npm run test:run -w @vulnseal/web -- src/save-prepared-report.test.ts src/App.network.test.tsx",
+      "passed": 24,
+      "files": 2,
+      "seconds": 97.54,
+      "exit": 0,
+      "log": ".compact/prepared-before-upload-final.log",
+      "coverage": [
+        "Deferred preparation save gates upload; storage error, timer expiry, undispatched-timer wall expiry and closed session do not release it.",
+        "Real application encryption with mocked storage/wallet: preparation quota failure prevents PUT and SDK work.",
+        "At a paused PUT, decrypting the captured browser-copy write recovers the exact uploaded envelope plus key/salt and an unstarted submission marker.",
+        "Unmount during PUT followed by a successful response does not invoke private-state setup, submitReport or broadcast.",
+        "Existing application network lifecycle, deployment, restoration, uncertain transaction and final-save failure regression."
+      ]
+    },
+    "release": {
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65535713,
+      "log": ".compact/prepared-before-upload-release.log"
+    }
+  },
+  "developmentFailure": {
+    "log": ".compact/prepared-before-upload-tests.log",
+    "passed": 22,
+    "failed": 1,
+    "reason": "An existing wallet-failure assertion used the default one-second wait, which no longer covered the extra encrypted save. The specific wait now allows five seconds; the complete related group subsequently passed."
+  },
+  "limits": [
+    "No fresh full regression, browser E2E, container refresh, native wallet signing, or physical crash/power-loss validation.",
+    "A preparation copy reflects one point in time and can become stale if a later submission starts. An old unstarted marker does not establish global retry safety.",
+    "Authenticated transaction reconciliation and automatic promotion of an already-submitted pending report remain open."
+  ]
+}

@@ -40,6 +40,7 @@ import { writeStoredRecovery } from "./recovery-storage.js";
 import { CombinedDeploymentRecovery } from "./CombinedDeploymentRecovery.js";
 import { continuationDeadline } from "./midnight/continuation-deadline.js";
 import { TransactionCheck } from "./TransactionCheck.js";
+import { savePreparedReport } from "./save-prepared-report.js";
 import { journalReportTransaction } from "./journal-report-transaction.js";
 import type { AcquireRecoveryPersistence } from "./RecoveryAutosavePanel.js";
 import { ReportTransactionJournal } from "./ReportTransactionJournal.js";
@@ -398,20 +399,31 @@ function App() {
       return;
     }
     if (!beginAction()) return;
+    const preparationGeneration = deploymentGeneration.current;
+    const assertPreparationCurrent = () => { if (deploymentGeneration.current !== preparationGeneration) throw new Error("Report preparation session closed"); };
     changeScreen("seal", "researcher");
     setOperation({ state: "working", label: "Canonicalizing report", detail: "Normalizing a deterministic private report document in this browser." });
     try {
-      await Promise.resolve();
+      await Promise.resolve(); assertPreparationCurrent();
       const encrypted = pendingPreparation?.sealed ?? await sealReport(report, bytesToHex(programBytes));
+      assertPreparationCurrent();
       const salt = pendingPreparation?.salt ?? randomBytes(32);
       const commitment = pendingPreparation?.id ?? pureCircuits.deriveReportCommitment(Uint8Array.from(programBytes), Uint8Array.from(encrypted.canonicalReportDigest), Uint8Array.from(salt));
       const prepared = { sealed: encrypted, salt, id: commitment, submissionStarted: false };
       setPendingPreparation(prepared);
+      const recoveryMaterial = { envelope: encrypted.serializedEnvelope, key: bytesToHex(encrypted.key), salt: bytesToHex(salt), id: bytesToHex(commitment) };
+      if (api) {
+        if (!reportPersistence.current) throw new Error("Enable encrypted autosave before uploading report ciphertext");
+        setOperation({ state: "working", label: "Saving report preparation", detail: "Saving the ciphertext, decryption key, salt and report identifier before upload." });
+        await savePreparedReport({ ...liveRecoverySnapshot, pendingReport: { report: recoveryMaterial, submissionStarted: false } }, reportPersistence.current(), assertPreparationCurrent);
+        assertPreparationCurrent();
+      }
       setOperation({ state: "working", label: "Uploading ciphertext", detail: `Sending only the authenticated AES-256-GCM envelope to ${env.cipherstoreUrls.length} configured storage endpoint(s).` });
       await createCipherstoreClient(env.cipherstoreUrls).put(
         encrypted.contentAddress,
         encrypted.serializedEnvelope,
       );
+      assertPreparationCurrent();
       setOperation({
         state: "working",
         label: runtimeMode === "midnight" ? "Generating ownership proof" : "Preparing Compact commitment",
@@ -429,7 +441,7 @@ function App() {
             canonicalDigest: encrypted.canonicalReportDigest,
             salt,
           }),
-        ), () => api.submitReport(encrypted.ciphertextDigest), { pendingReport: { report: { envelope: encrypted.serializedEnvelope, key: bytesToHex(encrypted.key), salt: bytesToHex(salt), id: bytesToHex(commitment) }, submissionStarted: true } });
+        ), () => api.submitReport(encrypted.ciphertextDigest), { pendingReport: { report: recoveryMaterial, submissionStarted: true } });
       }
       setSealed(encrypted);
       setReportSalt(salt);

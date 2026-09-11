@@ -1,5 +1,13 @@
 # Validation report
 
+## Prepared recovery before ciphertext upload -- 2026-09-11
+
+Combined network report preparation now confirms the encrypted envelope, key, salt and report identifier before PUT, using an exclusive autosave lease and a one-minute save deadline. Generation checks prevent a late save/upload continuation after the session closes. Subsequent intent and identifier checkpoints remain separate; the prepared copy does not claim submission has started.
+
+**24 tests / 2 files** passed in **97.54 seconds**, including delayed/failed/expired save boundaries, real application encryption with an injected preparation write failure, exact saved-envelope comparison during a paused upload, unmount before its late response, and existing network lifecycle/recovery cases. The first run had 22 passed and one assertion whose one-second wait was too short for the added encrypted save; the corrected complete group passed. Normal build/typecheck and release validation passed: **8 circuits / 80 files / 65,535,713 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/prepared-before-upload.json) records the scope. Storage and wallet/SDK calls are mocked in these application tests. No new E2E, full regression, container refresh, native signing or physical crash validation is claimed; stale preparation copies and authenticated reconciliation remain limitations.
+
 ## Full journal preflight -- 2026-09-11
 
 A failing application reproduction restored 1,000 confirmed journal entries and attempted triage. The application displayed new transaction uncertainty even though the capacity guard prevented SDK work. A shared preflight now distinguishes capacity from unresolved history and runs before changing submission state or preparing/uploading a new report. The helper also releases its lease without side effects if called directly with a blocked journal.
