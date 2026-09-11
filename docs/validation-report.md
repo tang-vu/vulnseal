@@ -8,7 +8,9 @@ Restoration now has a three-minute deadline from receipt of backup contents thro
 
 **54 unique tests / 3 files** passed across a 49-test regression run (**102.72 seconds**) and the expanded 20-case boundary run (**11.13 seconds**). The latter independently tests timer, wall-clock and monotonic-clock expiry, backwards wall time and unmount at all five stages. Normal build/typecheck and release validation passed: **8 circuits / 80 files / 65,536,934 bytes**. `git diff --check` passed.
 
-[Evidence](evidence/private-recovery-deadlines.json) records the reproduction and limits. Already-started wallet/SDK work is not cancelled. No native-wallet, physical suspend, new E2E, full regression or runtime refresh is claimed.
+**10 desktop/mobile browser cases passed in 57.1 seconds**, with two workers and no retries. Four new cases hold a real browser PBKDF2 result past the virtual deadline and release it before or during an explicit retry. The expired attempt cannot connect the wallet or unlock the pending retry; file/password inputs remain available. Six existing recovery-input and wallet-clock cases also pass. The normal web build and release manifest were restored afterward with the same 8 circuits, 80 files and 65,536,934 bytes.
+
+[Evidence](evidence/private-recovery-deadlines.json) records the reproduction and limits. Already-started wallet/SDK work is not cancelled. Browser tests use a synthetic connector and virtual clock. No native-wallet, physical suspend, full regression or runtime refresh is claimed.
 
 ## Prepared recovery before ciphertext upload -- 2026-09-11
 

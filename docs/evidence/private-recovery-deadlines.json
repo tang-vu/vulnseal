@@ -48,12 +48,40 @@
       "circuits": 8,
       "files": 80,
       "bytes": 65536934
+    },
+    "browser": {
+      "log": ".compact/recovery-deadline-browser-final.log",
+      "passed": 10,
+      "seconds": 57.1,
+      "exit": 0,
+      "workers": 2,
+      "retries": 0,
+      "projects": [
+        "desktop-chrome",
+        "mobile-chrome"
+      ],
+      "scope": "Four new cases use real browser PBKDF2/AES with the first derived-key result held beyond a virtual three-minute deadline. Release before or during explicit retry preserves inputs, prevents an extra wallet connection, and keeps the new attempt busy. Six existing recovery-input and wallet-clock cases also pass.",
+      "initialRun": {
+        "log": ".compact/recovery-deadline-browser.log",
+        "passed": 8,
+        "seconds": 58.8,
+        "exit": 0,
+        "scope": "Initial before-retry case plus the same regressions."
+      }
+    },
+    "browserRelease": {
+      "log": ".compact/recovery-deadline-browser-release.log",
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65536934,
+      "scope": "Normal web build/typecheck and release manifest restored after Playwright environment build."
     }
   },
   "limits": [
     "Wallet/SDK stages are mocked in the new boundary tests; existing integration tests exercise real backup crypto and ledger-binding verification with mocked network providers.",
     "Already-started wallet/SDK work is not cancelled. The guard blocks its continuation in this application.",
     "The deadline starts when App receives the file/copy contents, not while the panel is reading the selected local file.",
-    "No new browser E2E, native wallet ceremony, physical suspend test, full regression or container refresh."
+    "Browser tests use a synthetic connector and virtual clock. No native wallet ceremony, physical suspend test, full regression or container refresh."
   ]
 }
