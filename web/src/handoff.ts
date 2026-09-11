@@ -99,25 +99,45 @@ export const validateDisclosure = async (input: unknown) => {
   if (bytesToHex(pureCircuits.deriveReportCommitment(hexToBytes(disclosure.programId), Uint8Array.from(digest), hexToBytes(disclosure.salt))) !== disclosure.reportId) throw new Error("Disclosure does not match its report commitment");
   return { disclosure, report, ciphertextDigest: bytesToHex(await sha256(utf8(disclosure.envelope))) };
 };
-const handoffAad = (fingerprint: string) => buffer(utf8(`vulnseal:recipient-handoff:v1:${fingerprint}`));
-export const encryptDisclosure = async (input: Disclosure, recipient: Recipient): Promise<string> => {
+export const MAX_ATTACHMENT_TRANSFER_BYTES = 8 * 1024 * 1024;
+export type TransferAttachment = { readonly filename: string; readonly bytes: Uint8Array };
+const checkAttachments = async (files: readonly TransferAttachment[], report: Awaited<ReturnType<typeof validateDisclosure>>["report"]) => {
+  if (files.length > 50 || files.reduce((sum, file) => sum + file.bytes.byteLength, 0) > MAX_ATTACHMENT_TRANSFER_BYTES) throw new Error("Attachment transfer is limited to 50 files and 8 MiB total");
+  const seen = new Set<string>();
+  for (const file of files) {
+    const digest = bytesToHex(await sha256(file.bytes));
+    const identity = JSON.stringify([file.filename, digest]);
+    if (seen.has(identity)) throw new Error("Duplicate transfer attachment");
+    seen.add(identity);
+    if (!report.attachments.some(entry => entry.filename === file.filename && entry.size === file.bytes.byteLength && entry.sha256 === digest)) throw new Error("Attachment bytes or filename do not match the sealed report");
+  }
+  return files;
+};
+const handoffAad = (fingerprint: string, version = 1) => buffer(utf8(`vulnseal:recipient-handoff:v${version}:${fingerprint}`));
+export const encryptDisclosure = async (input: Disclosure, recipient: Recipient, files: readonly TransferAttachment[] = []): Promise<string> => {
+  if (files.length > 50 || files.some(file => !(file.bytes instanceof Uint8Array)) || files.reduce((sum, file) => sum + file.bytes.byteLength, 0) > MAX_ATTACHMENT_TRANSFER_BYTES) throw new Error("Attachment transfer is limited to 50 files and 8 MiB total");
+  const captured = files.map(file => ({ filename: file.filename, bytes: new Uint8Array(file.bytes) }));
   const recipientFile = JSON.stringify(recipient);
-  const { disclosure } = await validateDisclosure(input);
+  const { disclosure, report } = await validateDisclosure(input);
+  await checkAttachments(captured, report);
+  const version = captured.length ? 2 : 1;
   const checked = await parseRecipient(recipientFile);
-  const aad = handoffAad(checked.fingerprint);
+  const aad = handoffAad(checked.fingerprint, version);
   const key = randomBytes(32), iv = randomBytes(12);
   const aes = await crypto.subtle.importKey("raw", buffer(key), "AES-GCM", false, ["encrypt"]);
-  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv: buffer(iv), additionalData: aad }, aes, buffer(utf8(JSON.stringify(disclosure))));
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv: buffer(iv), additionalData: aad }, aes, buffer(utf8(JSON.stringify(version === 1 ? disclosure : { disclosure, attachments: captured.map(file => ({ filename: file.filename, data: bytesToBase64Url(file.bytes) })) }))));
   const wrappedKey = await crypto.subtle.encrypt({ name: "RSA-OAEP", label: aad }, await importPublic(checked.publicKey), buffer(key));
-  return JSON.stringify({ format: "vulnseal-disclosure", version: 1, recipient: checked.fingerprint, wrappedKey: encode(wrappedKey), iv: bytesToBase64Url(iv), ciphertext: encode(ciphertext) });
+  const serialized = JSON.stringify({ format: "vulnseal-disclosure", version, recipient: checked.fingerprint, wrappedKey: encode(wrappedKey), iv: bytesToBase64Url(iv), ciphertext: encode(ciphertext) });
+  if (utf8(serialized).length > MAX_HANDOFF_BYTES) throw new Error("Combined disclosure and attachments are too large");
+  return serialized;
 };
 export const decryptDisclosure = async (serialized: string, keys: RecipientKeys) => {
   const value = object(parse(serialized), ["format", "version", "recipient", "wrappedKey", "iv", "ciphertext"]);
-  if (value.format !== "vulnseal-disclosure" || value.version !== 1) throw new Error("Not an encrypted disclosure package");
+  if (value.format !== "vulnseal-disclosure" || ![1, 2].includes(Number(value.version)) || typeof value.version !== "number") throw new Error("Not an encrypted disclosure package");
   if (hex(value.recipient) !== keys.recipient.fingerprint) throw new Error("This disclosure is addressed to a different recipient key");
   const iv = decode(value.iv), wrappedKey = decode(value.wrappedKey), ciphertext = decode(value.ciphertext);
   if (iv.length !== 12 || wrappedKey.length !== 384 || ciphertext.length < 16) throw new Error("Invalid disclosure lengths");
-  const aad = handoffAad(keys.recipient.fingerprint);
+  const aad = handoffAad(keys.recipient.fingerprint, value.version as number);
   let plaintext: ArrayBuffer;
   try {
     const key = await crypto.subtle.decrypt({ name: "RSA-OAEP", label: aad }, keys.privateKey, buffer(wrappedKey));
@@ -125,5 +145,16 @@ export const decryptDisclosure = async (serialized: string, keys: RecipientKeys)
     const aes = await crypto.subtle.importKey("raw", key, "AES-GCM", false, ["decrypt"]);
     plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: buffer(iv), additionalData: aad }, aes, buffer(ciphertext));
   } catch { throw new Error("Disclosure authentication failed: wrong key or damaged package"); }
-  return validateDisclosure(parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext)));
+  const payload = parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext));
+  if (value.version === 1) return { ...await validateDisclosure(payload), attachments: [] as readonly TransferAttachment[] };
+  const inner = object(payload, ["disclosure", "attachments"]);
+  if (!Array.isArray(inner.attachments) || !inner.attachments.length || inner.attachments.length > 50) throw new Error("Invalid transfer attachments");
+  const attachments = inner.attachments.map(item => {
+    const entry = object(item, ["filename", "data"]);
+    if (typeof entry.filename !== "string" || typeof entry.data !== "string") throw new Error("Invalid transfer attachment");
+    return { filename: entry.filename, bytes: entry.data === "" ? new Uint8Array() : decode(entry.data) };
+  });
+  const checked = await validateDisclosure(inner.disclosure);
+  await checkAttachments(attachments, checked.report);
+  return { ...checked, attachments };
 };

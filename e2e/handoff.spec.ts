@@ -61,6 +61,10 @@ test("a separate recipient restores its own key and opens an encrypted disclosur
 
     await page.goto("/");
     await page.getByRole("button", { name: /Seal a vulnerability/ }).click();
+    const binary = Buffer.from([0, 255, 128, 13, 10, 42, 0, 1]);
+    const attachment = { name: "private-proof.bin", mimeType: "application/octet-stream", buffer: binary };
+    await page.getByLabel("Hash a local attachment").setInputFiles(attachment);
+    await expect(page.getByText("1 attachment entry(s)", { exact: true })).toBeVisible();
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: /Encrypt & seal/ }).click();
     // Uploads have a 20-second client deadline; allow the operation to settle.
@@ -70,6 +74,10 @@ test("a separate recipient restores its own key and opens an encrypted disclosur
     await expect(page.getByRole("button", { name: "Download encrypted disclosure" })).toBeDisabled();
     await expect(page.getByText(publicKey.fingerprint, { exact: true })).toBeVisible();
     await page.getByRole("checkbox").check();
+    await page.getByLabel("Original attachment files to include").setInputFiles({ ...attachment, buffer: Buffer.from("wrong bytes") });
+    await page.getByRole("button", { name: "Download encrypted disclosure" }).click();
+    await expect(page.getByRole("alert")).toContainText("do not match the sealed report");
+    await page.getByLabel("Original attachment files to include").setInputFiles(attachment);
     const packageDownload = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download encrypted disclosure" }).click();
     const packagePath = testInfo.outputPath("disclosure.json");
@@ -77,6 +85,8 @@ test("a separate recipient restores its own key and opens an encrypted disclosur
     const serialized = await readFile(packagePath, "utf8");
     expect(serialized).not.toContain("Cross-tenant authorization bypass");
     expect(serialized).not.toContain("actorSecret");
+    expect(serialized).not.toContain(attachment.name);
+    expect(JSON.parse(serialized).version).toBe(2);
 
     const restored = await recipientContext.newPage();
     await restored.goto("http://127.0.0.1:4173/");
@@ -101,10 +111,16 @@ test("a separate recipient restores its own key and opens an encrypted disclosur
     await restored.getByRole("button", { name: "Private exchange", exact: true }).click();
     await expect(restored.getByRole("heading", { name: "Cross-tenant authorization bypass" })).toBeVisible();
     await expect(restored.getByText(/guided local report, with no network transaction evidence/)).toBeVisible();
+    const originalDownload = restored.waitForEvent("download");
+    await restored.getByRole("button", { name: "Download verified attachment: private-proof.bin", exact: true }).click();
+    const originalPath = testInfo.outputPath("received-proof.bin");
+    await (await originalDownload).saveAs(originalPath);
+    expect(await readFile(originalPath)).toEqual(binary);
     expect(await restored.evaluate(() => "midnight" in window)).toBe(false);
     expect(remoteRequests).toEqual([]);
     await restored.getByRole("button", { name: "Clear exchange inputs and preview" }).click();
     await expect(restored.getByRole("heading", { name: "Cross-tenant authorization bypass" })).toHaveCount(0);
+    await expect(restored.getByRole("button", { name: "Download verified attachment: private-proof.bin", exact: true })).toHaveCount(0);
     expect(await restored.getByLabel("Encrypted disclosure file").evaluate((input: HTMLInputElement) => input.files?.length)).toBe(0);
     await expect(restored.getByRole("button", { name: "Download public receiving key" })).toBeVisible();
     await restored.getByRole("button", { name: "Private recovery", exact: true }).click();

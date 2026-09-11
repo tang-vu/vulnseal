@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { backupRecipient, createRecipient, decryptDisclosure, encryptDisclosure, MAX_HANDOFF_BYTES, parseRecipient, restoreRecipient, type Disclosure, type Recipient, type RecipientKeys } from "./handoff.js";
+import { backupRecipient, createRecipient, decryptDisclosure, encryptDisclosure, MAX_HANDOFF_BYTES, MAX_ATTACHMENT_TRANSFER_BYTES, parseRecipient, restoreRecipient, type Disclosure, type Recipient, type RecipientKeys } from "./handoff.js";
 import { publicReceiptLink } from "./public-verification.js";
+import { continuationDeadline } from "./midnight/continuation-deadline.js";
 import { AttachmentReview } from "./AttachmentFields.js";
 
 const download = (serialized: string, filename: string) => {
@@ -23,6 +24,8 @@ export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { reado
   const [backup, setBackup] = useState<File>();
   const [recipient, setRecipient] = useState<Recipient>();
   const [confirmed, setConfirmed] = useState(false);
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  useEffect(() => { setAttachmentFiles([]); }, [disclosure?.network, disclosure?.contractAddress, disclosure?.programId, disclosure?.reportId, disclosure?.envelope]);
   useEffect(() => { setConfirmed(false); }, [disclosure?.network, disclosure?.contractAddress, disclosure?.programId, disclosure?.reportId, disclosure?.envelope, disclosure?.key, disclosure?.salt]);
   const [packageFile, setPackageFile] = useState<File>();
   const [opened, setOpened] = useState<Awaited<ReturnType<typeof decryptDisclosure>>>();
@@ -56,7 +59,7 @@ export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { reado
       <button type="button" className="secondary-button" onClick={() => {
         if (busy.current) return;
         setPassword(""); setConfirmation(""); setRestorePassword(""); setBackup(undefined);
-        setRecipient(undefined); setConfirmed(false); setPackageFile(undefined); setOpened(undefined);
+        setRecipient(undefined); setConfirmed(false); setAttachmentFiles([]); setPackageFile(undefined); setOpened(undefined);
         setError(""); setMessage("");
         fields.current?.querySelectorAll<HTMLInputElement>('input[type="file"]').forEach(input => { input.value = ""; });
       }}>Clear exchange inputs and preview</button>
@@ -97,16 +100,27 @@ export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { reado
         }} /></label>
         {recipient && <p className="public-value">Recipient fingerprint: <code>{recipient.fingerprint}</code></p>}
         <label className="check-row"><input type="checkbox" checked={confirmed} disabled={!recipient} onChange={(event) => setConfirmed(event.target.checked)} /><span>I verified this fingerprint with the intended recipient through our agreed channel.</span></label>
+        <label>Original attachment files to include<input key={disclosure?.reportId} type="file" multiple disabled={!disclosure} onChange={(event) => setAttachmentFiles(Array.from(event.target.files ?? []))} /></label>
+        <p>Optional: include up to 50 original files, 8 MiB total. Names and bytes must match the sealed attachment metadata. The encrypted package contains these files; your workspace backup still contains metadata only.</p>
+        <p>{attachmentFiles.length} original file(s) selected for encrypted transfer.</p>
         <button className="primary-button" disabled={!disclosure || !recipient || !confirmed} onClick={() => void run(undefined, async (commit) => {
           if (!disclosure || !recipient || !confirmed) return;
-          const serialized = await encryptDisclosure(disclosure, recipient);
+          const serialized = await continuationDeadline(180_000, "Disclosure packaging timed out. Keep your originals and retry explicitly.", async check => {
+            if (attachmentFiles.length > 50 || attachmentFiles.reduce((sum, file) => sum + file.size, 0) > MAX_ATTACHMENT_TRANSFER_BYTES) throw new Error("Attachment transfer is limited to 50 files and 8 MiB total");
+            const files = [];
+            for (const file of attachmentFiles) { const bytes = new Uint8Array(await file.arrayBuffer()); check(); files.push({ filename: file.name.normalize("NFC"), bytes }); }
+            const result = await encryptDisclosure(disclosure, recipient, files); check(); return result;
+          });
           commit(() => { download(serialized, "vulnseal-disclosure.json"); setMessage("Encrypted disclosure downloaded. Send it to the verified recipient; keep your session recovery file private."); });
         })}>Download encrypted disclosure</button>
       </section>
       <form className="form-panel" onSubmit={(event) => void run(event, async (commit) => {
         setOpened(undefined);
         if (!keys) throw new Error("Create or restore your receiving key first");
-        const result = await decryptDisclosure(await read(packageFile, MAX_HANDOFF_BYTES), keys);
+        const result = await continuationDeadline(180_000, "Disclosure opening timed out. Retry explicitly with the encrypted package.", async check => {
+          const serialized = await read(packageFile, MAX_HANDOFF_BYTES); check();
+          const result = await decryptDisclosure(serialized, keys); check(); return result;
+        });
         commit(() => setOpened(result));
       })}>
         <h2>3. Recipient: open the disclosure</h2>
@@ -125,6 +139,13 @@ export function HandoffPanel({ disclosure, keys, onKeys, onDisclosure }: { reado
       <h3>Suggested remediation</h3><p>{opened.report.suggestedRemediation || "Not provided"}</p>
       <h3>Researcher contact</h3><p>{opened.report.researcherContact || "Not provided"}</p>
       <AttachmentReview attachments={opened.report.attachments} />
+      <h3>Verified original files in this package</h3>
+      <p>{opened.attachments.length} file(s) included. Download and retain them before clearing this preview; adding the report to a workspace saves metadata, not these binary files.</p>
+      {opened.attachments.map((file, index) => <button type="button" className="secondary-button" key={index} onClick={() => {
+        const url = URL.createObjectURL(new Blob([new Uint8Array(file.bytes).buffer], { type: "application/octet-stream" }));
+        const link = document.createElement("a"); link.href = url; link.download = file.filename.replace(/[\\/\x00-\x1f\x7f]/g, "_") || "attachment.bin";
+        try { document.body.append(link); link.click(); } finally { link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
+      }}>Download verified attachment: {file.filename}</button>)}
       <p className="public-value">Report commitment: {opened.disclosure.reportId}</p>
       {onDisclosure && <button className="primary-button" disabled={working} onClick={() => void run(undefined, async (commit) => { await onDisclosure(opened.disclosure); commit(() => setMessage("Disclosure added to the vendor workspace after ledger verification.")); })}>Add report to vendor workspace</button>}
       {opened.disclosure.contractAddress && <a className="secondary-button" target="_blank" rel="noreferrer noopener" href={publicReceiptLink(window.location.href, { kind: "vulnseal-public-receipt", version: 1, network: opened.disclosure.network, contractAddress: opened.disclosure.contractAddress, reportId: opened.disclosure.reportId, ciphertextDigest: opened.ciphertextDigest })}>Check this report in the independent verifier</a>}
