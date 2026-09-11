@@ -7,15 +7,20 @@ import { validateDisclosure } from "./handoff.js";
 import type { RoleVault } from "./role-recovery.js";
 import { submissionReceipt } from "./submission-receipt.js";
 
-export const joinRoleVault = async (input: RoleVault, beforeSubmit?: Parameters<typeof initializeBrowserProviders>[1]) => {
+export const joinRoleVault = async (input: RoleVault, beforeSubmit?: Parameters<typeof initializeBrowserProviders>[1], assertCurrent: () => void = () => {}) => {
   // Keep the selected identity, reports and saved claims fixed across wallet waits.
+  assertCurrent();
   const vault = structuredClone(input);
   if (!vault.contractAddress) throw new Error("The role backup has no deployed contract address");
   const providers = beforeSubmit ? await initializeBrowserProviders(vault.network, beforeSubmit) : await initializeBrowserProviders(vault.network);
+  assertCurrent();
   const session = await RoleSession.join(providers, vault.contractAddress, { role: vault.role, programId: hexToBytes(vault.programId), actorSecret: hexToBytes(vault.actorSecret) });
+  assertCurrent();
   const snapshot = await session.readPublicState();
+  assertCurrent();
   for (const item of vault.reports) {
     const opened = await validateDisclosure(item);
+    assertCurrent();
     const id = hexToBytes(item.reportId);
     if (!snapshot.ledger.reports.member(id)) {
       if (vault.submissionAttempts?.some((attempt) => attempt.intent?.reportId === item.reportId && attempt.finalization)) {
@@ -29,5 +34,6 @@ export const joinRoleVault = async (input: RoleVault, beforeSubmit?: Parameters<
     if (vault.role === "researcher" && bytesToHex(record.researcherKey) !== bytesToHex(pureCircuits.deriveResearcherKey(hexToBytes(vault.programId), id, hexToBytes(vault.actorSecret)))) throw new Error("Saved report belongs to another researcher authority");
     if (bytesToHex(record.submissionReceipt) !== bytesToHex(submissionReceipt(id, record.ciphertextDigest, record.researcherKey))) throw new Error("Ledger submission receipt is inconsistent with the saved report");
   }
+  assertCurrent();
   return { session, snapshot };
 };

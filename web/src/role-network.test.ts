@@ -75,3 +75,21 @@ describe("role restore ledger binding", () => {
     expect(session.readPublicState).toHaveBeenCalledOnce();
   });
 });
+
+it.each(["connect", "join", "read"])("stops after a late %s result when restore has closed", async stage => {
+  const { vault, session, member } = await fixture();
+  let finish!: (value: any) => void;
+  if (stage === "connect") mocks.connect.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  else if (stage === "join") mocks.join.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  else session.readPublicState.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  let closed = false;
+  const pending = joinRoleVault(vault, undefined, () => { if (closed) throw new Error("Restore closed"); });
+  const outcome = expect(pending).rejects.toThrow("Restore closed");
+  for (let index = 0; index < 5; index++) await Promise.resolve();
+  closed = true;
+  finish(stage === "join" ? session : {});
+  await outcome;
+  if (stage === "connect") expect(mocks.join).not.toHaveBeenCalled();
+  if (stage !== "read") expect(session.readPublicState).not.toHaveBeenCalled();
+  expect(member).not.toHaveBeenCalled();
+});

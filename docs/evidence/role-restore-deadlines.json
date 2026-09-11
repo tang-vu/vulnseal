@@ -1,0 +1,47 @@
+{
+  "date": "2026-09-11",
+  "scope": "Bound file and browser-copy role restoration and prevent closed continuations from reaching later SDK stages",
+  "behavior": [
+    "Role file restore has a three-minute deadline across file read, decryption and connected restoration. Browser copies have a separate three-minute local read/decryption deadline followed by a three-minute restoration phase.",
+    "Workspace lifetime and deadline checks precede installation. Connected restoration passes a guard through wallet setup, SDK join, public read and each saved disclosure verification.",
+    "Expired browser decryptions do not call onRestore or bind autosave. Timeout preserves restore inputs for explicit retry; normal offline and connected authority/report checks remain intact."
+  ],
+  "validation": {
+    "unit": {
+      "log": ".compact/role-restore-deadline-tests.log",
+      "passed": 39,
+      "files": 4,
+      "seconds": 94.75,
+      "exit": 0,
+      "scope": "Six new file/browser restore cases plus three SDK-stage continuation cases; complete RoleWorkspace, LocalRoleStorage and role-network regression."
+    },
+    "initialBuild": {
+      "log": ".compact/role-restore-deadline-release.log",
+      "exit": 2,
+      "reason": "A new Testing Library query used Playwright-only exact option. Removed the unsupported option; production code was unchanged by that correction."
+    },
+    "browser": {
+      "log": ".compact/role-restore-deadline-browser.log",
+      "passed": 6,
+      "reportedDuration": "1.2m",
+      "workers": 2,
+      "retries": 0,
+      "exit": 0,
+      "scope": "Four new desktop/mobile file and real IndexedDB copy cases hold real PBKDF2 key results past virtual expiry, reject late decryption and restore successfully on explicit retry. Existing role-draft file/browser recovery also passes."
+    },
+    "release": {
+      "log": ".compact/role-restore-deadline-release-final.log",
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65572228,
+      "scope": "Normal web build/typecheck and release manifest after browser tests."
+    }
+  },
+  "limits": [
+    "SDK continuation tests use mocked providers/sessions. Browser tests use undeployed role backups, real crypto/storage and a virtual clock, not a native-wallet ceremony or physical suspend.",
+    "Already-started wallet/SDK/crypto work is not cancelled; guards prevent further application continuation.",
+    "Other role-network callers retain their existing behavior unless they pass the optional continuation guard.",
+    "No full regression, runtime-image refresh or public deployment."
+  ]
+}

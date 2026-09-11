@@ -1,5 +1,11 @@
 # Validation report
 
+## Role restore deadlines and continuation guards -- 2026-09-11
+
+Role file restoration now has a three-minute deadline across reading, decryption and connected authority/report checks. Browser unlocking separately bounds local reading/decryption, then runs the bounded workspace restoration phase. SDK continuation guards stop later stages after wallet setup, join, public read or disclosure validation if restoration expires or its workspace closes. Expired local decryption cannot call restore or activate autosave; inputs remain available for explicit retry.
+
+**39 tests / 4 files passed in 94.75 seconds**, including nine new lifetime/deadline cases and full RoleWorkspace/LocalRoleStorage/role-network regression. **Six desktop/mobile browser cases passed in 1.2 minutes**, with real file/IndexedDB crypto, two workers and no retries. An initial typecheck rejected a Playwright-only query option in the new component test; the unsupported option was removed. Normal web build/typecheck and release validation then passed: **8 circuits / 80 files / 65,572,228 bytes**. See [evidence and limits](evidence/role-restore-deadlines.json).
+
 ## Single-role export deadline and lifetime -- 2026-09-11
 
 Single-role file encryption now has a three-minute deadline inside its workspace operation lock. Expiry releases the form and retains retry inputs. A workspace lifetime check after encryption and before download rejects late results after unmount; an expired result cannot download or mark a newer operation as backed up.

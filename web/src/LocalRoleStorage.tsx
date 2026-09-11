@@ -107,7 +107,12 @@ export function LocalRoleStorage({ vault, disabled, onRestore, onSaved, onPersis
           <button className="primary-button">Enable encrypted browser autosave</button>
         </form> :
         <form onSubmit={(event) => void run(event, async () => {
-          const row = await readStoredRole(selected); const restored = await decryptRoleVault(row.encrypted, password);
+          const { row, restored } = await continuationDeadline(180_000, "Browser backup decryption timed out. Your selection and password are retained; retry explicitly when ready.", async check => {
+            const active = () => { check(); if (!mounted.current) throw new Error("Browser unlock closed"); if (latest.current.vault) throw new Error("A workspace is already open. Restore in a fresh tab."); };
+            active(); const row = await readStoredRole(selected); active();
+            const restored = await decryptRoleVault(row.encrypted, password); active();
+            return { row, restored };
+          });
           if (!mounted.current) return;
           if (latest.current.vault) throw new Error("A workspace is already open. Restore in a fresh tab.");
           await latest.current.onRestore(restored);

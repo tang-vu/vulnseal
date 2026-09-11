@@ -133,8 +133,8 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [receipt, setReceipt] = useState<TransactionEvidence>();
-  const busy = useRef(false), exportLifetime = useRef(0);
-  useEffect(() => () => { exportLifetime.current++; }, []);
+  const busy = useRef(false), workspaceLifetime = useRef(0);
+  useEffect(() => () => { workspaceLifetime.current++; }, []);
   const lock = async (action: () => Promise<void>) => {
     if (busy.current) throw new Error("Wait for the current operation to finish");
     busy.current = true; setWorking(true); setError(""); setMessage("");
@@ -142,6 +142,17 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   };
   const run = (action: () => Promise<void>) => void lock(action).catch((cause) => setError(cause instanceof Error ? cause.message : "Role operation failed"));
   const form = (event: FormEvent, action: () => Promise<void>) => { event.preventDefault(); run(action); };
+  const restoreRole = (load: (check: () => void) => Promise<RoleVault>) => {
+    const lifetime = workspaceLifetime.current;
+    return continuationDeadline(180_000, "Role restoration timed out. Keep the backup and retry explicitly; a late result cannot open this workspace.", async assertActive => {
+      const check = () => { assertActive(); if (workspaceLifetime.current !== lifetime) throw new Error("Role restoration session closed"); };
+      check(); if (vault) throw new Error("Restore in a fresh tab to preserve the open workspace");
+      const restored = await load(check); check();
+      const joined = restored.contractAddress && !offlineRestore ? await joinRoleVault(restored, recordSubmission, check) : undefined;
+      check();
+      setVault(restored); setSaved(restored); setSession(joined?.session); setSnapshot(joined?.snapshot); setSelectedId(restored.reports[0]?.reportId ?? "");
+    });
+  };
   const chosen = vault?.reports.find((entry) => entry.reportId === selectedId);
   const record = snapshot && chosen && snapshot.ledger.reports.member(hexToBytes(chosen.reportId)) ? snapshot.ledger.reports.lookup(hexToBytes(chosen.reportId)) : undefined;
   const status = record ? contractStatusName(record.status) : undefined;
@@ -244,11 +255,7 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
       {keys && <p className="operation-notice">Receiving keys are held in this tab. Keep their separate encrypted key backup before leaving; the role backup does not include them.</p>}
       {receipt && <p className="operation-notice public-value">Finalized {receipt.circuit}: {receipt.txId} at block {receipt.blockHeight}. A failed follow-up read does not erase this transaction.</p>}
       {!vault && <label><input type="checkbox" checked={offlineRestore} onChange={(event) => setOfflineRestore(event.target.checked)} />Restore backups without connecting Lace</label>}
-      <LocalRoleStorage key={persistenceGeneration} vault={vault} disabled={working} onSaved={setSaved} onPersistence={(persist) => { persistJournal.current = persist; }} onRestore={(restored) => lock(async () => {
-        if (vault) throw new Error("Restore in a fresh tab to preserve the open workspace");
-        const joined = restored.contractAddress && !offlineRestore ? await joinRoleVault(restored, recordSubmission) : undefined;
-        setVault(restored); setSaved(restored); setSession(joined?.session); setSnapshot(joined?.snapshot); setSelectedId(restored.reports[0]?.reportId ?? "");
-      })} />
+      <LocalRoleStorage key={persistenceGeneration} vault={vault} disabled={working} onSaved={setSaved} onPersistence={(persist) => { persistJournal.current = persist; }} onRestore={(restored) => lock(() => restoreRole(async () => restored))} />
       {vault && <section className="form-panel"><h2>Submission journal</h2>
         {recoveryRequired && <p>This session lost confirmation after saving a transaction checkpoint. Transactions remain disabled. Keep your backup and use the journal checks to investigate the saved identifier before restoring a fresh session. An error or timeout does not prove the transaction failed.</p>}
         <p>Real role submissions require encrypted browser autosave. The transaction identifier is saved before calling the wallet. A recorded attempt is not proof of broadcast, success or finality; check the wallet or indexer before retrying after an interruption.</p>
@@ -266,9 +273,11 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
             const joined = await joinRoleVault(created, recordSubmission); setVault(created); setSession(joined.session); setSnapshot(joined.snapshot); setTab("backup");
           })} />
           <form className="form-panel" onSubmit={(event) => form(event, async () => {
-            const restored = await decryptRoleVault(await readFile(file, MAX_ROLE_BACKUP_BYTES), password);
-            const joined = restored.contractAddress && !offlineRestore ? await joinRoleVault(restored, recordSubmission) : undefined;
-            setVault(restored); setSaved(restored); setSession(joined?.session); setSnapshot(joined?.snapshot); setSelectedId(restored.reports[0]?.reportId ?? ""); setPassword("");
+            await restoreRole(async check => {
+              const serialized = await readFile(file, MAX_ROLE_BACKUP_BYTES); check();
+              return decryptRoleVault(serialized, password);
+            });
+            setPassword("");
           })}><h2>Restore one role</h2><label>Single-role backup file<input type="file" accept=".json,application/json" required onChange={(event) => setFile(event.target.files?.[0])} /></label><label>Role restore password<input type="password" minLength={12} required value={password} onChange={(event) => setPassword(event.target.value)} /></label><button className="primary-button">Restore role workspace</button><p>Connected restores check current authority and saved report bindings. Offline restores open local backups only; connect and verify the program before any transaction.</p></form>
           <RecoveryJournal />
         </> : <>
@@ -278,13 +287,13 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
           <div className="button-row workspace-tabs"><button className="secondary-button" onClick={() => setTab("reports")}>Reports</button>{vault.role === "researcher" && <button className="secondary-button" onClick={() => setTab("prepare")}>Prepare report</button>}<button className="secondary-button" onClick={() => setTab("exchange")}>Disclosure exchange</button><button className="secondary-button" onClick={() => setTab("backup")}>Save role backup</button></div>
           {tab === "backup" && <form className="form-panel" onSubmit={(event) => form(event, async () => {
             if (password !== confirmation) throw new Error("Role backup passwords do not match");
-            const currentExport = exportLifetime.current;
+            const currentExport = workspaceLifetime.current;
             const encrypted = await continuationDeadline(180_000, "Role backup encryption timed out. Your inputs are retained; retry explicitly when ready. No download was started by this attempt.", async check => {
               check(); const result = await encryptRoleVault(vault, password); check();
-              if (exportLifetime.current !== currentExport) throw new Error("Role backup session closed");
+              if (workspaceLifetime.current !== currentExport) throw new Error("Role backup session closed");
               return result;
             });
-            if (exportLifetime.current !== currentExport) return;
+            if (workspaceLifetime.current !== currentExport) return;
             download(encrypted, `vulnseal-role-${vault.role}-backup.json`); setSaved(vault); setPassword(""); setConfirmation(""); setMessage("Role backup downloaded. Confirm the file is saved; keep the file and password private.");
           })}><h2>Save {vault.role} authority</h2><p>This file contains this role's actor secret, prepared/received reports, submission journal, current report or vendor program draft and working notes for each saved report. Notes are editable working copies, not transaction history. Retain the separate receiving-key backup.</p><label>Role backup password<input type="password" autoComplete="new-password" minLength={12} required value={password} onChange={(event) => setPassword(event.target.value)} /></label><label>Confirm role backup password<input type="password" autoComplete="new-password" minLength={12} required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label><button className="primary-button">Download single-role backup</button></form>}
           {!vault.contractAddress && vault.role === "vendor" && tab === "reports" && <form className="form-panel" onSubmit={(event) => {
