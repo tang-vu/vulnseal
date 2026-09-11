@@ -19,6 +19,30 @@ async function withServer(values: unknown[], run: (url: string, sent: any[]) => 
   finally { for (const socket of server.clients) socket.terminate(); await new Promise<void>((resolve) => server.close(() => resolve())); }
 }
 const scan = (websocketUrl: string, options = {}) => findPreviousContractAction({ websocketUrl, contractAddress: address, deploymentHeight: 1, transactionId: id, ...options });
+it("captures the requested deployment before the WebSocket handshake", async () => {
+  await withServer([action(1), action(2, true)], async (url, sent) => {
+    const options = { websocketUrl: url, contractAddress: address, deploymentHeight: 1, transactionId: id };
+    const pending = findPreviousContractAction(options);
+    options.deploymentHeight = 99;
+    await expect(pending).resolves.toMatchObject({ previous: { blockHeight: 1 }, target: { blockHeight: 2 } });
+    expect(sent.find(message => message.type === "subscribe").payload.variables.offset.height).toBe(1);
+  });
+});
+
+it.each([false, true])("removes the original abort listener after options change, cancelled=%s", async cancelled => {
+  await withServer([action(1), action(2, true)], async url => {
+    const original = new AbortController(), replacement = new AbortController();
+    const add = vi.spyOn(original.signal, "addEventListener"), remove = vi.spyOn(original.signal, "removeEventListener");
+    try {
+      const options = { websocketUrl: url, contractAddress: address, deploymentHeight: 1, transactionId: id, signal: original.signal };
+      const pending = findPreviousContractAction(options);
+      options.signal = replacement.signal;
+      if (cancelled) { original.abort(); await expect(pending).rejects.toThrow("cancelled"); }
+      else await expect(pending).resolves.toMatchObject({ target: { blockHeight: 2 } });
+      expect(remove).toHaveBeenCalledWith("abort", add.mock.calls[0]![1]);
+    } finally { add.mockRestore(); remove.mockRestore(); }
+  });
+});
 it("finds the adjacent action through a real WebSocket subscription from deployment", async () => {
   await withServer([action(1), action(2), action(3, true)], async (url, sent) => {
     const result = await scan(url);

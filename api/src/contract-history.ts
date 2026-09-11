@@ -25,10 +25,12 @@ const query = `subscription RecoveryHistory($address: HexEncoded!, $offset: Bloc
 
 /** Bounded source-reported history, not an authenticated completeness proof.
  * Same-block/multiple-action histories and non-success results are deliberately refused. */
-export function findPreviousContractAction(options: {
+export function findPreviousContractAction(input: {
   readonly websocketUrl: string; readonly contractAddress: string; readonly deploymentHeight: number;
   readonly transactionId: string; readonly signal?: AbortSignal; readonly timeoutMs?: number; readonly maxActions?: number;
 }): Promise<{ previous: HistoricalAction; target: HistoricalAction; actionsRead: number }> {
+  // Capture caller choices once, retaining the original signal for cancellation and cleanup.
+  const options = { ...input };
   const address = hex(options.contractAddress), identifier = hex(options.transactionId, true);
   const timeoutMs = options.timeoutMs ?? 20_000, maxActions = options.maxActions ?? 1000;
   if (!Number.isSafeInteger(options.deploymentHeight) || options.deploymentHeight < 0 || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60_000 || !Number.isSafeInteger(maxActions) || maxActions < 2 || maxActions > 10_000) throw new Error("Invalid history scan limits");
