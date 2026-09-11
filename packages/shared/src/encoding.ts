@@ -34,6 +34,6 @@ export const fromUtf8 = (value: Uint8Array): string => new TextDecoder("utf-8", 
 }).decode(value);
 
 export const assertBytes32 = (value: Uint8Array, name: string): Uint8Array => {
-  if (value.byteLength !== 32) throw new Error(`${name} must be exactly 32 bytes`);
+  if (!(value instanceof Uint8Array) || value.byteLength !== 32) throw new Error(`${name} must be exactly 32 bytes`);
   return new Uint8Array(value);
 };

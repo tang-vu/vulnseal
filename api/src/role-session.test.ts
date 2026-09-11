@@ -169,3 +169,14 @@ describe("one-role transaction sessions", () => {
     await vendorApi.withPrivateState(createVulnSealPrivateState(bytes(33)), async () => { expect(simulator.getPrivateState().actorSecret).toEqual(bytes(33)); });
   });
 });
+
+it.each([new ArrayBuffer(32), new DataView(new ArrayBuffer(32)), new Uint16Array(16), { byteLength: 32, length: 32 }])("rejects non-byte runtime command fields before private-state installation", async value => {
+  const { vendor, researcher, vendorApi, researcherApi, provider, calls } = await setup();
+  const vendorPrivate = vi.spyOn(vendorApi, "withPrivateState"), researcherPrivate = vi.spyOn(researcherApi, "withPrivateState");
+  vi.mocked(vendorApi.readPublicState).mockClear(); vi.mocked(researcherApi.readPublicState).mockClear();
+  await expect(vendor.execute({ kind: "beginTriage", reportId: value } as unknown as RoleCommand)).rejects.toThrow("reportId must be exactly 32 bytes");
+  await expect(researcher.execute({ kind: "submitReport", report: preimage, ciphertextDigest: value } as unknown as RoleCommand)).rejects.toThrow("ciphertextDigest must be exactly 32 bytes");
+  expect(vendorPrivate).not.toHaveBeenCalled(); expect(researcherPrivate).not.toHaveBeenCalled();
+  expect(provider.set).not.toHaveBeenCalled(); expect(calls).toHaveLength(0);
+  expect(vendorApi.readPublicState).not.toHaveBeenCalled(); expect(researcherApi.readPublicState).not.toHaveBeenCalled();
+});
