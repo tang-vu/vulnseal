@@ -1,5 +1,11 @@
 # Validation report
 
+## Offline sealed and prepared report reading -- 2026-09-11
+
+Offline inspection now exposes the actual report content already decrypted and commitment-checked by recovery validation. Dedicated sealed/prepared sections remain separate from the editable draft and show report fields plus local attachment metadata checking. Clearing inspection removes both report views.
+
+**22 component tests / 3 files passed in 9.54 seconds**, including a sealed report whose draft has changed, prepared v4 recovery, and an encrypted invalid-commitment payload rejected before rendering. Earlier failures were fixture schema/export-validation setup errors, corrected without weakening production validation. **Two desktop/mobile browser cases passed in 46.2 seconds**, with two workers and no retries, including distinct sealed/draft titles, clearing and overflow checks. Normal build/typecheck and release validation passed: **8 circuits / 80 files / 65,555,494 bytes**. See [evidence and limits](evidence/offline-recovery-reports.json).
+
 ## Offline combined recovery inspection -- 2026-09-11
 
 Private recovery can now inspect a local encrypted file or selected browser copy without connecting Lace, replacing a session or querying transaction status. Existing backup validation runs before displaying saved identifiers, uncertainty markers, private draft/notes and report journal requests. Clear invalidates pending reads/decryption and drops visible data and inputs; a three-minute deadline bounds inspection. Saved observations do not establish current ledger state or safe retry.

@@ -7,7 +7,7 @@ import { defaultProgramDraft } from "../web/src/program.js";
 test("inspects encrypted network journal without wallet or status lookup, retries password and clears private data", async ({ page }) => {
   const { snapshot } = await recoveryFixture();
   const password = "Synthetic offline inspection password";
-  const encrypted = await encryptRecovery({ ...snapshot, version: 8, mode: "midnight", network: "preprod", contractAddress: "ab".repeat(32), programDraft: defaultProgramDraft, pendingReport: null, uncertainTransition: null, attachmentDraft: null, reportAttempts: [{ circuit: "beginTriage", reportId: snapshot.report!.id, startedAt: "2026-09-11T00:00:00.000Z", transactionId: "cd".repeat(32), request: { nextStatus: "TRIAGED", severity: 3, rationale: "Immutable private journal rationale", patchReference: "", retestNotes: "" }, outcome: "sdk-confirmed" }] }, password);
+  const encrypted = await encryptRecovery({ ...snapshot, draft: { ...snapshot.draft, title: "Later editable draft" }, version: 8, mode: "midnight", network: "preprod", contractAddress: "ab".repeat(32), programDraft: defaultProgramDraft, pendingReport: null, uncertainTransition: null, attachmentDraft: null, reportAttempts: [{ circuit: "beginTriage", reportId: snapshot.report!.id, startedAt: "2026-09-11T00:00:00.000Z", transactionId: "cd".repeat(32), request: { nextStatus: "TRIAGED", severity: 3, rationale: "Immutable private journal rationale", patchReference: "", retestNotes: "" }, outcome: "sdk-confirmed" }] }, password);
   await page.addInitScript(() => Object.assign(window, { __inspectionConnections: 0, midnight: { synthetic: { apiVersion: "4.0.1", connect: () => { (window as any).__inspectionConnections++; throw new Error("Offline inspection must not connect"); } } } }));
   await page.goto("/");
   await page.getByRole("button", { name: "Private recovery", exact: true }).click();
@@ -26,9 +26,13 @@ test("inspects encrypted network journal without wallet or status lookup, retrie
   expect(await page.evaluate(() => (window as any).__inspectionConnections)).toBe(0);
   await expect(page.getByRole("button", { name: "Lace connected", exact: true })).toHaveCount(0);
   expect(await panel.innerText()).not.toContain(snapshot.vendorSecret);
+  await panel.getByText("Read sealed report from backup", { exact: true }).click();
+  await expect(panel.getByRole("heading", { name: "Private vulnerability", exact: true })).toBeVisible();
+  await expect(panel.getByRole("heading", { name: "Later editable draft", exact: true })).toHaveCount(0);
   await panel.getByText("Saved private draft and notes", { exact: true }).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await panel.getByRole("button", { name: "Clear inspected backup" }).click();
   await expect(panel.getByText("Immutable private journal rationale", { exact: true })).toHaveCount(0);
+  await expect(panel.getByRole("heading", { name: "Private vulnerability", exact: true })).toHaveCount(0);
   expect(await panel.getByLabel("Backup to inspect").evaluate(element => (element as HTMLInputElement).files!.length)).toBe(0);
 });

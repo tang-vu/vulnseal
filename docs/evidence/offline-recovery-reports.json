@@ -1,0 +1,58 @@
+{
+  "date": "2026-09-11",
+  "scope": "Read sealed and prepared report content from offline combined backups separately from editable drafts",
+  "behavior": [
+    "Retains only parsed report content from canonicalReport returned by the existing authenticated recovery validator, alongside the validated snapshot.",
+    "Renders dedicated sealed/prepared report disclosures with semantic report fields and existing local attachment-metadata checks.",
+    "Clearing inspection also drops both report views. No provider initialization, ledger query or session installation is added."
+  ],
+  "validation": {
+    "unit": {
+      "log": ".compact/inspection-report-tests-verified.log",
+      "passed": 22,
+      "files": 3,
+      "seconds": 9.54,
+      "exit": 0,
+      "scope": "Real encrypted report with divergent editable draft, prepared v4 recovery, valid AES envelope with an invalid report commitment rejected before rendering, plus panel/attachment regression."
+    },
+    "earlierRuns": [
+      {
+        "log": ".compact/inspection-report-tests.log",
+        "passed": 20,
+        "failed": 2,
+        "exit": 1,
+        "reason": "Prepared fixture lacked attachment metadata and used an old version; invalid-commitment fixture was rejected by export validation before reaching import."
+      },
+      {
+        "log": ".compact/inspection-report-tests-final.log",
+        "passed": 21,
+        "failed": 1,
+        "exit": 1,
+        "reason": "Prepared fixture still declared version 2 with a version 4 uncertainty field. Corrected to version 4."
+      }
+    ],
+    "invalidCommitmentMethod": "Intercept only the plaintext input to real AES encryption after export validation, change report.id, then let real import crypto and commitment validation reject the resulting encrypted backup.",
+    "browser": {
+      "log": ".compact/inspection-report-browser.log",
+      "passed": 2,
+      "seconds": 46.2,
+      "exit": 0,
+      "workers": 2,
+      "retries": 0,
+      "scope": "Desktop/mobile show the sealed title while a different draft title exists, preserve offline behavior, prevent horizontal overflow with opened report/draft, and remove content on clear."
+    },
+    "release": {
+      "log": ".compact/inspection-report-release.log",
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65555494,
+      "scope": "Normal web typecheck/build and release manifest after browser tests."
+    }
+  },
+  "limits": [
+    "Cryptographic checks bind the saved report to its saved commitment, not to independently authenticated current ledger state.",
+    "Attachment bytes remain separate; no native-wallet, full regression or container refresh is claimed.",
+    "Browser-copy storage is mocked in component tests; the browser journey uses a local encrypted file and a synthetic connector."
+  ]
+}
