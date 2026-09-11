@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 import { once } from "node:events";
 import { WebSocketServer } from "ws";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { findPreviousContractAction } from "./contract-history.js";
 
 const address = "ab".repeat(32), id = "cd".repeat(33);
 const action = (height: number, target = false) => ({ __typename: height === 1 ? "ContractDeploy" : "ContractCall", address, entryPoint: "beginTriage", transaction: { hash: height.toString(16).padStart(64, "0"), block: { height, hash: "ef".repeat(32) }, identifiers: [target ? id : height.toString(16).padStart(66, "0")], transactionResult: { status: "SUCCESS" } } });
-async function withServer(values: unknown[], run: (url: string, sent: any[]) => Promise<void>) {
+async function withServer(values: unknown[], run: (url: string, sent: any[]) => Promise<void>, beforeActions = () => {}) {
   const server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
   await once(server, "listening");
   const sent: any[] = [];
   server.on("connection", (socket) => socket.on("message", (bytes) => {
     const message = JSON.parse(bytes.toString()); sent.push(message);
     if (message.type === "connection_init") socket.send(JSON.stringify({ type: "connection_ack" }));
-    if (message.type === "subscribe") for (const value of values) socket.send(JSON.stringify({ id: "history", type: "next", payload: { data: { contractActions: value } } }));
+    if (message.type === "subscribe") { beforeActions(); for (const value of values) socket.send(JSON.stringify({ id: "history", type: "next", payload: { data: { contractActions: value } } })); }
   }));
   try { await run(`ws://127.0.0.1:${(server.address() as { port: number }).port}`, sent); }
   finally { for (const socket of server.clients) socket.terminate(); await new Promise<void>((resolve) => server.close(() => resolve())); }
@@ -24,6 +24,23 @@ it("finds the adjacent action through a real WebSocket subscription from deploym
     const result = await scan(url);
     expect(result.previous.blockHeight).toBe(2); expect(result.target.blockHeight).toBe(3); expect(result.actionsRead).toBe(3);
     expect(sent.find((message) => message.type === "subscribe").payload.variables).toEqual({ address, offset: { height: 1 } });
+  });
+});
+
+it.each(["wall", "monotonic", "backwards wall"])("rejects %s expiry on a real socket before accepting a delayed target", async clock => {
+  let wall = 1000, monotonic = 1000;
+  const wallSpy = vi.spyOn(Date, "now").mockImplementation(() => wall);
+  const monotonicSpy = vi.spyOn(performance, "now").mockImplementation(() => monotonic);
+  try {
+    await withServer([action(1), action(2, true)], async url => {
+      await expect(scan(url)).rejects.toThrow("History scan timed out");
+    }, () => {
+      if (clock === "wall") wall += 20_000;
+      else { monotonic += 20_000; if (clock === "backwards wall") wall -= 60_000; }
+    });
+  } finally { wallSpy.mockRestore(); monotonicSpy.mockRestore(); }
+  await withServer([action(1), action(2, true)], async url => {
+    await expect(scan(url)).resolves.toMatchObject({ target: { blockHeight: 2 } });
   });
 });
 it("refuses foreign, incomplete, same-block and unsuccessful streams", async () => {
