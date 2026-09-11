@@ -1,5 +1,11 @@
 # Validation report
 
+## Vendor disclosure acceptance bindings and lifetime -- 2026-09-11
+
+Vendor acceptance now fixes the incoming disclosure before asynchronous validation and requires ledger presence, matching commitment/ciphertext digest and submission-receipt consistency before adding the report. A three-minute deadline and workspace lifetime checks prevent results after expiry/closure from reaching later validation or installing the merged vault.
+
+A baseline run against prior `34aac68` reproduced **2 failed / 3 passed / 2 skipped** cases in **8.10 seconds**: malformed commitment and receipt were previously accepted. Fixed source bytes were preserved and restored in `finally`. The fixed suite passed **40 tests / 3 files in 103.47 seconds**, including seven new acceptance cases and full RoleWorkspace/role-network regression. Normal web build/typecheck and release validation passed: **8 circuits / 80 files / 65,576,452 bytes**. [Evidence](evidence/role-disclosure-acceptance.json) records the mocked network/handoff and real crypto scope; receipt consistency is not authenticated ledger inclusion.
+
 ## Role ledger refresh deadlines -- 2026-09-11
 
 Manual ledger refresh and the read after a finalized report transaction now have a three-minute deadline and workspace lifetime check. Starting the read clears the previous actionable snapshot. Failure/expiry leaves transaction actions unavailable until a successful explicit read, while saved receipts and journals remain intact. A late stale result cannot replace a successful retry.

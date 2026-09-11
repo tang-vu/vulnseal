@@ -1,0 +1,44 @@
+{
+  "date": "2026-09-11",
+  "scope": "Bound vendor disclosure acceptance and require consistent ledger report bindings",
+  "behavior": [
+    "Captures the received disclosure before asynchronous validation. Checks local crypto, target network/program/address and duplicates before reading ledger.",
+    "Requires ledger presence, matching commitment/ciphertext digest and derived submission-receipt consistency before validating/installing the merged role vault.",
+    "A three-minute deadline and workspace lifetime checks follow every awaited stage. Expired or closed results cannot add the report or update the selected ledger snapshot."
+  ],
+  "reproduction": {
+    "log": ".compact/role-disclosure-acceptance-baseline.log",
+    "baselineCommit": "34aac68",
+    "passed": 3,
+    "failed": 2,
+    "skipped": 2,
+    "seconds": 8.1,
+    "exit": 1,
+    "finding": "Prior RoleWorkspace accepted the malformed commitment and submissionReceipt cases.",
+    "method": "Temporarily wrote git show HEAD bytes to RoleWorkspace.tsx, ran only binding cases, restored exact fixed bytes in finally.",
+    "restoredSourceSha256": "63c03299935d9d04e17fa6aaf66ad80f37db02b22d79fa966f13f6b485f53ed3"
+  },
+  "validation": {
+    "unit": {
+      "log": ".compact/role-disclosure-acceptance-tests.log",
+      "passed": 40,
+      "files": 3,
+      "seconds": 103.47,
+      "exit": 0,
+      "scope": "Seven new acceptance cases: valid, absent, malformed commitment/digest/receipt, deadline dispatch and unmount before a delayed read. Complete RoleWorkspace and role-network regressions also pass. Crypto validation is real; handoff component and network session are mocked."
+    },
+    "release": {
+      "log": ".compact/role-disclosure-acceptance-release.log",
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65576452,
+      "scope": "Normal web build/typecheck and release manifest. Exact application source bytes were restored after baseline reproduction."
+    }
+  },
+  "limits": [
+    "Receipt consistency and source-provided ledger fields do not independently authenticate inclusion/finality.",
+    "Already-started crypto/SDK reads are not cancelled; the guard blocks their application continuation.",
+    "No new browser E2E, full regression, runtime refresh, native-wallet ceremony or public deployment."
+  ]
+}

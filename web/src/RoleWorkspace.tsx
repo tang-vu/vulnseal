@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { submissionReceipt } from "./submission-receipt.js";
 import { continuationDeadline } from "./midnight/continuation-deadline.js";
 import { GitHubReleaseImport } from "./GitHubReleaseImport.js";
 import { VendorPolicyExport } from "./VendorPolicyExport.js";
@@ -238,13 +239,23 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   });
   const acceptDisclosure = async (value: Disclosure) => lock(async () => {
     if (!vault || vault.role !== "vendor" || !session) throw new Error("Join as vendor before adding reports");
-    const opened = await validateDisclosure(value);
-    if (value.network !== vault.network || value.contractAddress !== vault.contractAddress || value.programId !== vault.programId) throw new Error("Disclosure belongs to another program or network");
-    const latest = await session.readPublicState(); const id = hexToBytes(value.reportId);
-    if (!latest.ledger.reports.member(id) || bytesToHex(latest.ledger.reports.lookup(id).ciphertextDigest) !== opened.ciphertextDigest) throw new Error("Disclosure is absent from the ledger or its ciphertext does not match");
-    if (vault.reports.some((entry) => entry.reportId === value.reportId)) throw new Error("This report is already in the workspace");
-    const updated = await validateRoleVault({ ...vault, reports: [...vault.reports, value] });
-    setVault(updated); setSnapshot(latest); setSelectedId(value.reportId);
+    const lifetime = workspaceLifetime.current;
+    const captured = structuredClone(value);
+    await continuationDeadline(180_000, "Disclosure verification timed out. Keep the received disclosure and retry explicitly; no report was added by this attempt.", async assertActive => {
+      const check = () => { assertActive(); if (workspaceLifetime.current !== lifetime) throw new Error("Disclosure acceptance session closed"); };
+      check(); const opened = await validateDisclosure(captured); check();
+      if (captured.network !== vault.network || captured.contractAddress !== vault.contractAddress || captured.programId !== vault.programId) throw new Error("Disclosure belongs to another program or network");
+      if (vault.reports.some((entry) => entry.reportId === captured.reportId)) throw new Error("This report is already in the workspace");
+      const latest = await session.readPublicState(); check();
+      const id = hexToBytes(captured.reportId);
+      if (!latest.ledger.reports.member(id)) throw new Error("Disclosure is absent from the ledger");
+      const record = latest.ledger.reports.lookup(id);
+      if (bytesToHex(record.commitment) !== captured.reportId) throw new Error("Disclosure commitment does not match the ledger record");
+      if (bytesToHex(record.ciphertextDigest) !== opened.ciphertextDigest) throw new Error("Disclosure ciphertext does not match the ledger");
+      if (bytesToHex(record.submissionReceipt) !== bytesToHex(submissionReceipt(id, record.ciphertextDigest, record.researcherKey))) throw new Error("Ledger submission receipt is inconsistent with the disclosure");
+      const updated = await validateRoleVault({ ...vault, reports: [...vault.reports, captured] }); check();
+      setVault(updated); setSnapshot(latest); setSelectedId(captured.reportId);
+    });
   });
   return <div className="app-shell role-workspace">
     <header className="topbar"><strong>VulnSeal · Role workspace</strong><a href="./" target="_blank" rel="noreferrer noopener">Open demo / public verifier</a></header>

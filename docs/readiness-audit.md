@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Vendor disclosure acceptance now checks ledger commitment and submission-receipt consistency as well as ciphertext, and rejects late results after its deadline or workspace closure. Baseline tests reproduced two previously accepted malformed records. See [acceptance evidence](evidence/role-disclosure-acceptance.json). These checks remain source-trusting and do not authenticate ledger inclusion.
+
 - Role file restoration and browser-copy unlocking now bound their read/decrypt/restore phases and reject closed-session continuations. Connected restore checks before progressing past wallet setup, join, public read and saved-report verification; offline restoration remains available. See [role restore evidence](evidence/role-restore-deadlines.json). SDK cancellation and native-wallet validation remain separate.
 
 - Manual backup encryption now times out after three minutes and releases both application/panel locks while retaining retry inputs. Late crypto results cannot download/save or unlock a newer attempt. Real desktop/mobile tests exposed and verified the outer application-lock fix; see [backup deadline evidence](evidence/backup-export-deadlines.json). Already-running crypto, autosave and storage-write outcomes remain separate.
