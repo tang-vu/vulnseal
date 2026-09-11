@@ -1,0 +1,46 @@
+{
+  "date": "2026-09-11",
+  "sourceCommit": "78c4987052315851e6e0fbbbf621ba4d1b9efaa6",
+  "scope": "API public ledger read rejects expired responses/errors and decoding results using wall and monotonic time, even without timer dispatch.",
+  "validation": {
+    "baseline": {
+      "log": ".compact/public-read-clock-baseline.log",
+      "failed": 5,
+      "passed": 3,
+      "seconds": 2.01,
+      "exit": 1
+    },
+    "api": {
+      "log": ".compact/public-read-clock-tests.log",
+      "passed": 97,
+      "files": 7,
+      "seconds": 3.61,
+      "exit": 0
+    },
+    "integration": {
+      "log": ".compact/public-read-clock-tests.log",
+      "passed": 9,
+      "files": 3,
+      "seconds": 2.87,
+      "exit": 0
+    },
+    "release": {
+      "command": "npm run release:build",
+      "log": ".compact/public-read-clock-release.log",
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65577846,
+      "exit": 0
+    }
+  },
+  "coverage": [
+    "Three clock configurations: forward wall time, monotonic expiry, monotonic expiry with backwards wall time. Each exercises response, null and rejection beyond the deadline without dispatching timers.",
+    "Decoder returns or throws after crossing the monotonic deadline.",
+    "Existing timer timeout, late response ignored, explicit fresh retry, timely absent-state and provider-error behavior remain covered."
+  ],
+  "limits": [
+    "Provider and decoder are mocked in public-state tests; no physical suspend or live indexer validation.",
+    "Already-running query/decode work is not cancelled. Synchronous decoding can still block until it returns; expired results are rejected afterward.",
+    "No new E2E/full workspace run, container image, security scan, native-wallet transaction or public deployment."
+  ]
+}

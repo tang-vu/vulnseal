@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- API public reads now reject expired responses and decode results using both clocks, including delayed timer dispatch and backwards wall time. Five baseline failures were reproduced; 97 API tests and the root release build pass. See [public read deadline evidence](evidence/public-read-clock-deadlines.json). Synchronous decode work is not preempted, and live indexer/physical suspend validation remains separate.
+
 - Shared bytes32 validation now rejects non-byte runtime inputs before copying or API command side effects. Full source regression passed 744 workspace tests, 168 ordinary desktop/mobile cases, eight release-tool tests and the normal root release build. See [source evidence](evidence/bytes32-full-regression.json). This does not refresh the runtime image or resolve its failed security gate; the independent contract private-state helper was subsequently fixed and verified in [witness validation evidence](evidence/witness-bytes-validation.json).
 
 - Vendor disclosure acceptance now checks ledger commitment and submission-receipt consistency as well as ciphertext, and rejects late results after its deadline or workspace closure. Baseline tests reproduced two previously accepted malformed records. See [acceptance evidence](evidence/role-disclosure-acceptance.json). These checks remain source-trusting and do not authenticate ledger inclusion.

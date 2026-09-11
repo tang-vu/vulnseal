@@ -1,5 +1,11 @@
 # Validation report
 
+## API public read elapsed deadlines -- 2026-09-11
+
+Public ledger reads now check wall and monotonic deadlines before decoding and before returning a snapshot; late provider/decoder errors are also classified as timeout. The existing twenty-second timer and explicit read retry remain. A delayed timer callback can no longer admit an already-expired result.
+
+Baseline source failed five of eight public-read cases. Fixed source `78c4987` passed **97 API tests / 7 files** and **9 integration tests / 3 files**. Normal root release build passed: **8 circuits / 80 files / 65,577,846 bytes**. [Evidence](evidence/public-read-clock-deadlines.json) records clock scenarios, logs and limits. Query/decode work is not cancelled; no physical suspend, live indexer or new browser/runtime validation is claimed.
+
 ## Contract private-state and witness byte validation -- 2026-09-11
 
 The independent contract byte helper now requires Uint8Array values before copying. Tests cover all nine private fields at construction and witness read, valid Buffer/offset views, independent output storage and omitted-evidence defaults. API join rejects malformed actor secrets before invoking the SDK. Baseline source failed ten of twelve new cases.
