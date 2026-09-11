@@ -1,5 +1,11 @@
 # Validation report
 
+## Contract private-state and witness byte validation -- 2026-09-11
+
+The independent contract byte helper now requires Uint8Array values before copying. Tests cover all nine private fields at construction and witness read, valid Buffer/offset views, independent output storage and omitted-evidence defaults. API join rejects malformed actor secrets before invoking the SDK. Baseline source failed ten of twelve new cases.
+
+Contract **40**, API **92** and integration **9** tests passed; **22 desktop/mobile lifecycle cases** passed in **1.3 minutes** without retries. Normal root release build passed: **8 circuits / 80 files / 65,576,944 bytes**. Initial typecheck exposed two indexing errors in the new test helper; test-only fixes were followed by successful contract/API typechecks and all twelve focused witness tests. [Evidence](evidence/witness-bytes-validation.json) records source `6f37f1e`, timings and validation order. This completes the private-state helper follow-up below without claiming a fresh full/runtime/native-wallet regression.
+
 ## Shared bytes32 runtime validation and full regression -- 2026-09-11
 
 Shared `assertBytes32` now rejects non-byte runtime values before copying, preserving valid Uint8Array/Buffer offset views with independent storage. New API command tests verify rejection before private-state installation, public reads or circuit execution. The previous helper failed eight of twelve new shared cases; fixed source is `655397b81f8cf5e9894b68f980785d91d1bce016`.

@@ -1,0 +1,75 @@
+{
+  "date": "2026-09-11",
+  "sourceCommit": "6f37f1eda15f2e24bbf70771a98de77336d5dad7",
+  "scope": "Contract private-state construction and witness byte type validation; API join rejects invalid actor secrets before SDK invocation.",
+  "validation": {
+    "baseline": {
+      "log": ".compact/witness-bytes-baseline.log",
+      "failed": 10,
+      "passed": 2,
+      "seconds": 0.524,
+      "exit": 1,
+      "note": "Prior helper accepts non-byte values; null/undefined actor errors were not the named validation error. Later test-only improvements strengthened in-place mutation checks and resolved strict TypeScript indexing."
+    },
+    "contract": {
+      "log": ".compact/witness-bytes-contract.log",
+      "passed": 40,
+      "files": 4,
+      "seconds": 67.22,
+      "exit": 0
+    },
+    "api": {
+      "log": ".compact/witness-bytes-consumers.log",
+      "passed": 92,
+      "files": 7,
+      "seconds": 3.66,
+      "exit": 0
+    },
+    "integration": {
+      "log": ".compact/witness-bytes-consumers.log",
+      "passed": 9,
+      "files": 3,
+      "seconds": 2.89,
+      "exit": 0
+    },
+    "browser": {
+      "command": "CI=1 npx playwright test e2e/roles.spec.ts e2e/vulnseal.spec.ts",
+      "log": ".compact/witness-bytes-browser.log",
+      "passed": 22,
+      "reportedDuration": "1.3m",
+      "workers": 2,
+      "retries": 0,
+      "exit": 0
+    },
+    "release": {
+      "command": "npm run release:build",
+      "log": ".compact/witness-bytes-release.log",
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65576944,
+      "exit": 0
+    },
+    "initialTypecheck": {
+      "log": ".compact/witness-bytes-typecheck.log",
+      "exit": 2,
+      "cause": "New test helper used a possibly undefined computed key and array index."
+    },
+    "finalTypecheck": {
+      "command": "npm run typecheck -w @vulnseal/contract -w @vulnseal/api",
+      "log": ".compact/witness-bytes-typecheck-final.log",
+      "exit": 0
+    },
+    "finalWitnessTests": {
+      "log": ".compact/witness-bytes-tests-final.log",
+      "passed": 12,
+      "seconds": 0.47,
+      "exit": 0
+    }
+  },
+  "provenance": "Production source remained unchanged through contract/API/integration/browser/build checks. Two test-only indexing fixes followed the build; final focused tests and contract/API typechecks passed afterward.",
+  "limits": [
+    "The previous bytes32-full-regression.json remains the most recent complete six-workspace/ordinary-browser regression; this turn ran the contract/API/integration suites and selected lifecycle browser cases.",
+    "No Compact circuit changes, fresh proving keys, native-wallet signing, public deployment, runtime image refresh or security scan.",
+    "Partial evidence omissions retain existing zero defaults. Runtime checking does not authenticate ledger inclusion or provider behavior."
+  ]
+}
