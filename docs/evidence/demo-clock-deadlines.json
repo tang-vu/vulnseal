@@ -1,0 +1,40 @@
+{
+  "recordedAt": "2026-09-11T03:54:44.035251+00:00",
+  "baseRevision": "c185e10",
+  "reproduction": {
+    "passed": 3,
+    "failed": 2,
+    "exitCode": 1,
+    "trigger": "Preparation resumes after either clock reaches the deadline while timer callbacks remain undispatched. Original helper still invokes submit."
+  },
+  "validation": {
+    "targetedTests": {
+      "tests": 45,
+      "files": 4,
+      "seconds": 43.4,
+      "exitCode": 0
+    },
+    "normalWebBuildAndRelease": {
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65459749,
+      "exitCode": 0
+    }
+  },
+  "rawLogSha256": {
+    "demo-clock-reproduction": "d105f3d85a66bc27965bd662cf8b17abd79b8f1dca181dde7a9d60009351553d",
+    "demo-clock-tests": "3be29db19d24dda9c19c66c6361d0f0bc9b2ce43973126d1a6fb98a55147f646",
+    "demo-clock-release": "6b9eafc9bdf19ef36a0583251e99e6441ddaed47b70ed473d66cd247937e0415"
+  },
+  "coverage": [
+    "Both wall and monotonic clock expiry without running timeout callbacks",
+    "Resolve/reject outcomes during prepare and submit; backwards wall-clock adjustment cannot extend an elapsed monotonic wait",
+    "Timely results/errors and timer cleanup",
+    "App/network backup uncertainty and disabled resubmission, plus shared role deadline regression"
+  ],
+  "limits": [
+    "Already-invoked SDK/wallet submission can continue; this blocks starting submit after expired preparation and refuses late results.",
+    "No physical suspend/resume, native-wallet action, new E2E/full regression or runtime image refresh.",
+    "Combined-demo durable transaction identifier journaling remains incomplete."
+  ]
+}

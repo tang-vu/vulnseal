@@ -1,5 +1,13 @@
 # Validation report
 
+## Apply elapsed-deadline checks to combined transitions -- 2026-09-11
+
+The combined demo's ten-minute transition helper had the same delayed-timer gap: a reproduction had **3 passed / 2 failed**, with expired preparation still starting submit before the timer callback ran. It now rechecks monotonic/wall-clock deadlines before invoking submit and before returning an SDK result. Either clock can expire the wait. Late SDK rejection uses the existing unknown-outcome guidance; timely failures/results keep their prior behavior. No retry or uncertainty marker is cleared by this change.
+
+**45 tests / 4 files** passed in **43.40 seconds**. The new cases independently expire each clock without dispatching timers, cover prepare/submit resolve and reject paths, and move wall time backwards while monotonic time reaches expiry. Existing role-wait and App/network backup/uncertainty checks remain included. Final normal web build/typecheck and artifact gate passed: **8 circuits / 80 files / 65,459,749 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/demo-clock-deadlines.json) retains the failing reproduction and final logs. This blocks starting submit after expired preparation and refuses late results; already-invoked SDK/wallet work can continue. Physical suspend/resume, native-wallet behavior, combined durable identifier journaling, full E2E regression and runtime image refresh remain separate work.
+
 ## Enforce deadlines when timer dispatch is delayed -- 2026-09-11
 
 A targeted reproduction produced **6 passed / 2 failed**: the old wait accepted a checkpoint after its deadline if the timer callback had not yet run. The helper now records monotonic and wall-clock deadlines for each phase, rejects expiry at the checkpoint and at SDK completion, and classifies late SDK rejections as the expired phase. Either clock can expire the wait; a backwards wall clock cannot extend an elapsed monotonic deadline. Timely errors and results retain their existing behavior.
