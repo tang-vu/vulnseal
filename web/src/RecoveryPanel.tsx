@@ -5,6 +5,14 @@ import { deleteStoredRecovery, listStoredRecoveries, readStoredRecovery, writeSt
 
 import { RecoveryAutosavePanel } from "./RecoveryAutosavePanel.js";
 
+const downloadRecovery = (serialized: string, filename = "vulnseal-recovery.json") => {
+  const url = URL.createObjectURL(new Blob([serialized], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url; link.download = filename;
+  try { document.body.append(link); link.click(); }
+  finally { link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
+};
+
 export function RecoveryPanel({ onAutosaveStatus, snapshot, onExport, onImport, canImport }: {
   readonly onAutosaveStatus?: ((status: string) => void) | undefined;
   readonly snapshot?: RecoverySnapshot | undefined;
@@ -58,11 +66,7 @@ export function RecoveryPanel({ onAutosaveStatus, snapshot, onExport, onImport, 
       if (password !== confirmation) throw new Error("Backup passwords do not match");
       const serialized = await onExport(password);
       if (!isCurrent()) return;
-      const url = URL.createObjectURL(new Blob([serialized], { type: "application/json" }));
-      const link = document.createElement("a");
-      link.href = url; link.download = "vulnseal-recovery.json";
-      try { document.body.append(link); link.click(); }
-      finally { link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
+      downloadRecovery(serialized);
       setPassword(""); setConfirmation("");
       setMessage("Encrypted backup download started. Confirm the file is saved, and make a new backup after new reports or private evidence.");
     })}>
@@ -116,7 +120,7 @@ export function RecoveryPanel({ onAutosaveStatus, snapshot, onExport, onImport, 
         <option value="">Choose a saved copy</option>
         {copies.map((copy) => <option key={copy.id} value={copy.id}>{copy.label} ? {new Date(copy.updatedAt).toLocaleString()} ? {copy.id.slice(0, 8)}</option>)}
       </select></label>
-      <p>To restore, enter the Recovery password above. Removing a selected copy deletes only that browser copy, not downloaded files or the active session.</p>
+      <p>To restore, enter the Recovery password above. Downloading a selected copy keeps its existing encryption and password; it does not require unlocking this session. Removing a selected copy deletes only that browser copy, not downloaded files or the active session.</p>
       <button type="button" className="primary-button" disabled={!restoreAllowed || !selectedCopy || working} onClick={(event) => void run(event, async (isCurrent) => {
         if (!importAllowed.current) throw new Error("Restore in a fresh tab to preserve this active session");
         const saved = await readStoredRecovery(selectedCopy);
@@ -125,6 +129,12 @@ export function RecoveryPanel({ onAutosaveStatus, snapshot, onExport, onImport, 
         await onImport(saved.encrypted, restorePassword);
         if (isCurrent()) { setRestorePassword(""); setFile(undefined); if (fileInput.current) fileInput.current.value = ""; }
       })}>Restore selected browser copy</button>
+      <button type="button" className="secondary-button" disabled={!selectedCopy || working} onClick={(event) => void run(event, async (isCurrent) => {
+        const saved = await readStoredRecovery(selectedCopy);
+        if (!isCurrent()) return;
+        downloadRecovery(saved.encrypted, `vulnseal-recovery-${saved.id}-r${saved.revision}.json`);
+        setMessage(`Encrypted browser copy download started (revision ${saved.revision}). Confirm the file is saved before removing this browser copy. Its existing password is still required to restore it.`);
+      })}>Download selected browser copy</button>
       <button type="button" className="secondary-button" disabled={!selectedCopy || selectedCopy === activeAutosaveId || working} onClick={(event) => void run(event, async (isCurrent) => {
         const selected = copies.find((copy) => copy.id === selectedCopy);
         if (!selected) throw new Error("Refresh and select a browser copy first");

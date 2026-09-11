@@ -1,0 +1,41 @@
+{
+  "recordedAt": "2026-09-11T04:02:16.395907+00:00",
+  "baseRevision": "b5d5f711cba748442c88e6f2e38cd31b249c5fc4",
+  "validation": {
+    "targetedTests": {
+      "tests": 21,
+      "files": 3,
+      "seconds": 11.08,
+      "exitCode": 0
+    },
+    "desktopMobileE2E": {
+      "tests": 2,
+      "seconds": 48.8,
+      "exitCode": 0
+    },
+    "normalWebBuildAndRelease": {
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65461485,
+      "exitCode": 0
+    }
+  },
+  "rawLogSha256": {
+    "recovery-copy-export-tests": "12a1f904cced9d645816c196b5121e3645629a80b869421e6acb9f34803a4cee",
+    "recovery-copy-export-tests-final": "980a71e870912772045522f465174b618bc11e3fd95a5ce093ff6a734f3129f7",
+    "recovery-copy-export-browser": "525b6a4c3d90e3d29834b73f68f1f8a83c0372e2ebe2df048456055f37d5ce08",
+    "recovery-copy-export-release": "4a588139eef7d46ed82452f41334840cff58e71f78f03a74c38e18ff5168a4a5"
+  },
+  "coverage": [
+    "Download selected committed copy without entering a password; exact encrypted bytes and revision filename verified",
+    "Remove source copy and restore downloaded file in an isolated browser context with empty recovery storage",
+    "Existing quota failure, reload, wrong-password retry and unrelated-copy preservation",
+    "Delayed stored-copy read after unmount cannot start download; existing failed-download cleanup and retry"
+  ],
+  "limits": [
+    "Download start does not confirm durable file storage; existing password is required for restore.",
+    "Committed copy can precede unsaved live changes.",
+    "No full regression, refreshed runtime image, native-wallet action or public deployment in this change.",
+    "Combined durable transaction identifier journaling remains incomplete."
+  ]
+}

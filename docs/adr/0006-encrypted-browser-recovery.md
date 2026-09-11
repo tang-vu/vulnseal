@@ -103,3 +103,10 @@ Status is visible both in Private recovery and on the other combined-demo screen
 Changing the program ID, network or contract binding stops the old writer; enabling again creates a separate copy for the new session. While active, its selected copy cannot be removed through this panel and restoration is disabled until autosave stops. Other saved copies and manual file export remain available. Existing leave warnings are retained.
 
 The debounce and encryption/write latency create a window where newer edits are not yet recoverable. This is not a durable pre-wallet journal: network actions do not await this save, transaction identifiers are not added, and saved uncertainty markers do not establish safe retry. Undeployed network sessions still cannot enable combined autosave. Browser eviction, site-data removal, device failure and a lost password still require separately retained backups. Receiving-key material and unfinished child-form passwords are outside the recovery snapshot and retain their own backup/input protections.
+
+
+### Download an existing browser copy
+
+The selected browser copy can be downloaded directly as an encrypted JSON file without entering its password or unlocking the live session. The download reads one committed IndexedDB revision and preserves its exact encrypted envelope; its filename includes the copy ID and actual revision read. Restore still requires the existing password. This exports the saved revision, which may precede current unsaved edits, and does not create a new snapshot or change its password.
+
+Downloads remain available during autosave. They do not remove or overwrite a browser copy. The user must confirm that the file was saved before removing the source; starting a browser download does not prove durable file storage. A read completed after panel unmount cannot initiate a download. Desktop/mobile verification downloads without a password, compares exact encrypted bytes, removes the source and restores the file in an isolated browser context with empty recovery storage.

@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- A selected combined browser recovery copy can now be downloaded with its existing encryption and password. Desktop/mobile checks compare exact encrypted bytes and restore the file in an isolated browser context after source-copy removal. This exports the committed revision, not newer unsaved edits; see [evidence](evidence/recovery-copy-export.json).
+
 - Combined-demo transition waits now recheck both elapsed deadlines before starting submit and accepting SDK results, even if timer callbacks are delayed. Tests cover both clocks and late resolve/reject paths; existing uncertainty and retry blocking remain. Already-started SDK/wallet work is not canceled.
 
 - Role transaction preparation now has a 15-minute deadline before the durable checkpoint, followed by the existing 10-minute confirmation wait. Late checkpoints are tied to their original wait and cannot authorize broadcast after expiry/unmount. Both monotonic and wall-clock deadlines are rechecked at checkpoints and SDK completion, so delayed timer dispatch cannot accept an expired result. Preparation expiry stops the old autosave writer and blocks the session while preserving backup access; already-started storage writes may still commit and require inspection. Native-wallet cancellation remains unverified.

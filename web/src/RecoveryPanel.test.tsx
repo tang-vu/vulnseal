@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { RecoveryPanel } from "./RecoveryPanel.js";
+import * as recoveryStorage from "./recovery-storage.js";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 const submit = (name: string) => fireEvent.submit(screen.getByRole("button", { name }).closest("form")!);
@@ -100,4 +101,23 @@ it("clears the restored file and password only after successful import", async (
   expect(screen.getByLabelText("Recovery file")).toHaveValue("");
   expect(screen.getByLabelText("Recovery password")).toHaveValue("");
   expect(leaving()).toBe(false);
+});
+
+
+it("does not download a stored copy whose read completes after unmount", async () => {
+  const saved = { id: "saved-copy", label: "Combined recovery", revision: 1, updatedAt: "2026-09-11T00:00:00Z", encrypted: "encrypted bytes" };
+  vi.spyOn(recoveryStorage, "listStoredRecoveries").mockResolvedValue([saved]);
+  let finish!: (value: typeof saved) => void;
+  const read = vi.spyOn(recoveryStorage, "readStoredRecovery").mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const create = vi.fn();
+  vi.stubGlobal("URL", class extends URL { static createObjectURL = create; });
+  const view = render(<RecoveryPanel onExport={vi.fn()} onImport={vi.fn()} canImport />);
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Refresh browser copies" })));
+  fireEvent.change(screen.getByLabelText("Saved recovery copy"), { target: { value: saved.id } });
+  fireEvent.click(screen.getByRole("button", { name: "Download selected browser copy" }));
+  expect(read).toHaveBeenCalledWith(saved.id);
+  expect(screen.getByRole("button", { name: "Remove selected browser copy" })).toBeDisabled();
+  view.unmount();
+  await act(async () => finish(saved));
+  expect(create).not.toHaveBeenCalled();
 });

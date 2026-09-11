@@ -1,5 +1,13 @@
 # Validation report
 
+## Export saved combined recovery copies -- 2026-09-11
+
+A selected browser copy now downloads its existing encrypted bytes without a password or live-session unlock. Its filename records the actual committed revision read. The existing password is still required for restore; newer unsaved changes are outside this file. The same download helper retains cleanup on failure for manual exports. Late stored-copy reads after unmount cannot initiate downloads.
+
+**21 tests / 3 files** passed in **11.08 seconds**. **2 desktop/mobile E2E checks** passed in **48.8 seconds**, verifying exact byte preservation, password-free download, source-copy removal, then file restore in an isolated browser context with empty IndexedDB. Existing quota failure, reload, wrong-password retry and preservation of the other copy remain covered. Final normal web build/typecheck and release validation passed: **8 circuits / 80 files / 65,461,485 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/recovery-copy-export.json) records logs and scope. Download initiation does not prove durable file storage. No full regression, runtime image refresh, native-wallet action or public deployment is claimed.
+
 ## Apply elapsed-deadline checks to combined transitions -- 2026-09-11
 
 The combined demo's ten-minute transition helper had the same delayed-timer gap: a reproduction had **3 passed / 2 failed**, with expired preparation still starting submit before the timer callback ran. It now rechecks monotonic/wall-clock deadlines before invoking submit and before returning an SDK result. Either clock can expire the wait. Late SDK rejection uses the existing unknown-outcome guidance; timely failures/results keep their prior behavior. No retry or uncertainty marker is cleared by this change.

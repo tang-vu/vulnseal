@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 
-test("encrypted browser recovery survives reload, quota failure and selected-copy removal", async ({ page }) => {
+test("encrypted browser recovery survives reload, quota failure and selected-copy removal", async ({ page, browser }, testInfo) => {
   await page.goto("/");
   await page.getByRole("button", { name: /Seal a vulnerability/i }).click();
   await page.getByLabel("Report title").fill("Private browser recovery draft");
@@ -46,6 +47,14 @@ test("encrypted browser recovery survives reload, quota failure and selected-cop
   await page.getByRole("button", { name: "Refresh browser copies" }).click();
   await expect(page.getByLabel("Saved recovery copy").locator("option")).toHaveCount(3);
   await page.getByLabel("Saved recovery copy").selectOption(first);
+  await expect(page.getByLabel("Recovery password", { exact: true })).toHaveValue("");
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download selected browser copy" }).click();
+  const downloaded = await downloading, filename = testInfo.outputPath("saved-browser-copy.json");
+  expect(downloaded.suggestedFilename()).toBe(`vulnseal-recovery-${first}-r1.json`);
+  await downloaded.saveAs(filename);
+  expect(await readFile(filename, "utf8")).toBe((rows[0] as { encrypted: string }).encrypted);
+
   await page.getByLabel("Recovery password", { exact: true }).fill("Wrong browser recovery password");
   await page.getByRole("button", { name: "Restore selected browser copy" }).click();
   await expect(page.getByRole("alert")).toHaveText("Wrong backup password or damaged recovery file");
@@ -60,4 +69,17 @@ test("encrypted browser recovery survives reload, quota failure and selected-cop
   await expect(page.getByLabel("Saved recovery copy").locator("option")).toHaveCount(2);
   await page.getByLabel("Saved recovery copy").selectOption(second);
   await expect(page.getByLabel("Saved recovery copy")).toHaveValue(second);
+  const isolated = await browser.newContext(testInfo.project.use);
+  try {
+    const restored = await isolated.newPage();
+    await restored.goto("/");
+    await restored.getByRole("button", { name: "Private recovery", exact: true }).click();
+    await restored.getByRole("button", { name: "Refresh browser copies" }).click();
+    await expect(restored.getByText("No saved browser copies on this site.")).toBeVisible();
+    await restored.getByLabel("Recovery file").setInputFiles(filename);
+    await restored.getByLabel("Recovery password", { exact: true }).fill("Synthetic browser recovery password");
+    await restored.getByRole("button", { name: "Restore encrypted backup" }).click();
+    await expect(restored.getByLabel("Report title")).toHaveValue("Private browser recovery draft");
+  } finally { await isolated.close(); }
+
 });
