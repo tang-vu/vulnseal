@@ -27,6 +27,15 @@ export type SafeLogger = {
   error(message: string, context?: unknown): void;
 };
 
+// Logging is observational: a sink failure or mutation must not change transaction outcomes.
+const logSafely = (logger: SafeLogger | undefined, level: keyof SafeLogger, message: string, context: unknown): void => {
+  if (!logger) return;
+  try {
+    const result = logger[level](message, structuredClone(context));
+    void Promise.resolve(result).catch(() => {});
+  } catch { /* Preserve the SDK outcome when an optional log sink fails. */ }
+};
+
 const evidence = (
   circuit: VulnSealCircuitKeys | "constructor",
   publicData: unknown,
@@ -65,7 +74,7 @@ export class VulnSealApi {
     program: ProgramConstructor,
     logger?: SafeLogger,
   ): Promise<{ api: VulnSealApi; evidence: TransactionEvidence }> {
-    logger?.info("Deploying VulnSeal program", redactForLog({ program }));
+    logSafely(logger, "info", "Deploying VulnSeal program", redactForLog({ program }));
     const deployed = await deployContract(providers, {
       compiledContract: compiledVulnSealContract,
       privateStateId: vulnSealPrivateStateKey,
@@ -152,14 +161,14 @@ export class VulnSealApi {
     circuit: VulnSealCircuitKeys,
     invoke: () => Promise<{ public: unknown }>,
   ): Promise<TransactionEvidence> {
-    this.logger?.info("Submitting authorized contract transition", { circuit });
+    logSafely(this.logger, "info", "Submitting authorized contract transition", { circuit });
     try {
       const result = await invoke();
       const transaction = evidence(circuit, result.public);
-      this.logger?.info("Contract transition finalized", transaction);
+      logSafely(this.logger, "info", "Contract transition finalized", transaction);
       return transaction;
     } catch (error) {
-      this.logger?.error("Contract transition failed", {
+      logSafely(this.logger, "error", "Contract transition failed", {
         circuit,
         error: error instanceof Error ? error.message : "Unknown error",
       });
