@@ -1,5 +1,11 @@
 # Validation report
 
+## Historical WebSocket elapsed deadlines -- 2026-09-11
+
+History scanning now checks wall and monotonic expiry before initialization/messages and at settlement, preventing delayed timer callbacks from admitting expired predecessor evidence. Socket initialization send failures also settle through cleanup.
+
+Three baseline failures were reproduced using a real localhost WebSocket server and mocked elapsed clocks. Fixed source `365e384` passed **134 API tests / 9 files in 3.72 seconds**. Each new case also verifies a fresh read succeeds. Root release build passed: **8 circuits / 80 files / 65,580,702 bytes**. See [evidence](evidence/history-clock-deadlines.json). History remains source-reported and is not an authenticated completeness proof; no new runtime image or native-network validation is claimed.
+
 ## Current API/recovery localhost runtime -- 2026-09-11
 
 Application source `4c6a55b` was packaged as immutable image `sha256:e16fbec592bef36c2f40e1c201da7613c357ab52f2883662aa08f8f7f8372d81`. The image release gate and localhost drill passed: **80 files / 81 requests / 65,580,658 served bytes**, hashes/headers/404, non-root/read-only operation, desktop/mobile public/deployment workers, widget/exchange behavior and graceful restart. Owned test/scanner cleanup queries both passed with no remaining containers.

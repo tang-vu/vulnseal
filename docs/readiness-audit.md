@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Historical WebSocket scans now reject elapsed deadlines even with delayed timers or a backwards wall clock. Real localhost socket cases reproduce three prior failures and verify explicit fresh reads; see [history deadline evidence](evidence/history-clock-deadlines.json). This does not authenticate history completeness.
+
 - Optional API loggers now receive copied context and cannot replace SDK outcomes through thrown errors, rejected promises or context mutation. Four baseline failures were reproduced; 131 API tests and the release build pass. See [logger isolation evidence](evidence/logger-isolation.json). This does not turn logging into a durable audit journal.
 
 - SDK transaction evidence now requires a valid identifier and exact non-negative integer height before a finalized transition is returned/logged. See [evidence validation](evidence/transaction-evidence-validation.json), including 125 passing API tests. This validates structure, not independent finality; a rejected SDK result does not prove a transaction was never broadcast.
