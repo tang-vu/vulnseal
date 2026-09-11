@@ -1,0 +1,105 @@
+{
+  "date": "2026-09-11",
+  "sourceCommit": "655397b81f8cf5e9894b68f980785d91d1bce016",
+  "scope": "Strict shared bytes32 runtime validation and full six-workspace/ordinary browser regression",
+  "sourceUnchangedDuringValidation": true,
+  "change": "assertBytes32 requires a Uint8Array of exactly 32 bytes before making an independent copy. Node Buffer and offset byte views remain supported. API command tests reject malformed runtime fields before private-state installation or public reads.",
+  "baseline": {
+    "log": ".compact/bytes32-baseline.log",
+    "passed": 4,
+    "failed": 8,
+    "seconds": 0.544,
+    "exit": 1,
+    "scope": "New shared tests against the previous helper; six invalid types were accepted and null/undefined produced the wrong error."
+  },
+  "validation": {
+    "workspaces": {
+      "passed": 744,
+      "files": 97,
+      "exit": 0,
+      "suites": [
+        {
+          "name": "shared",
+          "passed": 25,
+          "files": 2,
+          "seconds": 0.6,
+          "log": ".compact/bytes32-shared-tests.log"
+        },
+        {
+          "name": "api",
+          "passed": 88,
+          "files": 7,
+          "seconds": 3.58,
+          "log": ".compact/bytes32-api-tests.log"
+        },
+        {
+          "name": "contract",
+          "passed": 28,
+          "files": 3,
+          "seconds": 68.53
+        },
+        {
+          "name": "cipherstore",
+          "passed": 50,
+          "files": 10,
+          "seconds": 30.81
+        },
+        {
+          "name": "integration",
+          "passed": 9,
+          "files": 3,
+          "seconds": 2.92
+        },
+        {
+          "name": "web",
+          "passed": 544,
+          "files": 72,
+          "seconds": 280.95
+        }
+      ],
+      "remainingFourLog": ".compact/bytes32-workspace-tests.log",
+      "commands": [
+        "npm run test:run -w @vulnseal/shared",
+        "npm run build -w @vulnseal/shared",
+        "npm run test:run -w @vulnseal/api",
+        "npm run test:run -w @vulnseal/contract -w @vulnseal/cipherstore -w @vulnseal/integration -w @vulnseal/web"
+      ]
+    },
+    "browser": {
+      "command": "CI=1 npx playwright test",
+      "log": ".compact/bytes32-browser.log",
+      "passed": 168,
+      "reportedDuration": "7.4m",
+      "workers": 2,
+      "retries": 0,
+      "projects": [
+        "desktop-chrome",
+        "mobile-chrome"
+      ],
+      "exit": 0
+    },
+    "releaseTests": {
+      "command": "npm run test:release",
+      "log": ".compact/bytes32-release-tests.log",
+      "passed": 8,
+      "milliseconds": 408.5831,
+      "exit": 0
+    },
+    "release": {
+      "command": "npm run release:build",
+      "log": ".compact/bytes32-release.log",
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65576632,
+      "exit": 0,
+      "scope": "Contract source consistency, all six workspace builds and normal web manifest after browser tests."
+    }
+  },
+  "limits": [
+    "No new native wallet signing, public deployment, container image/drill/scan or fresh proving-key generation.",
+    "Ordinary browser configuration only; separate replication/cross-adapter configurations were not rerun.",
+    "The independent contract witnesses.ts bytes32 helper still needs the corresponding runtime type guard; this patch covers the shared helper and its callers.",
+    "Latest localhost runtime evidence remains recovery-full-runtime.json, based on source 819eb1e; its unsuppressed security gate remains failed.",
+    "Simulated providers and browser fixtures do not establish authenticated ledger inclusion or live chain finality."
+  ]
+}

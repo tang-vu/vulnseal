@@ -1,5 +1,11 @@
 # Validation report
 
+## Shared bytes32 runtime validation and full regression -- 2026-09-11
+
+Shared `assertBytes32` now rejects non-byte runtime values before copying, preserving valid Uint8Array/Buffer offset views with independent storage. New API command tests verify rejection before private-state installation, public reads or circuit execution. The previous helper failed eight of twelve new shared cases; fixed source is `655397b81f8cf5e9894b68f980785d91d1bce016`.
+
+All six workspace suites passed **744 tests / 97 files**. Ordinary desktop/mobile Playwright passed **168 tests in 7.4 minutes**, two workers and zero retries. All **eight release-tool tests** passed. The subsequent normal root release build passed with **8 circuits / 80 files / 65,576,632 bytes**. [Evidence](evidence/bytes32-full-regression.json) records suite timings, logs and limits. No new container/native-wallet validation is claimed. The independent contract private-state byte helper remains a follow-up.
+
 ## Vendor disclosure acceptance bindings and lifetime -- 2026-09-11
 
 Vendor acceptance now fixes the incoming disclosure before asynchronous validation and requires ledger presence, matching commitment/ciphertext digest and submission-receipt consistency before adding the report. A three-minute deadline and workspace lifetime checks prevent results after expiry/closure from reaching later validation or installing the merged vault.
