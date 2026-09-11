@@ -63,6 +63,9 @@ export default defineConfig({
     exclude: ["@midnight-ntwrk/onchain-runtime-v3"],
   },
   test: {
+    // Each worker initializes Midnight WASM and performs real backup/key crypto.
+    // Bound concurrent runtimes on both developer machines and CI runners.
+    maxWorkers: 2,
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     css: true,

@@ -1,5 +1,15 @@
 # Validation report
 
+## Consolidated regression and bounded web test workers -- 2026-09-11
+
+At application revision `dfe75c23aad5feda27057bdc1b448e3059546025`, `npm run validate` completed all six workspace builds/typechecks. Shared **13**, contract **28**, API **84**, cipherstore **50** and integration **9** tests passed. Web initially had **361 passed / 1 failed**: the App retry test still expected the raw fetch error replaced by the retained-ciphertext recovery guidance. The corrected assertion retains same-ciphertext retry and leave-warning checks. Its first correction mistakenly queried an alert role absent from this progress screen; that failed attempt is retained too.
+
+A subsequent complete web run passed the App check but timed out waiting for autosave/journal UI in two other tests. The host reports 48 available CPUs; the installed Vitest non-watch default permits 47 workers when unset. Web tests now explicitly use **2 workers**, matching their real Midnight WASM and backup/key crypto workload. No test deadline, retry count or product behavior was relaxed. The bounded complete web run passed **362 tests / 57 files in 185.62 seconds**. This removes machine-size-dependent worker fan-out; one passing run is not proof that every possible timing race is absent.
+
+Final unit coverage is **546 tests / 81 files**, combining the five unchanged workspaces from the initial run and the complete corrected web run. It is **not** reported as one successful `npm run validate` invocation. The complete ordinary desktop/mobile suite passed **128 E2E tests in 6.0 minutes**, two workers and no automatic retries, in one invocation. Both offline SDK examples passed. The final normal web build/typecheck and release gate passed with **8 circuits / 80 files / 65,418,379 bytes**.
+
+[Regression evidence](evidence/regression-dfe75c2.json) records all failed and successful attempts, exact log hashes, test/config changes and validation scope. The browser run overlapped the end of the bounded web unit run only after repository builds/typechecks had finished; unit tests do not write the web build directory. No GitHub workflow, runtime image refresh, native-wallet ceremony or public deployment was performed. SQLite latency and the separately tracked strict runtime vulnerability gates remain unresolved.
+
 ## Capture recipient intent and validate backup key pairs -- 2026-09-11
 
 Disclosure export now captures the public recipient file before asynchronous report validation. Previously it read the caller's recipient object afterward, permitting a changed recipient to redirect a pending export. Receiving-key backup now captures its public recipient and private key before awaiting, validates the public file, and checks the matching RSA-OAEP SHA-256 key pair before encryption. The pair check is shared with restoration. Mismatched key pairs fail during backup creation instead of producing an unrestorable file. File formats and ordinary UI key creation remain unchanged.

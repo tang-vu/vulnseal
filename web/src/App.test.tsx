@@ -46,7 +46,7 @@ describe("VulnSeal product interface", () => {
     await user.click(screen.getByRole("button", { name: /Seal a vulnerability/i }));
     await user.click(screen.getByRole("checkbox"));
     await user.click(screen.getByRole("button", { name: /Encrypt & seal/i }));
-    await screen.findByText("Upload response lost");
+    expect(await screen.findByText(/The ciphertext may already be stored/)).toHaveTextContent("retry its identical ciphertext");
     const leaving = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(leaving);
     expect(leaving.defaultPrevented).toBe(true);
     await user.click(screen.getByRole("button", { name: "Review report" }));

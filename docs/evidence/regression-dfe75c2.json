@@ -1,0 +1,154 @@
+{
+  "recordedAt": "2026-09-11T02:25:53.816515+00:00",
+  "applicationRevision": "dfe75c23aad5feda27057bdc1b448e3059546025",
+  "node": "24.14.1",
+  "validationChanges": {
+    "web/src/App.test.tsx": "Check current retained-ciphertext recovery guidance instead of the old raw fetch message. Preserve identical retry and leave-guard assertions.",
+    "web/vite.config.ts": "Set maxWorkers=2 for WASM/crypto-heavy web tests; no timeout or retry changes."
+  },
+  "initialValidate": {
+    "log": ".compact/regression-dfe75c2.log",
+    "exitCode": 1,
+    "rawLogSha256": "9dcef0109b7cb28672324b7c9a3106c5b57c7700b39ae06e778a6a34c1a4779b",
+    "command": "npm run validate",
+    "workspaceBuildsPassed": 6,
+    "workspaceTypechecksPassed": 6,
+    "workspaces": {
+      "shared": {
+        "files": 1,
+        "tests": 13,
+        "failed": 0,
+        "duration": "647ms"
+      },
+      "contract": {
+        "files": 3,
+        "tests": 28,
+        "failed": 0,
+        "duration": "71.54s"
+      },
+      "api": {
+        "files": 7,
+        "tests": 84,
+        "failed": 0,
+        "duration": "3.29s"
+      },
+      "cipherstore": {
+        "files": 10,
+        "tests": 50,
+        "failed": 0,
+        "duration": "33.75s"
+      },
+      "integration": {
+        "files": 3,
+        "tests": 9,
+        "failed": 0,
+        "duration": "2.95s"
+      },
+      "web": {
+        "files": 57,
+        "tests": 362,
+        "failed": 1,
+        "duration": "104.17s"
+      }
+    },
+    "reason": "App retry test expected the obsolete raw Upload response lost message."
+  },
+  "webFollowups": [
+    {
+      "log": ".compact/regression-dfe75c2-web-final.log",
+      "exitCode": 1,
+      "rawLogSha256": "050f75787328a97e63f2510f1ae36a195833e7443d1780d18d5fa9a9e4b0f402",
+      "passed": 361,
+      "failed": 1,
+      "durationSeconds": 98.91,
+      "reason": "First assertion correction incorrectly queried role=alert on the seal progress screen."
+    },
+    {
+      "log": ".compact/regression-dfe75c2-web-verified.log",
+      "exitCode": 1,
+      "rawLogSha256": "c45e98a2e6a4501076440baec2a50129d92e43d463a7d2ed958d6cba2f03c048",
+      "passed": 360,
+      "failed": 2,
+      "reason": "App assertion passed; RoleDeploymentInputs and RoleJournal exceeded default UI query waits under host-default worker concurrency."
+    },
+    {
+      "log": ".compact/regression-dfe75c2-web-bounded.log",
+      "exitCode": 0,
+      "rawLogSha256": "d785ae65a5d89ba406d55269ac6cc8ea965b6d3c6f4e66afa4b0b81768b15a3d",
+      "passed": 362,
+      "failed": 0,
+      "files": 57,
+      "durationSeconds": 185.62,
+      "maxWorkers": 2,
+      "testTimeoutsChanged": false,
+      "automaticRetries": 0
+    }
+  ],
+  "hostConcurrency": {
+    "availableParallelism": 48,
+    "installedVitest": "4.1.11",
+    "defaultNonWatchWorkerResolution": "max(availableParallelism - 1, 1), inspected in installed cli-api source",
+    "configuredWebWorkers": 2,
+    "limit": "Passing one bounded run does not prove all possible timing races absent."
+  },
+  "finalUnitCoverage": {
+    "tests": 546,
+    "files": 81,
+    "failed": 0,
+    "basis": "Five unchanged workspaces passed in initial validate; the corrected complete web suite passed in the bounded run. Final web build also typechecks the changed test/config.",
+    "singleSuccessfulFullValidateInvocation": false
+  },
+  "browser": {
+    "log": ".compact/regression-dfe75c2-browser.log",
+    "exitCode": 0,
+    "rawLogSha256": "31713b8b2a80211972f3fe7649fa9e01165516d3ef6f1e7fefec5de43690f395",
+    "command": "CI=1 npm run test:e2e",
+    "passed": 128,
+    "failed": 0,
+    "duration": "6.0m",
+    "workers": 2,
+    "automaticRetries": 0,
+    "singleFullSuiteInvocation": true,
+    "note": "Started after repository builds/typechecks completed; overlapped the tail of the two-worker web unit run, which does not write web/dist."
+  },
+  "offlineExamples": [
+    {
+      "log": ".compact/sdk-public-dfe75c2.log",
+      "exitCode": 0,
+      "rawLogSha256": "f464dd4295f7c323702160fe1fa5268881e71d3b6f9674ad90053b91fd1b9bab",
+      "command": "node examples/public-verification-fixture.mjs",
+      "mode": "Offline fixture with simulated RPC finality"
+    },
+    {
+      "log": ".compact/sdk-constructor-dfe75c2.log",
+      "exitCode": 0,
+      "rawLogSha256": "2f53270ab097bbb430fe3027eddadabb65a87d7fdf16cf832af02a99b79abd90",
+      "command": "node examples/program-constructor.mjs",
+      "mode": "Offline compiled constructor, no deployment"
+    }
+  ],
+  "releasePackaging": {
+    "log": ".compact/regression-dfe75c2-release.log",
+    "exitCode": 0,
+    "rawLogSha256": "5b3d7d563e7274bb31e857b6d45b29c926fc5ccd16a0df62e29913ed1532da33",
+    "commands": [
+      "npm run build -w @vulnseal/web",
+      "node scripts/check-web-release.mjs --write-manifest"
+    ],
+    "circuits": 8,
+    "files": 80,
+    "bytes": 65418379,
+    "manifestWritten": true
+  },
+  "limits": [
+    "No fresh GitHub CI execution",
+    "No native Lace multi-profile or network transaction ceremony",
+    "No runtime image rebuild/scan or public hosting verification",
+    "Separate tooling/replication/security gates retain their own historical evidence",
+    "SQLite lost-acknowledgment latency and strict runtime Go advisory gates remain unresolved"
+  ],
+  "changedInputHashes": {
+    "web/src/App.test.tsx": "1e0f6b255673efece90321e58a2ce80507496047c0b9403cf1eb15c3e29eab9a",
+    "web/vite.config.ts": "1ec9f1e92e1c7d4c005146c889aa07f973f706beff88855e20e0f3fd05166ee1"
+  }
+}
