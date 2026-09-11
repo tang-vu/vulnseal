@@ -1,0 +1,40 @@
+{
+  "date": "2026-09-11",
+  "sourceCommit": "4c6a55bf8b76d24117da9a769a59661e13af3b65",
+  "scope": "Optional SDK adapter logging cannot throw over transaction outcomes or mutate evidence returned to callers. Log context is cloned and synchronous throws/asynchronous rejections are contained.",
+  "validation": {
+    "baseline": {
+      "log": ".compact/logger-isolation-baseline.log",
+      "failed": 4,
+      "seconds": 1.99,
+      "exit": 1
+    },
+    "api": {
+      "log": ".compact/logger-isolation-tests.log",
+      "passed": 131,
+      "files": 9,
+      "seconds": 3.6,
+      "exit": 0
+    },
+    "release": {
+      "command": "npm run release:build",
+      "log": ".compact/logger-isolation-release.log",
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65579379,
+      "exit": 0
+    }
+  },
+  "coverage": [
+    "Throws while logging start/success preserve one SDK call and successful evidence.",
+    "Error-sink failure preserves the original SDK error object.",
+    "Logger mutation cannot change returned circuit, identifier or height.",
+    "Rejected asynchronous info/error sinks do not create unhandled rejections or change SDK success/failure."
+  ],
+  "limits": [
+    "Logger execution is not sandboxed or preempted; a synchronously blocking logger can still block execution.",
+    "Logging failures are intentionally discarded; this does not make logs a durable audit journal.",
+    "Deployment uses the same protected logging helper, but new cases exercise transitions.",
+    "No new browser/full workspace/runtime image/native-wallet validation."
+  ]
+}

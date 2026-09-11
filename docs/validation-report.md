@@ -1,5 +1,11 @@
 # Validation report
 
+## Optional API logger isolation -- 2026-09-11
+
+Logging now receives cloned context and contains synchronous throws and rejected promises. An optional logger cannot prevent a transition from starting, replace the original SDK failure, turn a successful response into an error or mutate returned evidence. Deployment uses the same helper.
+
+All four baseline cases failed. Fixed source `4c6a55b` passed **131 API tests / 9 files in 3.60 seconds**, including two additional asynchronous sink cases. Root release build passed: **8 circuits / 80 files / 65,579,379 bytes**. [Evidence](evidence/logger-isolation.json) records limits: logging is not a durable journal and a synchronously blocking callback is not preempted.
+
 ## SDK transaction evidence validation -- 2026-09-11
 
 The API now validates returned transaction identifiers and non-negative integer block heights before returning evidence or logging a finalized transition. Unsafe numeric heights, malformed strings and invalid result shapes are rejected; canonical decimal strings retain exact large heights. Both 32/33-byte lowercase identifiers and the existing txHash fallback remain supported.
