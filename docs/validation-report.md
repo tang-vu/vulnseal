@@ -1,5 +1,11 @@
 # Validation report
 
+## Readable offline drafts and notes -- 2026-09-11
+
+The offline inspector now renders saved drafts as report fields and working notes instead of a raw JSON block. Draft attachment metadata is separate from unfinished attachment inputs; both remain distinct from the authenticated sealed/prepared report. Existing report-field rendering is shared locally to keep labels consistent. No recovery schema or validation changed.
+
+The existing inspection/panel suite passed **18 tests / 2 files in 8.77 seconds**; the desktop/mobile inspection journey passed **2 cases in 39.0 seconds**, including opened-content overflow and explicit clearing checks. Normal web build/typecheck and release validation passed: **8 circuits / 80 files / 65,564,354 bytes**. Logs: `.compact/inspection-readable-tests.log`, `.compact/inspection-readable-browser.log`, `.compact/inspection-readable-release.log` (all exit 0). This presentation change did not refresh full regression or runtime-image evidence.
+
 ## Offline inspection source identity -- 2026-09-11
 
 Inspection now displays the name/size of the selected file or the identifier/revision/timestamp of the browser copy actually read. Metadata is captured alongside its ciphertext; changing the browser-copy selection during an outstanding read does not relabel the result. Explicit clearing removes the source metadata too.

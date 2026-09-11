@@ -44,6 +44,8 @@ To read a backup without connecting a wallet, use **Inspect a backup offline**. 
 
 Use **Read sealed report from backup** or **Read prepared report from backup** to read the report decrypted from its saved envelope and checked against its saved commitment. These sections show the report title, summary, impact, reproduction steps, remediation, contact and attachment metadata. The editable draft is separate and may have changed after sealing. Attachment bytes are not in this backup; separately received files can be checked locally against the saved metadata.
 
+**Saved private draft and notes** presents the editable report fields and working notes separately from the sealed report. Draft attachment metadata and an unfinished attachment entry are separate sections; incomplete filename/size/digest inputs are preserved as entered and are not presented as verified attachments.
+
 Use **Clear inspected backup** when finished. It clears the visible data, inspection password and selected inspection file, including when a read/decryption is still pending. Navigating between application screens retains the inspection in this tab; reloading discards it. A three-minute deadline covers local reading and decryption. This is application-level clearing, not a guarantee of memory erasure. Exporting and restoring still use their separate controls.
 
 Open a fresh tab on the application. In **Private recovery**, either choose a **Recovery file** or refresh and select a saved browser copy. Enter that copy's existing **Recovery password**, then select the corresponding restore button. Restoring replaces that tab's draft; the application blocks restoration over an active network program, prepared/submitted report, deployment attempt or autosave writer.

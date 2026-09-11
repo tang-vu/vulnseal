@@ -80,7 +80,27 @@ export function RecoveryInspection({ selectedCopy }: { selectedCopy: string }) {
       {snapshot.uncertainTransition && <p>Unresolved action: {snapshot.uncertainTransition}</p>}
       {inspection.report && <InspectedReport report={inspection.report} label="Read sealed report from backup" />}
       {inspection.prepared && <InspectedReport report={inspection.prepared} label="Read prepared report from backup" />}
-      <details><summary>Saved private draft and notes</summary><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify({ draft: snapshot.draft, rationale: snapshot.rationale, patchReference: snapshot.patchReference, retestNotes: snapshot.retestNotes, attachmentDraft: snapshot.attachmentDraft }, null, 2)}</pre></details>
+      <details className="received-disclosure"><summary>Saved private draft and notes</summary>
+        <p>This is the editable draft saved in this backup. It may be unfinished or differ from the sealed report above.</p>
+        <ReportFields report={snapshot.draft} />
+        <h4>Draft attachment metadata</h4>
+        {snapshot.draft.attachments.length ? snapshot.draft.attachments.map((attachment, index) => <dl key={index}>
+          <dt>Filename</dt><dd>{attachment.filename}</dd><dt>Media type</dt><dd>{attachment.mediaType}</dd>
+          <dt>Size in bytes</dt><dd>{attachment.size}</dd><dt>SHA-256</dt><dd>{attachment.sha256}</dd>
+        </dl>) : <p>No attachments recorded in the draft.</p>}
+        <h4>Saved working notes</h4><dl className="policy-text">
+          <dt>Decision rationale</dt><dd>{snapshot.rationale || "Not provided"}</dd>
+          <dt>Patch reference</dt><dd>{snapshot.patchReference || "Not provided"}</dd>
+          <dt>Retest notes</dt><dd>{snapshot.retestNotes || "Not provided"}</dd>
+        </dl>
+        {snapshot.attachmentDraft && Object.values(snapshot.attachmentDraft).some(Boolean) && <>
+          <h4>Unfinished attachment entry</h4><p>These saved inputs may be incomplete and have not been added to the draft attachment list.</p>
+          <dl><dt>Filename</dt><dd>{snapshot.attachmentDraft.filename || "Not provided"}</dd>
+          <dt>Media type</dt><dd>{snapshot.attachmentDraft.mediaType || "Not provided"}</dd>
+          <dt>Size input</dt><dd>{snapshot.attachmentDraft.size || "Not provided"}</dd>
+          <dt>SHA-256 input</dt><dd>{snapshot.attachmentDraft.digest || "Not provided"}</dd></dl>
+        </>}
+      </details>
       <ReportTransactionJournal key={`${snapshot.programId}:${snapshot.reportAttempts?.length}`} attempts={snapshot.reportAttempts ?? []} network={snapshot.network} contractAddress={snapshot.contractAddress ?? ""} allowLookup={false} />
     </div>}
   </section>;
@@ -89,12 +109,18 @@ export function RecoveryInspection({ selectedCopy }: { selectedCopy: string }) {
 function InspectedReport({ report, label }: { report: VulnerabilityReport; label: string }) {
   return <details className="received-disclosure"><summary>{label}</summary>
     <p>This is the report decrypted from the saved envelope and checked against its saved commitment. It can differ from the editable draft. No current ledger state has been checked.</p>
-    <h3>{report.title}</h3><p>{report.affectedAsset} / {report.weakness}</p>
-    <h4>Summary</h4><p className="policy-text">{report.summary}</p>
-    <h4>Impact</h4><p className="policy-text">{report.impact}</p>
+    <ReportFields report={report} />
+    <AttachmentReview attachments={report.attachments} />
+  </details>;
+}
+
+function ReportFields({ report }: { report: VulnerabilityReport }) {
+  return <>
+    <h3>{report.title || "Untitled report"}</h3><p>{report.affectedAsset || "No affected asset provided"} / {report.weakness || "No weakness provided"}</p>
+    <h4>Summary</h4><p className="policy-text">{report.summary || "Not provided"}</p>
+    <h4>Impact</h4><p className="policy-text">{report.impact || "Not provided"}</p>
     <h4>Reproduction</h4><ol>{report.reproductionSteps.map((step, index) => <li className="policy-text" key={index}>{step}</li>)}</ol>
     <h4>Suggested remediation</h4><p className="policy-text">{report.suggestedRemediation || "Not provided"}</p>
     <h4>Researcher contact</h4><p>{report.researcherContact || "Not provided"}</p>
-    <AttachmentReview attachments={report.attachments} />
-  </details>;
+  </>;
 }
