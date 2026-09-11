@@ -1,5 +1,13 @@
 # Validation report
 
+## Encrypted original attachment delivery -- 2026-09-11
+
+Source `ea62829` adds recipient-bound version 2 disclosure packages containing original file bytes. Both sender and receiver verify filename, size and SHA-256 against the sealed report. The recipient can restore its receiving key in a separate browser and explicitly download verified bytes. Version 1 remains supported. Limits are 50 files / 8 MiB raw bytes within the existing 20 MiB package bound. See [usage](attachment-transfer.md) and [protocol](adr/0008-recipient-bound-disclosure.md).
+
+**555 web tests / 74 files passed in 295.54 seconds**, including **22 focused crypto/panel tests**. **Eight desktop/mobile handoff, recipient-switching and attachment cases passed in 1.2 minutes**, with two workers and no retries. The updated real-browser handoff includes mismatched-file refusal and byte-for-byte download in an isolated recipient context. The normal root release build passed: **8 circuits / 80 files / 65,593,884 bytes**. [Evidence](evidence/binary-attachment-transfer.json) records full coverage and remaining boundaries.
+
+The current UI inventory exposes no connected browser/app for native Lace testing. No signing or public deployment was performed. Binary files remain in the retained disclosure package rather than workspace backups; this change completes encrypted file delivery, not hosted retention or ledger authentication.
+
 ## Local attachment hashing deadlines -- 2026-09-11
 
 Attachment reading and SHA-256 now share a three-minute deadline for both report authoring and recipient comparison. Expired reads cannot start hashing; expired hashes cannot produce accepted metadata. Existing UI error/finally handling releases processing, and explicit file reselection retries. Underlying file/crypto work is not cancelled.

@@ -1,0 +1,58 @@
+{
+  "date": "2026-09-11",
+  "sourceCommit": "ea6282925dfb33494489e98eeeeb0d6f1634cacc",
+  "scope": "End-to-end recipient-encrypted original attachment delivery in version 2 disclosure packages, with v1 read/export compatibility.",
+  "limits": {
+    "maxFiles": 50,
+    "maxRawAttachmentBytes": 8388608,
+    "maxSerializedPackageBytes": 20971520,
+    "operationDeadlineMs": 180000
+  },
+  "validation": {
+    "focused": {
+      "log": ".compact/binary-transfer-tests-final.log",
+      "passed": 22,
+      "files": 3,
+      "seconds": 9.39,
+      "exit": 0
+    },
+    "fullWeb": {
+      "log": ".compact/binary-transfer-full-web.log",
+      "passed": 555,
+      "files": 74,
+      "seconds": 295.54,
+      "exit": 0
+    },
+    "browser": {
+      "command": "CI=1 npx playwright test e2e/handoff.spec.ts e2e/disclosure-recipient.spec.ts e2e/attachments.spec.ts",
+      "log": ".compact/binary-transfer-browser.log",
+      "passed": 8,
+      "reportedDuration": "1.2m",
+      "workers": 2,
+      "retries": 0,
+      "exit": 0
+    },
+    "release": {
+      "command": "npm run release:build",
+      "log": ".compact/binary-transfer-release-final.log",
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65593884,
+      "exit": 0
+    }
+  },
+  "coverage": [
+    "Real Web Crypto round trips binary and zero-byte files, fresh encryption, wrong recipient, authenticated tampering and version downgrade rejection.",
+    "Source byte/name mutation after invocation cannot redirect the captured payload.",
+    "Wrong filenames/bytes, duplicates and aggregate size overflow are refused.",
+    "A deliberately altered inner attachment is encrypted with valid authentication and still rejected after decryption because it does not match the sealed report.",
+    "Desktop/mobile sender refuses a mismatched file; a separate recipient context restores its receiving key, decrypts, downloads exact binary bytes, makes no remote request during opening/download and clears the file preview.",
+    "Legacy report-only tests and all web workspace tests remain passing."
+  ],
+  "remaining": [
+    "No native Lace session was available: current CUA inventory returned no connected browsers or apps. No wallet signing performed.",
+    "Binary workspace persistence and hosted attachment upload are not implemented; users retain the encrypted disclosure package/receiving-key backup or downloaded originals.",
+    "Network finality and sender identity are not established by disclosure/file decryption.",
+    "No new container image or security scan; the prior runtime image and its failed security gate retain their earlier source scope."
+  ]
+}
