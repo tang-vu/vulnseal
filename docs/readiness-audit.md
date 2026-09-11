@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Manual backup encryption now times out after three minutes and releases both application/panel locks while retaining retry inputs. Late crypto results cannot download/save or unlock a newer attempt. Real desktop/mobile tests exposed and verified the outer application-lock fix; see [backup deadline evidence](evidence/backup-export-deadlines.json). Already-running crypto, autosave and storage-write outcomes remain separate.
+
 - The current recovery build now has an immutable-image localhost drill: 80 files, hosted hashes/headers/404, desktop/mobile worker/widget/exchange checks, non-root/read-only operation and restart passed. The exact-image scan downloaded a fresh database and still reports one unsuppressed UNKNOWN advisory; owned container cleanup passed. See [current runtime evidence](evidence/recovery-full-runtime.json).
 
 - The current recovery improvements passed a full web regression on unchanged source `819eb1e`: **509 web tests / 66 files, 154 desktop/mobile E2E cases and 8 release-tool tests**. All six workspace builds, contract source consistency and the normal web release manifest also passed. See [current source evidence](evidence/recovery-full-regression.json). Runtime image, native-wallet and security validation remain separate; this does not clear the existing failed security gate.

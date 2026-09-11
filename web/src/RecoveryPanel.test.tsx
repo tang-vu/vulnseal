@@ -121,3 +121,30 @@ it("does not download a stored copy whose read completes after unmount", async (
   await act(async () => finish(saved));
   expect(create).not.toHaveBeenCalled();
 });
+
+it.each(["Download encrypted backup", "Save encrypted browser copy"])("expires stalled encryption before %s and ignores its late result during retry", async action => {
+  let finishOld!: (value: string) => void, finishRetry!: (value: string) => void;
+  const onExport = vi.fn().mockImplementationOnce(() => new Promise<string>(resolve => { finishOld = resolve; }))
+    .mockImplementationOnce(() => new Promise<string>(resolve => { finishRetry = resolve; }));
+  const create = vi.fn().mockReturnValue("blob:synthetic");
+  vi.stubGlobal("URL", class extends URL { static createObjectURL = create; static revokeObjectURL = vi.fn(); });
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  const write = vi.spyOn(recoveryStorage, "writeStoredRecovery").mockResolvedValue({ id: "new-copy", label: "Combined recovery", revision: 1, updatedAt: "2026-09-11T00:00:00.000Z", encrypted: "new backup" });
+  render(<RecoveryPanel onExport={onExport} onImport={vi.fn()} canImport />); exportInput();
+  vi.useFakeTimers();
+  const start = () => action === "Download encrypted backup" ? submit(action) : fireEvent.click(screen.getByRole("button", { name: action }));
+  start();
+  await act(async () => vi.advanceTimersByTimeAsync(180000));
+  expect(screen.getByRole("alert")).toHaveTextContent("Backup encryption timed out");
+  expect(screen.getByLabelText("Backup password")).toHaveValue("Synthetic recovery password");
+  expect(screen.getByLabelText("Confirm backup password")).toHaveValue("Synthetic recovery password");
+  expect(screen.getByRole("button", { name: action })).toBeEnabled();
+  start();
+  await act(async () => finishOld("expired backup"));
+  expect(create).not.toHaveBeenCalled(); expect(write).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: action })).toBeDisabled();
+  await act(async () => finishRetry("new backup"));
+  if (action === "Download encrypted backup") expect(create).toHaveBeenCalledOnce();
+  else expect(write).toHaveBeenCalledExactlyOnceWith(expect.any(String), "Combined recovery", "new backup", null);
+  expect(screen.getByLabelText("Backup password")).toHaveValue("");
+});

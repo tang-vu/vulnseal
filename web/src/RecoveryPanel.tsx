@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { continuationDeadline } from "./midnight/continuation-deadline.js";
 import { MAX_RECOVERY_BYTES, type RecoverySnapshot } from "./recovery.js";
 import { deleteStoredRecovery, listStoredRecoveries, readStoredRecovery, writeStoredRecovery, type StoredCopyLabel } from "./recovery-storage.js";
 
@@ -43,6 +44,9 @@ export function RecoveryPanel({ onPersistence, onAutosaveStatus, snapshot, onExp
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [hasInputs, working]);
+  const prepareExport = (value: string) => continuationDeadline(180_000,
+    "Backup encryption timed out. Your inputs are retained. Retry explicitly when ready; no download or browser save was started by this attempt.",
+    async check => { check(); const encrypted = await onExport(value); check(); return encrypted; });
   const clearInputs = () => {
     if (busy.current) return;
     setPassword(""); setConfirmation(""); setRestorePassword(""); setFile(undefined);
@@ -66,7 +70,7 @@ export function RecoveryPanel({ onPersistence, onAutosaveStatus, snapshot, onExp
     <fieldset className="workflow-controls" disabled={working}>
     <form className="form-panel" onSubmit={(event) => void run(event, async (isCurrent) => {
       if (password !== confirmation) throw new Error("Backup passwords do not match");
-      const serialized = await onExport(password);
+      const serialized = await prepareExport(password);
       if (!isCurrent()) return;
       downloadRecovery(serialized);
       setPassword(""); setConfirmation("");
@@ -79,7 +83,7 @@ export function RecoveryPanel({ onPersistence, onAutosaveStatus, snapshot, onExp
       <button className="primary-button" disabled={working}>Download encrypted backup</button>
       <button type="button" className="secondary-button" disabled={working} onClick={(event) => void run(event, async (isCurrent) => {
         if (password !== confirmation) throw new Error("Backup passwords do not match");
-        const encrypted = await onExport(password);
+        const encrypted = await prepareExport(password);
         if (!isCurrent()) return;
         const saved = await writeStoredRecovery(crypto.randomUUID(), "Combined recovery", encrypted, null);
         if (!isCurrent()) return;

@@ -681,9 +681,19 @@ function App() {
     if (!recoverySnapshot) throw new Error("Create the network program before exporting its recovery material");
     busy.current = true;
     setOperation({ state: "working", label: "Encrypting recovery file", detail: "Deriving a password key locally. No private material is uploaded." });
+    const exportGeneration = deploymentGeneration.current;
     try {
-      return await encryptRecovery(recoverySnapshot!, password);
-    } finally { busy.current = false; setOperation({ state: "idle" }); }
+      return await continuationDeadline(180_000, "Backup encryption timed out. Your inputs are retained. Retry explicitly when ready; no download or browser save was started by this attempt.", async check => {
+        check();
+        const encrypted = await encryptRecovery(recoverySnapshot!, password);
+        check();
+        if (deploymentGeneration.current !== exportGeneration) throw new Error("Backup export session closed");
+        return encrypted;
+      });
+    } finally {
+      busy.current = false;
+      if (deploymentGeneration.current === exportGeneration) setOperation({ state: "idle" });
+    }
   };
 
   const exportPublicReceipt = (): void => {

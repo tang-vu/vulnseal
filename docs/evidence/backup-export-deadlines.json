@@ -1,0 +1,59 @@
+{
+  "date": "2026-09-11",
+  "scope": "Bound manual backup encryption and release both panel and application operation locks",
+  "behavior": [
+    "Manual file export and browser-copy creation have a three-minute encryption deadline. Password and confirmation survive timeout for explicit retry.",
+    "Both RecoveryPanel and App bound their encryption waits. The App finally releases its busy lock on expiry and checks component generation before updating UI.",
+    "A late encryption result cannot start download/storage or unlock a newer operation. Already-running WebCrypto is not cancelled.",
+    "Storage writes after successful encryption retain their existing independent storage deadlines and uncertain-commit semantics."
+  ],
+  "validation": {
+    "unit": {
+      "log": ".compact/backup-export-deadline-tests.log",
+      "passed": 20,
+      "files": 2,
+      "seconds": 8.53,
+      "exit": 0,
+      "scope": "Two new component cases expire file/browser encryption, retain inputs and reject an old result during a pending explicit retry, plus existing panel/inspection cases."
+    },
+    "browserDiscovery": {
+      "log": ".compact/backup-export-deadline-browser.log",
+      "passed": 0,
+      "failed": 4,
+      "exit": 1,
+      "finding": "The first panel-only fix showed timeout but App still held its outer fieldset disabled while awaiting encryption. Real browser tests exposed the unreleased application operation lock; App was then bounded too."
+    },
+    "browserRuns": [
+      {
+        "log": ".compact/backup-export-deadline-browser-final.log",
+        "passed": 6,
+        "reportedDuration": "1.1m",
+        "exit": 0,
+        "scope": "Four new real-browser PBKDF2/AES cases plus two offline inspection cases. The additional requested recovery-browser.spec.ts pattern matched no file; the actual browser-copy regression was run separately."
+      },
+      {
+        "log": ".compact/backup-export-deadline-browser-copy.log",
+        "passed": 2,
+        "seconds": 45.9,
+        "exit": 0,
+        "scope": "Existing desktop/mobile browser-copy reload, quota failure and selected-copy removal."
+      }
+    ],
+    "browserUniquePassed": 8,
+    "workers": 2,
+    "retries": 0,
+    "release": {
+      "log": ".compact/backup-export-deadline-release-complete.log",
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65566127,
+      "scope": "Normal web build/typecheck and release gate after the final browser run."
+    }
+  },
+  "limits": [
+    "Browser deadline tests use real crypto with the first derived-key result held and a virtual clock; they do not simulate physical suspend or terminate WebCrypto.",
+    "No full regression, runtime refresh, native-wallet ceremony or public deployment.",
+    "Automatic autosave encryption and already-started storage writes are outside this manual export deadline."
+  ]
+}

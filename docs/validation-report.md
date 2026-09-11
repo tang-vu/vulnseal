@@ -1,5 +1,11 @@
 # Validation report
 
+## Manual backup encryption deadlines -- 2026-09-11
+
+Manual download/browser-copy encryption now releases both the panel and application busy state after three minutes, preserving passwords for explicit retry. Late encryption cannot start download/storage or clear a newer operation. The first panel-only implementation passed component cases but failed all four real-browser deadline cases because App still held its outer fieldset disabled. Bounding the application wait resolved that integration failure.
+
+**20 component tests / 2 files passed in 8.53 seconds**. The corrected deadline and inspection browser group passed **6 cases in 1.1 minutes**; the existing browser-copy reload/quota/removal regression passed **2 cases in 45.9 seconds**. Both use desktop/mobile, two workers and no retries. Normal web build/typecheck and release validation passed: **8 circuits / 80 files / 65,566,127 bytes**. [Evidence](evidence/backup-export-deadlines.json) records the failed intermediate implementation and exact limits. Running WebCrypto is not cancelled; autosave encryption and storage acknowledgement remain separate operations.
+
 ## Readable offline drafts and notes -- 2026-09-11
 
 The offline inspector now renders saved drafts as report fields and working notes instead of a raw JSON block. Draft attachment metadata is separate from unfinished attachment inputs; both remain distinct from the authenticated sealed/prepared report. Existing report-field rendering is shared locally to keep labels consistent. No recovery schema or validation changed.

@@ -12,6 +12,8 @@ After matching SDK confirmation, the application updates the same browser copy w
 
 ## Keep a file outside the browser
 
+Creating a manual backup has a three-minute encryption deadline. If it expires, the password and confirmation remain available for an explicit retry, and the application releases its operation lock. A late encryption result cannot start a download or browser-copy write. This deadline covers encryption; IndexedDB writes have their separate storage deadline and may already have committed if acknowledgement is delayed.
+
 Open **Private recovery**. Choose the action that matches the data you want:
 
 | Action | What it saves |
