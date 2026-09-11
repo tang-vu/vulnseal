@@ -66,3 +66,21 @@ it.each(["sealed", "prepared", "invalid commitment"])("reads authenticated %s co
     expect(screen.queryByText("Private vulnerability")).not.toBeInTheDocument();
   }
 }, 15000);
+
+it("keeps source revision bound to the copy actually read when selection changes", async () => {
+  const { snapshot } = await recoveryFixture();
+  const encrypted = await recovery.encryptRecovery(snapshot, password);
+  let finish!: (value: storage.StoredCopy) => void;
+  const read = vi.spyOn(storage, "readStoredRecovery").mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const view = render(<RecoveryInspection selectedCopy="original-copy" />); enter();
+  fireEvent.click(screen.getByRole("button", { name: "Inspect selected browser copy" }));
+  view.rerender(<RecoveryInspection selectedCopy="different-copy" />);
+  await act(async () => finish({ id: "original-copy", label: "Combined recovery", revision: 7, updatedAt: "2026-09-11T00:00:00.000Z", encrypted }));
+  const source = await screen.findByRole("region", { name: "Inspected backup source" }, { timeout: 5000 });
+  expect(within(source).getByText("original-copy")).toBeInTheDocument();
+  expect(within(source).getByText("7")).toBeInTheDocument();
+  expect(within(source).queryByText("different-copy")).not.toBeInTheDocument();
+  expect(read).toHaveBeenCalledExactlyOnceWith("original-copy");
+  fireEvent.click(screen.getByRole("button", { name: "Clear inspected backup" }));
+  expect(screen.queryByRole("region", { name: "Inspected backup source" })).not.toBeInTheDocument();
+}, 15000);

@@ -1,0 +1,40 @@
+{
+  "date": "2026-09-11",
+  "scope": "Bind offline inspection provenance to the file or stored revision actually read",
+  "behavior": [
+    "Shows file name and size, or stored copy label, full identifier, revision and timestamp.",
+    "Captures metadata with the encrypted content read for that inspection. A later selection or stored revision cannot relabel an already opened result.",
+    "Clearing inspected data also removes source metadata. Local source metadata does not assert ledger authority."
+  ],
+  "validation": {
+    "unit": {
+      "log": ".compact/inspection-source-tests.log",
+      "passed": 18,
+      "files": 2,
+      "seconds": 8.6,
+      "exit": 0,
+      "scope": "Delayed browser read followed by selection change retains original copy/revision with real backup crypto, plus existing inspection and panel regression."
+    },
+    "browser": {
+      "log": ".compact/inspection-source-browser.log",
+      "passed": 2,
+      "seconds": 47.3,
+      "workers": 2,
+      "retries": 0,
+      "exit": 0,
+      "scope": "Desktop/mobile show actual selected filename and retain password-error, report/draft separation, clearing, offline and overflow checks."
+    },
+    "release": {
+      "log": ".compact/inspection-source-release.log",
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65558896,
+      "exit": 0,
+      "scope": "Normal web build/typecheck and release manifest after browser tests."
+    }
+  },
+  "limits": [
+    "Browser-copy storage is mocked in the delayed-read component test; browser E2E inspects a real selected encrypted file.",
+    "No full regression, container refresh or native-wallet ceremony in this increment. Previous runtime evidence remains tied to application revision 819eb1e."
+  ]
+}

@@ -7,10 +7,12 @@ import { readStoredRecovery } from "./recovery-storage.js";
 import { continuationDeadline } from "./midnight/continuation-deadline.js";
 import { ReportTransactionJournal } from "./ReportTransactionJournal.js";
 
+type InspectionSource = { kind: "file"; name: string; bytes: number } | { kind: "browser"; id: string; label: string; revision: number; updatedAt: string };
+
 /** Read-only local inspection deliberately has no provider or session-install callback. */
 export function RecoveryInspection({ selectedCopy }: { selectedCopy: string }) {
   const [password, setPassword] = useState(""), [file, setFile] = useState<File>();
-  const [inspection, setInspection] = useState<{ snapshot: RecoverySnapshot; report?: VulnerabilityReport | undefined; prepared?: VulnerabilityReport | undefined }>();
+  const [inspection, setInspection] = useState<{ source: InspectionSource; snapshot: RecoverySnapshot; report?: VulnerabilityReport | undefined; prepared?: VulnerabilityReport | undefined }>();
   const snapshot = inspection?.snapshot;
   const [error, setError] = useState(""), [working, setWorking] = useState(false);
   const generation = useRef(0), busy = useRef(false), input = useRef<HTMLInputElement>(null);
@@ -30,10 +32,18 @@ export function RecoveryInspection({ selectedCopy }: { selectedCopy: string }) {
         active();
         if (!browserCopy && !file) throw new Error("Choose a backup to inspect");
         if (file && !browserCopy && file.size > MAX_RECOVERY_BYTES) throw new Error("Recovery file is too large");
-        const serialized = browserCopy ? (await readStoredRecovery(selectedCopy)).encrypted : await file!.text();
+        let serialized: string, source: InspectionSource;
+        if (browserCopy) {
+          const saved = await readStoredRecovery(selectedCopy);
+          serialized = saved.encrypted;
+          source = { kind: "browser", id: saved.id, label: saved.label, revision: saved.revision, updatedAt: saved.updatedAt };
+        } else {
+          serialized = await file!.text();
+          source = { kind: "file", name: file!.name, bytes: file!.size };
+        }
         active();
         const result = await decryptRecovery(serialized, password);
-        active(); return { snapshot: result.snapshot, report: result.sealed ? JSON.parse(result.sealed.canonicalReport) as VulnerabilityReport : undefined, prepared: result.pendingSeal ? JSON.parse(result.pendingSeal.canonicalReport) as VulnerabilityReport : undefined };
+        active(); return { source, snapshot: result.snapshot, report: result.sealed ? JSON.parse(result.sealed.canonicalReport) as VulnerabilityReport : undefined, prepared: result.pendingSeal ? JSON.parse(result.pendingSeal.canonicalReport) as VulnerabilityReport : undefined };
       });
       if (generation.current !== current) return;
       setInspection(restored); setPassword("");
@@ -55,6 +65,14 @@ export function RecoveryInspection({ selectedCopy }: { selectedCopy: string }) {
     {error && <p role="alert">{error}</p>}
     {snapshot && <div>
       <p role="status">Backup inspected locally. This session has not been replaced. Clear the inspected backup when finished; navigating between screens keeps it in this tab.</p>
+      <section aria-label="Inspected backup source" className="public-value">
+        <h3>Source of this inspection</h3>
+        {inspection.source.kind === "file" ? <p>File: {inspection.source.name} ({inspection.source.bytes.toLocaleString()} bytes)</p> : <dl>
+          <dt>Browser copy</dt><dd>{inspection.source.label}</dd><dt>Copy identifier</dt><dd>{inspection.source.id}</dd>
+          <dt>Inspected revision</dt><dd>{inspection.source.revision}</dd><dt>Saved at</dt><dd>{inspection.source.updatedAt}</dd>
+        </dl>}
+        <p>These details identify what was opened. Changing the selection or saving a newer revision does not update this inspection; inspect again to read it. Filenames and copy metadata are not ledger evidence.</p>
+      </section>
       <dl><dt>Saved network</dt><dd>{snapshot.network}</dd><dt>Contract address</dt><dd className="public-value">{snapshot.contractAddress || "No address saved"}</dd><dt>Saved report status</dt><dd>{snapshot.status}</dd><dt>Report identifier</dt><dd className="public-value">{snapshot.report?.id || snapshot.pendingReport?.report.id || "No report identifier saved"}</dd></dl>
       {snapshot.deploymentAttempt && <p>Deployment outcome is unresolved.</p>}
       {snapshot.deploymentTransactionId && <p className="public-value">Deployment transaction: {snapshot.deploymentTransactionId}</p>}

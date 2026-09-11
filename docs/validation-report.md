@@ -1,5 +1,11 @@
 # Validation report
 
+## Offline inspection source identity -- 2026-09-11
+
+Inspection now displays the name/size of the selected file or the identifier/revision/timestamp of the browser copy actually read. Metadata is captured alongside its ciphertext; changing the browser-copy selection during an outstanding read does not relabel the result. Explicit clearing removes the source metadata too.
+
+**18 component tests / 2 files passed in 8.60 seconds** and **two desktop/mobile E2E cases passed in 47.3 seconds**, with two workers and no retries. The new delayed-storage test changes selection while a read is pending and verifies the original copy and revision after real decryption. Normal build/typecheck and release validation passed: **8 circuits / 80 files / 65,558,896 bytes**. See [evidence and limits](evidence/inspection-source.json). No full regression or runtime refresh is claimed for this increment.
+
 ## Recovery runtime refresh -- 2026-09-11
 
 Application source `819eb1e` was packaged as immutable image `sha256:b0326bec6b1f25415f8a62faf5e0d5efe4bc892c4e8e919a0e5ada9c86fd040e`. Image build and its embedded release gate passed. The localhost container drill passed **80 files / 81 requests / 65,556,773 served bytes**, including release-manifest delivery, hashes/headers/404, non-root/read-only execution, desktop/mobile public/worker/widget/exchange journeys, restart and owned cleanup.

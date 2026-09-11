@@ -19,6 +19,7 @@ test("inspects encrypted network journal without wallet or status lookup, retrie
   await panel.getByLabel("Inspection password").fill(password);
   await panel.getByRole("button", { name: "Inspect encrypted file" }).click();
   await expect(panel.getByRole("status")).toContainText("Backup inspected locally");
+  await expect(panel.getByRole("region", { name: "Inspected backup source" })).toContainText("File: journal.json");
   await expect(panel.getByLabel("Inspection password")).toHaveValue("");
   await panel.getByText("Private inputs saved with this attempt", { exact: true }).click();
   await expect(panel.getByText("Immutable private journal rationale", { exact: true })).toBeVisible();
