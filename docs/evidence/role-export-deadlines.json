@@ -1,0 +1,41 @@
+{
+  "date": "2026-09-11",
+  "scope": "Bound single-role file export and reject results after workspace closure",
+  "behavior": [
+    "Role backup encryption has a three-minute deadline inside the workspace operation lock. Expiry releases the lock and retains password/confirmation for explicit retry.",
+    "The export captures a workspace lifetime counter, checks it after encryption and again before downloading. Late results cannot download or mark the workspace backed up.",
+    "The encrypted snapshot and existing validation are unchanged. WebCrypto itself is not cancelled."
+  ],
+  "validation": {
+    "unit": {
+      "log": ".compact/role-export-deadline-tests.log",
+      "passed": 22,
+      "files": 2,
+      "seconds": 93.93,
+      "exit": 0,
+      "scope": "New unmount and timeout-during-explicit-retry cases plus the complete RoleWorkspace component suite."
+    },
+    "browser": {
+      "log": ".compact/role-export-deadline-browser.log",
+      "passed": 4,
+      "reportedDuration": "1.1m",
+      "workers": 2,
+      "retries": 0,
+      "exit": 0,
+      "scope": "Desktop/mobile hold the first real PBKDF2 result past virtual expiry, observe zero late downloads and exactly one after explicit retry. Existing role-draft file/browser recovery also passes."
+    },
+    "release": {
+      "log": ".compact/role-export-deadline-release-final.log",
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65569993,
+      "scope": "Normal web build/typecheck and release manifest after browser tests."
+    }
+  },
+  "limits": [
+    "Browser expiry is simulated with a virtual clock and delayed key result, not physical suspend.",
+    "No full regression, runtime-image refresh, native wallet signing or public deployment.",
+    "Other role operations, including browser-copy unlocking, are separate from this export deadline."
+  ]
+}

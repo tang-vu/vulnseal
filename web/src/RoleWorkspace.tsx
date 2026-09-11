@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { continuationDeadline } from "./midnight/continuation-deadline.js";
 import { GitHubReleaseImport } from "./GitHubReleaseImport.js";
 import { VendorPolicyExport } from "./VendorPolicyExport.js";
 import { submissionEmbed } from "./submission-embed.js";
@@ -132,7 +133,8 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [receipt, setReceipt] = useState<TransactionEvidence>();
-  const busy = useRef(false);
+  const busy = useRef(false), exportLifetime = useRef(0);
+  useEffect(() => () => { exportLifetime.current++; }, []);
   const lock = async (action: () => Promise<void>) => {
     if (busy.current) throw new Error("Wait for the current operation to finish");
     busy.current = true; setWorking(true); setError(""); setMessage("");
@@ -276,7 +278,14 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
           <div className="button-row workspace-tabs"><button className="secondary-button" onClick={() => setTab("reports")}>Reports</button>{vault.role === "researcher" && <button className="secondary-button" onClick={() => setTab("prepare")}>Prepare report</button>}<button className="secondary-button" onClick={() => setTab("exchange")}>Disclosure exchange</button><button className="secondary-button" onClick={() => setTab("backup")}>Save role backup</button></div>
           {tab === "backup" && <form className="form-panel" onSubmit={(event) => form(event, async () => {
             if (password !== confirmation) throw new Error("Role backup passwords do not match");
-            const encrypted = await encryptRoleVault(vault, password); download(encrypted, `vulnseal-role-${vault.role}-backup.json`); setSaved(vault); setPassword(""); setConfirmation(""); setMessage("Role backup downloaded. Confirm the file is saved; keep the file and password private.");
+            const currentExport = exportLifetime.current;
+            const encrypted = await continuationDeadline(180_000, "Role backup encryption timed out. Your inputs are retained; retry explicitly when ready. No download was started by this attempt.", async check => {
+              check(); const result = await encryptRoleVault(vault, password); check();
+              if (exportLifetime.current !== currentExport) throw new Error("Role backup session closed");
+              return result;
+            });
+            if (exportLifetime.current !== currentExport) return;
+            download(encrypted, `vulnseal-role-${vault.role}-backup.json`); setSaved(vault); setPassword(""); setConfirmation(""); setMessage("Role backup downloaded. Confirm the file is saved; keep the file and password private.");
           })}><h2>Save {vault.role} authority</h2><p>This file contains this role's actor secret, prepared/received reports, submission journal, current report or vendor program draft and working notes for each saved report. Notes are editable working copies, not transaction history. Retain the separate receiving-key backup.</p><label>Role backup password<input type="password" autoComplete="new-password" minLength={12} required value={password} onChange={(event) => setPassword(event.target.value)} /></label><label>Confirm role backup password<input type="password" autoComplete="new-password" minLength={12} required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label><button className="primary-button">Download single-role backup</button></form>}
           {!vault.contractAddress && vault.role === "vendor" && tab === "reports" && <form className="form-panel" onSubmit={(event) => {
             const data = new FormData(event.currentTarget); form(event, async () => {

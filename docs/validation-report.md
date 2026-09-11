@@ -1,5 +1,11 @@
 # Validation report
 
+## Single-role export deadline and lifetime -- 2026-09-11
+
+Single-role file encryption now has a three-minute deadline inside its workspace operation lock. Expiry releases the form and retains retry inputs. A workspace lifetime check after encryption and before download rejects late results after unmount; an expired result cannot download or mark a newer operation as backed up.
+
+**22 tests / 2 files passed in 93.93 seconds**, including the complete RoleWorkspace component suite and new timeout/unmount cases. **Four desktop/mobile browser cases passed in 1.1 minutes**, with two workers and no retries: real crypto delayed beyond virtual expiry cannot download, explicit retry downloads once, and existing role-draft recovery still works. Normal web build/typecheck and release validation passed: **8 circuits / 80 files / 65,569,993 bytes**. See [evidence and limits](evidence/role-export-deadlines.json).
+
 ## Autosave activation encryption deadlines -- 2026-09-11
 
 Initial combined/role autosave encryption now has a three-minute deadline before storage. Expiry unlocks setup controls and retains retry inputs; a late encrypted result cannot write a copy, advertise persistence or activate the writer. Storage acknowledgements remain a separate operation.
