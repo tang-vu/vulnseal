@@ -23,7 +23,7 @@ const setup = async () => {
       calls.push({ kind, actor: new Uint8Array(simulator.getPrivateState().actorSecret) });
       if (kind === "closeReport") simulator.circuitContext = simulator.contract.impureCircuits.closeReport(simulator.circuitContext, args[0] as Uint8Array).context;
       else Reflect.apply(simulator[kind], simulator, args);
-      return { public: { txId: `simulator-${++sequence}`, blockHeight: sequence } };
+      return { public: { txId: (++sequence).toString(16).padStart(64, "0"), blockHeight: sequence } };
     }]));
     const api = Reflect.construct(VulnSealApi, [{ deployTxData: { public: { contractAddress: "ab".repeat(32) } }, callTx }, { privateStateProvider: provider }]) as VulnSealApi;
     vi.spyOn(api, "readPublicState").mockImplementation(async () => ({ contractAddress: api.contractAddress, ledger: simulator.getLedger() }));

@@ -31,13 +31,16 @@ const evidence = (
   circuit: VulnSealCircuitKeys | "constructor",
   publicData: unknown,
 ): TransactionEvidence => {
+  const invalid = () => new Error("Invalid Midnight transaction evidence: expected a transaction identifier and non-negative integer block height");
+  if (!publicData || typeof publicData !== "object" || Array.isArray(publicData)) throw invalid();
   const data = publicData as Record<string, unknown>;
   const txId = data.txId ?? data.txHash;
-  if (typeof txId !== "string") throw new Error("Midnight result did not include a transaction id");
+  if (typeof txId !== "string" || !/^(?:[a-f0-9]{64}|[a-f0-9]{66})$/.test(txId)) throw invalid();
   const blockHeight = data.blockHeight;
-  if (typeof blockHeight !== "bigint" && typeof blockHeight !== "number" && typeof blockHeight !== "string") {
-    throw new Error("Midnight result did not include a block height");
-  }
+  const validHeight = typeof blockHeight === "bigint" ? blockHeight >= 0n
+    : typeof blockHeight === "number" ? Number.isSafeInteger(blockHeight) && blockHeight >= 0
+    : typeof blockHeight === "string" && /^(?:0|[1-9][0-9]*)$/.test(blockHeight);
+  if (!validHeight) throw invalid();
   return { circuit, txId, blockHeight: String(blockHeight) };
 };
 
