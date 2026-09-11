@@ -1,5 +1,11 @@
 # Validation report
 
+## Current API/recovery localhost runtime -- 2026-09-11
+
+Application source `4c6a55b` was packaged as immutable image `sha256:e16fbec592bef36c2f40e1c201da7613c357ab52f2883662aa08f8f7f8372d81`. The image release gate and localhost drill passed: **80 files / 81 requests / 65,580,658 served bytes**, hashes/headers/404, non-root/read-only operation, desktop/mobile public/deployment workers, widget/exchange behavior and graceful restart. Owned test/scanner cleanup queries both passed with no remaining containers.
+
+The exact-image scan exited **1**: Alpine 3.23.5 has zero findings across 32 packages, while Caddy retains one unsuppressed UNKNOWN **GO-2026-5932** finding in `golang.org/x/crypto v0.56.0`, with no fixed version reported. No database download was observed in this scan. The security gate remains failed. See [runtime evidence](evidence/api-hardening-runtime.json); no public deployment or native-wallet validation is claimed.
+
 ## Optional API logger isolation -- 2026-09-11
 
 Logging now receives cloned context and contains synchronous throws and rejected promises. An optional logger cannot prevent a transition from starting, replace the original SDK failure, turn a successful response into an error or mutate returned evidence. Deployment uses the same helper.

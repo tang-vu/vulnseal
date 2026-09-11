@@ -1,0 +1,69 @@
+{
+  "date": "2026-09-11",
+  "applicationRevision": "4c6a55bf8b76d24117da9a769a59661e13af3b65",
+  "buildRevision": "c18dabeda85b4cd15d1e354b99b25ab00994da13",
+  "imageId": "sha256:e16fbec592bef36c2f40e1c201da7613c357ab52f2883662aa08f8f7f8372d81",
+  "localTag": "vulnseal-web:local",
+  "imageBuildExitCode": 0,
+  "release": {
+    "circuits": 8,
+    "files": 80,
+    "bytes": 65579379
+  },
+  "containerDrill": {
+    "capturedAt": "2026-09-11T08:39:22.070Z",
+    "imageId": "sha256:e16fbec592bef36c2f40e1c201da7613c357ab52f2883662aa08f8f7f8372d81",
+    "origin": "http://127.0.0.1:32821",
+    "files": 80,
+    "requests": 81,
+    "bytes": 65580658,
+    "nonRoot": true,
+    "readOnlyRoot": true,
+    "headersChecked": true,
+    "missingFilesReturn404": true,
+    "desktopAndMobilePublicLookup": "passed against captured fixture; no wallet or live network",
+    "desktopAndMobilePublicWorkerDeadline": "injected busy worker reached its handler; packaged UI timed out, restarted and canceled without accepting a result",
+    "desktopAndMobileDeploymentWorker": "packaged worker decoded captured raw deployment and reported matching and mismatched policy; mocked indexer/RPC",
+    "desktopAndMobileSubmissionWidget": "real second HTTP origin loaded only two public modules from the image and opened isolated invitation review",
+    "desktopAndMobileExchangeNavigation": "unfinished input survived switching screens and cleared explicitly in the packaged app",
+    "widgetCorsChecked": true,
+    "gracefulRestart": true,
+    "cleanupCompleted": true
+  },
+  "securityScan": {
+    "exitCode": 1,
+    "os": "Alpine 3.23.5",
+    "osPackages": 32,
+    "osFindings": 0,
+    "binary": "usr/bin/caddy",
+    "findings": [
+      {
+        "id": "GO-2026-5932",
+        "severity": "UNKNOWN",
+        "module": "golang.org/x/crypto",
+        "installedVersion": "v0.56.0",
+        "fixedVersionReported": null
+      }
+    ],
+    "strictGatePassed": false,
+    "suppressed": false,
+    "databaseRefresh": "This run used the available Trivy database; no fresh database download was observed."
+  },
+  "cleanup": {
+    "webQueryExit": 0,
+    "webContainers": [],
+    "scanQueryExit": 0,
+    "scanContainers": []
+  },
+  "logs": [
+    ".compact/api-hardening-image-build.log",
+    ".compact/api-hardening-container.log",
+    ".compact/api-hardening-image-scan.log",
+    ".compact/api-hardening-cleanup.json"
+  ],
+  "limits": [
+    "Localhost runtime only; no public deployment, native-wallet signing or independent live network authority.",
+    "Container checks cover packaged public lookup/deployment worker/widget/exchange behavior using captured fixtures and mocked network data; they are not the full ordinary browser suite.",
+    "No fresh Compact proving keys or refreshed source reachability diagnostic. The strict runtime security gate remains failed."
+  ]
+}
