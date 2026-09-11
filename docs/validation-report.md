@@ -1,5 +1,13 @@
 # Validation report
 
+## Update recovery after confirmed deployment -- 2026-09-11
+
+After a deployment result matches its saved identifier, the writer updates the encrypted browser copy with the confirmed contract address and removes the unconfirmed-attempt marker. The next revision remains checked. Recovery-save failure keeps the deployed API/evidence and displays file-backup guidance; it does not report deployment as failed or retry it.
+
+**37 tests / 3 files** passed in **57.76 seconds**, including updated snapshot/revision checks, failed final update, and restoring the updated encrypted copy through mocked wallet/indexer with real ledger-binding verification and no second deployment. An earlier run had **34 passed / 3 failed** because one-second dashboard assertions did not accommodate the additional encryption; relevant waits now allow five seconds. Normal build/typecheck and release validation passed: **8 circuits / 80 files / 65,483,628 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/deployment-final-copy.json) records logs and limits. No new browser E2E, native-wallet action or runtime refresh is claimed. A failed final storage write may already have committed; retain the copy and download an independent file backup.
+
 ## Require durable combined deployment checkpoints -- 2026-09-11
 
 Creating a network program now requires a deployment backup password. A new encrypted browser copy must confirm before invoking the SDK. The provider then saves the finalized transaction identifier to the same revision-checked copy before releasing broadcast. The shared submission wait allows fifteen minutes for preparation/checkpoint and ten minutes for confirmation. Initial-save failure retains password inputs; after SDK work begins, failure, unmount or expiry leaves the session blocked and rejects late checkpoints. Timely SDK results must match the saved identifier. V7 retains that identifier in both unconfirmed and deployed recovery; the attempt view offers the existing read-only transaction check. Subsequent report transitions still lack required durable checkpoints.

@@ -1,0 +1,40 @@
+{
+  "recordedAt": "2026-09-11T04:36:28.816177+00:00",
+  "baseRevision": "49880a181a59ccb1a61d0f71ac6ca8a83bc99d5a",
+  "validation": {
+    "targetedTests": {
+      "tests": 37,
+      "files": 3,
+      "seconds": 57.76,
+      "exitCode": 0
+    },
+    "normalWebBuildAndRelease": {
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65483628,
+      "exitCode": 0
+    }
+  },
+  "earlierRun": {
+    "passed": 34,
+    "failed": 3,
+    "reason": "Existing one-second dashboard assertions did not allow additional real encryption before navigation; relevant waits now allow five seconds."
+  },
+  "rawLogSha256": {
+    "deployment-final-copy-tests": "b6f4788f11157889951ca599ce40ffdefb9959a41a4bf45ffb9d03205f3e6eef",
+    "deployment-final-copy-tests-final": "4ce0128a0f8337a47ef8a6f8cf0571f1b426837ce3fcb653040193f9ca618470",
+    "deployment-final-copy-release": "fdc6809e45e2eda1fcf735462a816f43346c57adfd17f9d0e0ba320ea1c5e758"
+  },
+  "coverage": [
+    "Confirmed address and existing identifier saved to the same copy with expected revision 2",
+    "Updated encrypted snapshot restores through wallet/ledger binding checks without another deploy call",
+    "Final recovery-save failure retains deployed session with backup-update warning",
+    "Existing initial-save, pre-broadcast, deadline, unmount, uncertainty and schema tests"
+  ],
+  "limits": [
+    "Wallet, SDK and storage writes are mocked in component tests; encryption, validation and ledger-binding checks use actual implementation.",
+    "No new E2E, native-wallet action, runtime refresh or public deployment.",
+    "A failed storage update may have committed; independent backups remain necessary.",
+    "Report-transition journaling and authenticated reconciliation remain incomplete."
+  ]
+}

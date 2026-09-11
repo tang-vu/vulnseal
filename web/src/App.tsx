@@ -339,6 +339,17 @@ function App() {
           });
           deploymentCheckpoint.current = undefined;
           setDeploymentAttempt(undefined); setApi(deployed.api); setEvidence([deployed.evidence]);
+          setOperation({ state: "working", label: "Saving confirmed deployment", detail: "The deployment finalized. Updating its encrypted browser recovery copy with the confirmed contract address." });
+          // A recovery-save failure cannot undo already confirmed deployment.
+          const { deploymentAttempt: _attempt, ...material } = checkpointSnapshot;
+          try {
+            const updated = await writer.save({ ...material, version: 7, contractAddress: deployed.api.contractAddress, deploymentTransactionId: deployed.evidence.txId });
+            assertCurrent();
+            setDeploymentBackupNotice(`Confirmed deployment address saved in encrypted browser copy ${updated.id} (revision ${updated.revision}). Keep a separate file backup; restore will verify the contract on its network.`);
+          } catch (cause) {
+            assertCurrent();
+            setDeploymentBackupNotice(`Deployment finalized, but its browser recovery update was not confirmed. Keep the saved browser copy and this tab open, and download an updated file backup. A late storage update may already have committed. ${cause instanceof Error ? cause.message : "Storage unavailable"}`);
+          }
         } finally {
           writer.stop(); deploymentWait.current = undefined;
           // Failure retains the closed callback so late SDK continuations cannot broadcast.

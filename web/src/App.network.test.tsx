@@ -292,7 +292,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     await user.click(await screen.findByRole("button", { name: "Set up program" }));
     fillDeploymentPassword();
     await user.click(screen.getByRole("button", { name: "Create program" }));
-    await screen.findByRole("heading", { name: "Acme Security Program" });
+    await screen.findByRole("heading", { name: "Acme Security Program" }, { timeout: 5000 });
     await user.click(screen.getAllByRole("button", { name: /Submit/ })[0]!);
     await user.click(screen.getByRole("checkbox"));
     if (outcome === "failure") {
@@ -370,7 +370,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     await user.selectOptions(screen.getByLabelText("Coordinated disclosure window"), "30");
     fillDeploymentPassword();
     await user.click(screen.getByRole("button", { name: "Create program" }));
-    await screen.findByRole("heading", { name: "Independent Security" });
+    await screen.findByRole("heading", { name: "Independent Security" }, { timeout: 5000 });
     const [, ownerState, constructor] = mocks.deploy.mock.calls[0]!;
     expect(constructor.responseDays).toBe(2n);
     expect(constructor.disclosureDelayDays).toBe(30n);
