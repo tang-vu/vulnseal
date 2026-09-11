@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { bytesToHex, sha256, type AttachmentDigest } from "@vulnseal/shared";
+import { continuationDeadline } from "./midnight/continuation-deadline.js";
 
 export const MAX_HASH_FILE_BYTES = 32 * 1024 * 1024;
 export const MAX_ATTACHMENTS = 50;
@@ -14,6 +15,9 @@ export const attachmentMetadata = (filename: string, mediaType: string, size: st
 /** Bytes are read only for local hashing; callers retain metadata, never the File. */
 export const hashAttachment = async (file: File): Promise<AttachmentDigest> => {
   if (file.size > MAX_HASH_FILE_BYTES) throw new Error("Local hashing supports files up to 32 MiB. Enter an externally computed digest for larger files.");
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  return attachmentMetadata(file.name, file.type || "application/octet-stream", String(file.size), bytesToHex(await sha256(bytes)));
+  return continuationDeadline(180_000, "Attachment hashing timed out. No digest or comparison was accepted; select the file again to retry.", async check => {
+    const bytes = new Uint8Array(await file.arrayBuffer()); check();
+    const digest = await sha256(bytes); check();
+    return attachmentMetadata(file.name, file.type || "application/octet-stream", String(file.size), bytesToHex(digest));
+  });
 };
