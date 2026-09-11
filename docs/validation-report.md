@@ -1,5 +1,11 @@
 # Validation report
 
+## Local attachment hashing deadlines -- 2026-09-11
+
+Attachment reading and SHA-256 now share a three-minute deadline for both report authoring and recipient comparison. Expired reads cannot start hashing; expired hashes cannot produce accepted metadata. Existing UI error/finally handling releases processing, and explicit file reselection retries. Underlying file/crypto work is not cancelled.
+
+Source `6b42e88` passed **14 tests / 3 files in 4.64 seconds**, including six timer/wall/monotonic phase cases, and **2 desktop/mobile attachment lifecycle cases in 43.8 seconds** without retries. The subsequent root release build passed: **8 circuits / 80 files / 65,581,397 bytes**. [Evidence](evidence/attachment-hashing-deadlines.json) distinguishes unit deadline injection from browser regression. Original binary attachment delivery remains separate and unimplemented in this change.
+
 ## Historical scan input capture -- 2026-09-11
 
 History scans now capture input values before opening the socket. Later caller mutation cannot change the requested deployment height or redirect abort-listener cleanup to a replacement signal. Three real-localhost-socket cases failed against baseline and pass after the change, covering request values plus cleanup after success/cancellation.

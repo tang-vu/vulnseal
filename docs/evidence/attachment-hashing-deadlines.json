@@ -1,0 +1,41 @@
+{
+  "date": "2026-09-11",
+  "sourceCommit": "6b42e88aceab265d8799ad29e1d38758c407d9ed",
+  "scope": "Three-minute elapsed deadline across local attachment reading and SHA-256 for editor and recipient checks. Late reads cannot start hashing; late hashes cannot return metadata.",
+  "validation": {
+    "web": {
+      "log": ".compact/attachment-deadline-tests.log",
+      "passed": 14,
+      "files": 3,
+      "seconds": 4.64,
+      "exit": 0
+    },
+    "browser": {
+      "command": "CI=1 npx playwright test e2e/attachments.spec.ts",
+      "log": ".compact/attachment-deadline-browser.log",
+      "passed": 2,
+      "seconds": 43.8,
+      "workers": 2,
+      "retries": 0,
+      "exit": 0
+    },
+    "release": {
+      "command": "npm run release:build",
+      "log": ".compact/attachment-deadline-release-final.log",
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65581397,
+      "exit": 0
+    }
+  },
+  "coverage": [
+    "Six focused cases cover timer, wall and monotonic expiry during reading or digesting, including backwards wall time and explicit fresh retry.",
+    "Existing editor tests retain cancellation, unmount and metadata-change generation guards.",
+    "Existing desktop/mobile flow verifies real file hashing, draft recovery, encrypted reporting and vendor file comparison; deadline injection is unit-level."
+  ],
+  "limits": [
+    "Original file bytes are still exchanged separately and are not uploaded or included in encrypted backups.",
+    "Underlying file/crypto work is not cancelled; expiry prevents subsequent progress and acceptance.",
+    "No new full regression, native-wallet or runtime image refresh."
+  ]
+}
