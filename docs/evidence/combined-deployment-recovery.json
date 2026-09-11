@@ -1,0 +1,81 @@
+{
+  "recordedAt": "2026-09-11T04:13:31.818073+00:00",
+  "baseRevision": "76fe75e2ace54463716b2ab3cc41c95a1a5223b8",
+  "validation": {
+    "targetedTests": {
+      "tests": 49,
+      "files": 4,
+      "seconds": 50.58,
+      "exitCode": 0
+    },
+    "appAndAutosaveRegression": {
+      "tests": 11,
+      "files": 2,
+      "seconds": 11.09,
+      "exitCode": 0,
+      "note": "Requested RecoveryAutosavePanel.test.tsx does not exist; actual coverage is App.test.tsx and recovery-autosave.test.ts."
+    },
+    "desktopMobileE2E": {
+      "tests": 4,
+      "reportedDuration": "1.2m",
+      "exitCode": 0
+    },
+    "normalWebBuildAndRelease": {
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65469465,
+      "exitCode": 0
+    }
+  },
+  "earlierRuns": [
+    {
+      "name": "initial",
+      "passed": 36,
+      "failed": 1,
+      "reason": "Existing test expected leaving protection to disappear after deployment failure; new behavior retains the attempt."
+    },
+    {
+      "name": "tests",
+      "passed": 47,
+      "failed": 2,
+      "reason": "New multi-crypto test exceeded its default five-second budget; timeout test installed fake timers after creating the real deadline."
+    },
+    {
+      "name": "tests-final",
+      "passed": 47,
+      "failed": 2,
+      "reason": "Mocked file input needed form submission consistent with the existing JSDOM restore tests; corrected and awaited restoration."
+    },
+    {
+      "name": "browser",
+      "passed": 2,
+      "failed": 2,
+      "reason": "New fixture expected null attachment draft after restore/export; application normalizes it to emptyAttachmentDraft. Fixture corrected without changing production normalization."
+    }
+  ],
+  "rawLogSha256": {
+    "deployment-recovery-initial": "6e648985559b2f8fd6db5e4ece6229440efd8eb455481e687c14240fb86d4b41",
+    "deployment-recovery-tests": "66f44378803717eee385df60541bd68c24c42f55ff81ab5392be41808cd5ffe7",
+    "deployment-recovery-tests-final": "0ce8bc986f172a055adbc97c59012429d75fd84f92b068125d060e16729e47ce",
+    "deployment-recovery-tests-verified": "0b3fc21dc213abf49d4de0da4534c49068a1194432f92720392aa5bf39bc440e",
+    "deployment-recovery-typecheck": "e46cc40234199e52e1bf5e1db8f21c8befbead50c4410dc7edfba8141b69c5c8",
+    "deployment-recovery-browser": "51f732133f0dc648f6ab8899b31770f0c0f11b92e726ac9b2c4e24a9f4f5c935",
+    "deployment-recovery-browser-final": "91d57d1140895aa1acc4b935b4d54a89a31cd4d362de4266a9cfb09fad32971e",
+    "deployment-recovery-regression": "6db7ff3255f0949362c5f94163d0cf40cf9f2cbb07f1a61eee83725db645db3a",
+    "deployment-recovery-release": "92a6d3d0d67c94ba5260b53a65881c69492d187e3a48a53381e9225429876d69"
+  },
+  "coverage": [
+    "SDK rejection and timeout retain attempted authority and constructor-equivalent program ID/policy",
+    "Late deployment completion cannot install an API or clear the attempt after timeout",
+    "File backup and wallet-free restore retain blocked creation and leave warning",
+    "V6 schema rejects downgrade, malformed timestamp and conflicting deployed workflow",
+    "Actual desktop/mobile encrypted browser copy, reload, direct file download and isolated context restore; synthetic attempt only",
+    "Normal v5 browser copy and App/autosave regression"
+  ],
+  "limits": [
+    "Initial marker is in memory, not durably saved before SDK submission; crash before confirmed backup can lose it.",
+    "No transaction identifier, authenticated inclusion or automatic reconciliation; retry remains blocked.",
+    "Already invoked SDK/wallet work can continue after timeout; constructor preparation precedes the wait.",
+    "No native wallet transaction, public deployment, runtime image refresh or full regression in this change."
+  ]
+}

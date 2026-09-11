@@ -36,7 +36,7 @@ Recovery payload v4 adds a required `uncertainTransition` field: null, or one of
 
 The combined demo sets the marker before private-state setup for triage, acceptance/rejection, patch, retest, payout authorization and closure. Only a successful API result clears it, before any follow-up public read. An API/private-state error therefore blocks further transactions and the report-reset action; it does not label the transaction as failed. The UI keeps a visible explanation, private backup access after the call returns, and a leave warning. Export preserves the marker; joining and checking the ledger during import does not clear it. There is no manual unlock or automatic retry because observing current report state alone does not reconcile a particular attempt.
 
-This is conservative explicit-snapshot recovery, not a durable pre-wallet journal. Even an error before broadcast retains uncertainty. A tab crash before export, an older backup, initial deployment recovery, transaction identifiers and safe reconciliation remain separate gaps. Do not interpret a null/missing legacy marker as proof that there is no pending transaction.
+This is conservative explicit-snapshot recovery, not a durable pre-wallet journal. Even an error before broadcast retains uncertainty. A tab crash before export, an older backup, durable initial deployment checkpoints, transaction identifiers and safe reconciliation remain separate gaps. Do not interpret a null/missing legacy marker as proof that there is no pending transaction.
 
 ## Bounded waits in the combined demo
 
@@ -80,7 +80,7 @@ The combined program form now uses a separate `ProgramDraft` in application stat
 
 New exports use snapshot version 5 and require a `programDraft` with exactly the six policy fields as strings, each bounded to 64 KiB UTF-8. Empty/unfinished text and whitespace are retained. The existing pending-report and uncertainty checks still apply. Versions 1?4 remain readable; their program form starts from the validated saved policy because those formats did not retain an independent draft. A draft field on an older version is rejected instead of silently discarded. Older application releases reject v5 files and cannot serve as rollback readers for them. The outer encrypted envelope and key derivation are unchanged.
 
-This is explicit encrypted-file recovery plus in-memory navigation retention. Undeployed network sessions still cannot export through the combined recovery flow; this change does not add deployment-attempt journaling, autosave or safe deployment retry. The separately validated active policy remains authoritative for existing ledger checks even when a new draft is incomplete.
+This is explicit encrypted-file recovery plus in-memory navigation retention. Before a deployment is attempted, undeployed network sessions cannot export through this flow. The v6 exception below preserves unconfirmed attempts; durable pre-wallet journaling and safe deployment retry remain incomplete. The separately validated active policy remains authoritative for existing ledger checks even when a new draft is incomplete.
 
 
 ### Manual encrypted browser copies
@@ -91,7 +91,7 @@ Refresh browser copies lists metadata on explicit request. In a fresh session, s
 
 The common IndexedDB driver now serves both role and combined recovery adapters without changing the role database/schema. Both retain strict transaction durability, revision comparison and separate 15-second open/transaction deadlines. Each adapter validates its own encrypted envelope before writing; combined copies reuse the parser used by `decryptRecovery`. Raw plaintext and cross-format envelopes are rejected. Quota failure preserves older committed copies, and a timeout cannot claim a late committed write was confirmed.
 
-The manual save button creates an explicit checkpoint; the optional autosave mode below handles later edits. Neither is a pre-wallet transaction journal. Only the latest state saved and confirmed is recoverable; reload can lose edits made afterward. Clearing site data, changing origin/browser/profile or storage eviction can remove or hide these copies. Keep a separate encrypted file backup and password. Undeployed network sessions retain the existing export restriction, and an encrypted copy does not authenticate transaction history or make uncertain attempts safe to repeat.
+The manual save button creates an explicit checkpoint; the optional autosave mode below handles later edits. Neither is a pre-wallet transaction journal. Only the latest state saved and confirmed is recoverable; reload can lose edits made afterward. Clearing site data, changing origin/browser/profile or storage eviction can remove or hide these copies. Keep a separate encrypted file backup and password. Undeployed network sessions without a recorded deployment attempt retain the export restriction, and an encrypted copy does not authenticate transaction history or make uncertain attempts safe to repeat.
 
 
 ### Opt-in combined autosave
@@ -102,7 +102,7 @@ Status is visible both in Private recovery and on the other combined-demo screen
 
 Changing the program ID, network or contract binding stops the old writer; enabling again creates a separate copy for the new session. While active, its selected copy cannot be removed through this panel and restoration is disabled until autosave stops. Other saved copies and manual file export remain available. Existing leave warnings are retained.
 
-The debounce and encryption/write latency create a window where newer edits are not yet recoverable. This is not a durable pre-wallet journal: network actions do not await this save, transaction identifiers are not added, and saved uncertainty markers do not establish safe retry. Undeployed network sessions still cannot enable combined autosave. Browser eviction, site-data removal, device failure and a lost password still require separately retained backups. Receiving-key material and unfinished child-form passwords are outside the recovery snapshot and retain their own backup/input protections.
+The debounce and encryption/write latency create a window where newer edits are not yet recoverable. This is not a durable pre-wallet journal: network actions do not await this save, transaction identifiers are not added, and saved uncertainty markers do not establish safe retry. Undeployed network sessions without a recorded deployment attempt cannot enable combined autosave. Browser eviction, site-data removal, device failure and a lost password still require separately retained backups. Receiving-key material and unfinished child-form passwords are outside the recovery snapshot and retain their own backup/input protections.
 
 
 ### Download an existing browser copy
@@ -110,3 +110,14 @@ The debounce and encryption/write latency create a window where newer edits are 
 The selected browser copy can be downloaded directly as an encrypted JSON file without entering its password or unlocking the live session. The download reads one committed IndexedDB revision and preserves its exact encrypted envelope; its filename includes the copy ID and actual revision read. Restore still requires the existing password. This exports the saved revision, which may precede current unsaved edits, and does not create a new snapshot or change its password.
 
 Downloads remain available during autosave. They do not remove or overwrite a browser copy. The user must confirm that the file was saved before removing the source; starting a browser download does not prove durable file storage. A read completed after panel unmount cannot initiate a download. Desktop/mobile verification downloads without a password, compares exact encrypted bytes, removes the source and restores the file in an isolated browser context with empty recovery storage.
+
+
+### Unconfirmed combined deployment recovery (v6)
+
+Before invoking the deployment SDK, the combined application retains the chosen program ID, validated policy, existing authority secrets and an ISO timestamp marking the attempt. A rejected SDK call retains this state conservatively even if the rejection occurred before broadcast. Deployment now uses the existing ten-minute transition wait with deployment-specific guidance; late completion cannot apply a deployed API or clear uncertainty. Timely success clears the marker and follows the existing deployed v5 recovery flow.
+
+While an attempt remains unconfirmed, creation, wallet reconnection and restoring over that session are blocked. The banner and attempt view remain available across navigation; the leave warning remains active after failure or timeout. File export and encrypted browser copies preserve these inputs as snapshot v6. The schema requires a real network, null contract address, no report/pending submission, empty history, no later workflow commitments and a canonical attempt timestamp. Earlier versions reject the new attempt field. Existing normal snapshots still export v5, and versions 1?5 remain readable. Older application versions cannot read v6.
+
+Restoring v6 does not connect Lace or query a contract: there is no confirmed contract address. It restores the retained material into the same blocked attempt view. This is local recovery data, not evidence of deployment or finality. Browser copies and their direct file downloads work through the same adapter and password checks. Optional autosave can be enabled for this retained attempt after the current operation ends.
+
+The attempt is initially retained in memory, not durably checkpointed before SDK work. A crash before a confirmed backup can still lose it. The snapshot lacks a transaction identifier, authenticated transaction contents and reconciliation; it cannot authorize retry or automatically recover a contract address. Already-invoked SDK/wallet work may continue after the UI deadline. Constructor preparation before the SDK call remains outside that wait. Native-wallet execution and physical suspend behavior are not verified by the mocked component and synthetic browser tests.

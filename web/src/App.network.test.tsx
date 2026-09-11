@@ -32,28 +32,63 @@ describe("browser network workflow with mocked wallet and finalized API results"
   });
   afterEach(() => { vi.useRealTimers(); cleanup(); vi.unstubAllGlobals(); });
 
-  it("warns before leaving a pending deployment and releases the guard after failure", async () => {
+  it.each(["failure", "timeout"])("retains uncertain deployment after %s through backup and wallet-free restore", async outcome => {
     const user = userEvent.setup();
-    let fail!: (error: Error) => void;
-    mocks.deploy.mockImplementation(() => new Promise((_resolve, reject) => { fail = reject; }));
-    const leaving = () => {
-      const event = new Event("beforeunload", { cancelable: true });
-      window.dispatchEvent(event);
-      return event.defaultPrevented;
-    };
+    let fail!: (error: Error) => void, finish!: (value: unknown) => void;
+    mocks.deploy.mockImplementation(() => new Promise((resolve, reject) => { fail = reject; finish = resolve; }));
+    const leaving = () => { const event = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; };
     const view = render(<App />);
     expect(leaving()).toBe(false);
     await user.click(screen.getByRole("button", { name: "Guided local" }));
     await user.click(await screen.findByRole("button", { name: "Set up program" }));
+    const timers = vi.spyOn(globalThis, "setTimeout");
     await user.click(screen.getByRole("button", { name: "Create program" }));
     expect(mocks.deploy).toHaveBeenCalledOnce();
+    const expire = timers.mock.calls.find(([, duration]) => duration === DEMO_TRANSITION_TIMEOUT_MS)![0] as () => void;
+    timers.mockRestore();
     expect(leaving()).toBe(true);
-    await act(async () => { fail(new Error("Deployment interrupted")); });
-    expect(await screen.findAllByText("Deployment interrupted")).not.toHaveLength(0);
-    expect(leaving()).toBe(false);
-    view.unmount();
-    expect(leaving()).toBe(false);
-  });
+    if (outcome === "timeout") {
+      await act(async () => expire());
+      await act(async () => finish({ api: { contractAddress: "ab".repeat(32) }, evidence: {} }));
+    } else await act(async () => fail(new Error("Deployment interrupted")));
+    expect(screen.getByRole("heading", { name: "Deployment outcome needs investigation" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Create program" })).not.toBeInTheDocument();
+    expect(mocks.deploy).toHaveBeenCalledOnce();
+    expect(leaving()).toBe(true);
+    let downloaded: Blob | undefined;
+    vi.stubGlobal("URL", class extends URL { static override createObjectURL = (blob: Blob) => { downloaded = blob; return "blob:deployment"; }; static override revokeObjectURL = vi.fn(); });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const password = "Preserve interrupted deployment";
+    let serialized: string;
+    try {
+      await user.click(screen.getByRole("button", { name: "Private recovery" }));
+      expect(screen.getByRole("button", { name: "Restore encrypted backup" })).toBeDisabled();
+      await user.type(screen.getByLabelText("Backup password", { exact: true }), password);
+      await user.type(screen.getByLabelText("Confirm backup password"), password);
+      await user.click(screen.getByRole("button", { name: "Download encrypted backup" }));
+      await screen.findByText(/Encrypted backup download started/);
+      serialized = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsText(downloaded!); });
+    } finally { click.mockRestore(); }
+    const checked = await decryptRecovery(serialized, password);
+    expect(checked.snapshot.version).toBe(6);
+    expect(checked.snapshot.deploymentAttempt?.startedAt).toMatch(/Z$/);
+    expect(checked.snapshot.contractAddress).toBeNull();
+    const [, privateState, constructor] = mocks.deploy.mock.calls[0]!;
+    expect(hexToBytes(checked.snapshot.vendorSecret)).toEqual(privateState.actorSecret);
+    expect(await programConstructor(hexToBytes(checked.snapshot.programId), checked.snapshot.policy)).toEqual(constructor);
+    view.unmount(); expect(leaving()).toBe(false);
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Private recovery" }));
+    const file = new File([serialized], "deployment.json", { type: "application/json" });
+    Object.defineProperty(file, "text", { value: async () => serialized });
+    await user.upload(screen.getByLabelText("Recovery file"), file);
+    await user.type(screen.getByLabelText("Recovery password"), password);
+    fireEvent.submit(screen.getByRole("button", { name: "Restore encrypted backup" }).closest("form")!);
+    await screen.findByRole("heading", { name: "Deployment outcome needs investigation" }, { timeout: 5000 });
+    expect(screen.queryByRole("button", { name: "Create program" })).not.toBeInTheDocument();
+    expect(mocks.connect).toHaveBeenCalledOnce(); expect(mocks.join).not.toHaveBeenCalled(); expect(mocks.deploy).toHaveBeenCalledOnce();
+    expect(leaving()).toBe(true);
+  }, 20_000);
 
   it.each(["failure", "timeout"])("keeps transition %s uncertainty across encrypted export and ledger-checked restore", async (outcome) => {
     const user = userEvent.setup();

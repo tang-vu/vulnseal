@@ -147,6 +147,7 @@ function App() {
   const busy = useRef(false);
   const [providers, setProviders] = useState<VulnSealProviders>();
   const [api, setApi] = useState<VulnSealApi>();
+  const [deploymentAttempt, setDeploymentAttempt] = useState<RecoverySnapshot["deploymentAttempt"]>();
   const [programCreated, setProgramCreated] = useState(env.mode === "guided-local");
   const [programBytes, setProgramBytes] = useState(() => randomBytes(32));
   const [programPolicy, setProgramPolicy] = useState(defaultProgram);
@@ -178,7 +179,7 @@ function App() {
   const initialDraftState = useRef(draftState);
   // Download initiation cannot prove that a recovery file was saved. Keep the
   // guard while this tab holds report/authority material or edited private input.
-  const hasPrivateSessionMaterial = Boolean(JSON.stringify(programDraft) !== JSON.stringify(defaultProgramDraft) || api || sealed || reportId || pendingPreparation || uncertainTransition || recipientKeys || programPolicy !== defaultProgram || draftState !== initialDraftState.current);
+  const hasPrivateSessionMaterial = Boolean(deploymentAttempt || JSON.stringify(programDraft) !== JSON.stringify(defaultProgramDraft) || api || sealed || reportId || pendingPreparation || uncertainTransition || recipientKeys || programPolicy !== defaultProgram || draftState !== initialDraftState.current);
   useEffect(() => {
     if (!hasPrivateSessionMaterial && operation.state !== "working") return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -250,7 +251,7 @@ function App() {
   };
 
   const connectWallet = async (): Promise<void> => {
-    if (busy.current || providers) return;
+    if (busy.current || providers || deploymentAttempt) return;
     if (reportId || pendingPreparation) {
       setOperation({ state: "error", label: "Local report remains local", detail: pendingPreparation ? "Keep this prepared report and export its encrypted backup through Private recovery. Open a separate session for a network report." : "A guided report cannot become a network report by connecting a wallet. Open its submission receipt and choose Seal another to start a fresh session first." });
       return;
@@ -275,6 +276,10 @@ function App() {
   const createProgram = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (busy.current) return;
+    if (deploymentAttempt) {
+      setOperation({ state: "error", label: "Deployment outcome needs investigation", detail: "Keep this attempt and its encrypted backup. Creating another program is blocked because the original may still finalize." });
+      return;
+    }
     if (reportId || pendingPreparation || api) {
       setOperation({ state: "error", label: "Program already in use", detail: "Keep this program open to finish the current workflow. Create a separate program in a new tab." });
       return;
@@ -288,11 +293,15 @@ function App() {
       const constructor = await programConstructor(identifier, policy);
       if (runtimeMode === "midnight") {
         if (providers === undefined) throw new Error("Connect a wallet before deploying a Midnight program");
-        const deployed = await VulnSealApi.deploy(
+        // Preserve the exact attempted constructor inputs before SDK work begins.
+        setProgramBytes(identifier); setProgramPolicy(policy);
+        setDeploymentAttempt({ startedAt: new Date().toISOString() });
+        const deployed = await demoTransitionWait(async () => {}, () => VulnSealApi.deploy(
           providers,
           createVulnSealPrivateState(vendorSecret),
           constructor,
-        );
+        ), "Stopped waiting for program deployment. It may still finalize. Keep this tab open and save an encrypted backup through Private recovery. Creating another program is blocked until this attempt is investigated.");
+        setDeploymentAttempt(undefined);
         setApi(deployed.api);
         setEvidence([deployed.evidence]);
       }
@@ -556,20 +565,20 @@ function App() {
   };
 
   const recoverySnapshot = useMemo<RecoverySnapshot | undefined>(() => {
-    if (runtimeMode === "midnight" && !api) return undefined;
+    if (runtimeMode === "midnight" && !api && !deploymentAttempt) return undefined;
     const encode = (value?: Uint8Array) => value ? bytesToHex(value) : null;
     return {
-      version: 5, programDraft, uncertainTransition, attachmentDraft, pendingReport: pendingPreparation ? { report: { envelope: pendingPreparation.sealed.serializedEnvelope, key: bytesToHex(pendingPreparation.sealed.key), salt: bytesToHex(pendingPreparation.salt), id: bytesToHex(pendingPreparation.id) }, submissionStarted: pendingPreparation.submissionStarted } : null, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
+      version: deploymentAttempt ? 6 : 5, ...(deploymentAttempt ? { deploymentAttempt } : {}), programDraft, uncertainTransition, attachmentDraft, pendingReport: pendingPreparation ? { report: { envelope: pendingPreparation.sealed.serializedEnvelope, key: bytesToHex(pendingPreparation.sealed.key), salt: bytesToHex(pendingPreparation.salt), id: bytesToHex(pendingPreparation.id) }, submissionStarted: pendingPreparation.submissionStarted } : null, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
       programId: bytesToHex(programBytes), policy: programPolicy, vendorSecret: bytesToHex(vendorSecret), researcherSecret: bytesToHex(researcherSecret), draft: report,
       report: sealed && reportSalt && reportId ? { envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt), id: bytesToHex(reportId) } : null,
       status, history: events.map((event) => event.status), patch: encode(patchCommitment), retest: encode(retestCommitment), payout: encode(payoutReceipt),
       severity: acceptedSeverity, rationale, patchReference, retestNotes,
     };
-  }, [programDraft, uncertainTransition, attachmentDraft, pendingPreparation, runtimeMode, activeNetwork, api, programBytes, programPolicy, vendorSecret, researcherSecret, report, sealed, reportSalt, reportId, status, events, patchCommitment, retestCommitment, payoutReceipt, acceptedSeverity, rationale, patchReference, retestNotes]);
+  }, [deploymentAttempt, programDraft, uncertainTransition, attachmentDraft, pendingPreparation, runtimeMode, activeNetwork, api, programBytes, programPolicy, vendorSecret, researcherSecret, report, sealed, reportSalt, reportId, status, events, patchCommitment, retestCommitment, payoutReceipt, acceptedSeverity, rationale, patchReference, retestNotes]);
 
   const exportRecovery = async (password: string): Promise<string> => {
     if (busy.current) throw new Error("Wait for the current operation to finish");
-    if (runtimeMode === "midnight" && !api) throw new Error("Create the network program before exporting its recovery material");
+    if (!recoverySnapshot) throw new Error("Create the network program before exporting its recovery material");
     busy.current = true;
     setOperation({ state: "working", label: "Encrypting recovery file", detail: "Deriving a password key locally. No private material is uploaded." });
     try {
@@ -588,7 +597,7 @@ function App() {
   };
 
   const importRecovery = async (serialized: string, password: string): Promise<void> => {
-    if (busy.current || reportId || pendingPreparation || api) throw new Error("Restore in a fresh tab to preserve this active session");
+    if (busy.current || deploymentAttempt || reportId || pendingPreparation || api) throw new Error("Restore in a fresh tab to preserve this active session");
     busy.current = true;
     setOperation({ state: "working", label: "Restoring private session", detail: "Decrypting and checking report bindings before replacing this tab’s draft." });
     try {
@@ -596,7 +605,7 @@ function App() {
       let restoredApi: VulnSealApi | undefined;
       let restoredProviders: VulnSealProviders | undefined;
       let current: Awaited<ReturnType<typeof verifyRecoveryLedger>>;
-      if (snapshot.mode === "midnight") {
+      if (snapshot.mode === "midnight" && !snapshot.deploymentAttempt) {
         if (snapshot.network === "undeployed") throw new Error("A network backup must name its actual network");
         restoredProviders = await initializeBrowserProviders(snapshot.network);
         restoredApi = await VulnSealApi.join(restoredProviders, snapshot.contractAddress!, createVulnSealPrivateState(hexToBytes(snapshot.vendorSecret)));
@@ -608,7 +617,8 @@ function App() {
       const restoredStatus = current ? contractStatusName(current.status) : snapshot.status;
       setProviders(restoredProviders); setApi(restoredApi); setRuntimeMode(snapshot.mode);
       if (snapshot.mode === "midnight") setActiveNetwork(snapshot.network as typeof activeNetwork);
-      setProgramCreated(true); setProgramBytes(hexToBytes(snapshot.programId)); setProgramPolicy(snapshot.policy);
+      setDeploymentAttempt(snapshot.deploymentAttempt);
+      setProgramCreated(!snapshot.deploymentAttempt); setProgramBytes(hexToBytes(snapshot.programId)); setProgramPolicy(snapshot.policy);
       setProgramDraft(snapshot.programDraft ?? { ...snapshot.policy, responseDays: String(snapshot.policy.responseDays), disclosureDays: String(snapshot.policy.disclosureDays) });
       setVendorSecret(hexToBytes(snapshot.vendorSecret)); setResearcherSecret(hexToBytes(snapshot.researcherSecret));
       setReport(snapshot.draft); setAttachmentDraft(snapshot.attachmentDraft ?? emptyAttachmentDraft); setSealed(restoredSeal); setVendorReport(undefined);
@@ -624,7 +634,7 @@ function App() {
       setEvidence([]); setNeedsRefresh(false); setUncertainTransition(snapshot.uncertainTransition ?? null);
       // Backup history is a local record, never imported finality evidence.
       setEvents(current ? [{ status: restoredStatus, source: "ledger" }] : snapshot.history.map((entry) => ({ status: entry, source: "recovered" })));
-      changeScreen(snapshot.report ? "receipt" : "submit");
+      changeScreen(snapshot.deploymentAttempt ? "create" : snapshot.report ? "receipt" : "submit");
     } finally { busy.current = false; setOperation({ state: "idle" }); }
   };
 
@@ -635,6 +645,7 @@ function App() {
       case "dashboard":
         return <Dashboard programCreated={programCreated} programPolicy={programPolicy} programBytes={programBytes} status={status} reportId={reportId} timeline={timeline} onCreate={() => changeScreen("create", "vendor")} onTriage={() => void openVendorReview()} onVerify={() => changeScreen("verify", "verifier")} />;
       case "create":
+        if (deploymentAttempt) return <section className="page narrow-page"><h1>Deployment outcome needs investigation</h1><p>The deployment started at {deploymentAttempt.startedAt}. Its result has not been confirmed here. Creating another program is blocked because the original may still finalize.</p><HashValue label="Attempted program identifier" value={programBytes} /><p>Program: {programPolicy.name}</p><p>Keep this tab open and save an encrypted backup through Private recovery. The backup retains the attempted program policy and authority; it does not prove finality or contain a transaction identifier. Check the original wallet and network records before deciding what to do next.</p>{operation.state !== "idle" && <OperationNotice operation={operation} />}</section>;
         return <CreateProgram draft={programDraft} onChange={setProgramDraft} mode={runtimeMode} connected={providers !== undefined} operation={operation} onConnect={() => void connectWallet()} onSubmit={(event) => void createProgram(event)} />;
       case "submit":
         if (pendingPreparation) return <section className="page narrow-page"><h1>Keep the prepared report</h1><p>The exact encrypted report is retained. Save it through Private recovery before closing this tab. Editing a replacement here could lose the original encryption material.</p><p className="public-value">Report: {bytesToHex(pendingPreparation.id)}</p><PreparedReportReview report={JSON.parse(pendingPreparation.sealed.canonicalReport) as VulnerabilityReport} />{pendingPreparation.submissionStarted ? <p role="alert">Submission setup already started. Its outcome needs reconciliation; resubmission is blocked. Check your wallet and ledger before deciding what to do next.</p> : <button className="primary-button" onClick={() => void submitSealedReport()}>Retry saved report upload</button>}</section>;
@@ -683,7 +694,7 @@ function App() {
               <option value="verifier">Verifier</option>
             </select>
           </div>
-          <button className="network-button" disabled={operation.state === "working" || providers !== undefined} onClick={() => void connectWallet()}>
+          <button className="network-button" disabled={operation.state === "working" || providers !== undefined || deploymentAttempt !== undefined} onClick={() => void connectWallet()}>
             <span className={`status-dot ${providers ? "online" : ""}`} aria-hidden="true" />
             {providers ? "Lace connected" : modeLabel}
           </button>
@@ -696,7 +707,8 @@ function App() {
         </div>
       )}
       {screen === "lookup" && <div className="truth-banner"><span>Read-only public lookup</span>No private report material, wallet connection, or transaction submission is used here.</div>}
-      {runtimeMode === "midnight" && !networkReady && screen !== "lookup" && <div className="truth-banner" role="status"><span>Network setup required</span>Connect Lace and create a program before submitting a report. <button className="secondary-button" onClick={() => changeScreen("create", "vendor")}>Set up program</button></div>}
+      {runtimeMode === "midnight" && !networkReady && !deploymentAttempt && screen !== "lookup" && <div className="truth-banner" role="status"><span>Network setup required</span>Connect Lace and create a program before submitting a report. <button className="secondary-button" onClick={() => changeScreen("create", "vendor")}>Set up program</button></div>}
+      {deploymentAttempt && <div className="truth-banner" role="alert"><span>Deployment outcome unconfirmed</span>Retain an encrypted backup through Private recovery. This session cannot create another program. <button className="secondary-button" onClick={() => changeScreen("create", "vendor")}>Review deployment attempt</button></div>}
       {uncertainTransition && <div className="truth-banner" role="alert"><span>Transaction outcome unknown: {uncertainTransition}</span>Keep an encrypted backup through Private recovery. Further transactions and resetting this report are blocked, including after restore. A ledger refresh does not establish whether this attempt is safe to repeat.</div>}
       <div className="session-actions"><a className="secondary-button" href="./#roles" target="_blank" rel="noreferrer noopener">Open role workspace</a><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("handoff")}>Private exchange</button><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("lookup", "verifier")}>Independent verifier</button><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("recovery")}>Private recovery</button>{reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("receipt")}>Submission receipt</button>}{api && reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={exportPublicReceipt}>Download public receipt</button>}{needsRefresh && <button className="primary-button" disabled={operation.state === "working"} onClick={() => void retryPublicRead()}>Refresh public commitments</button>}</div>
       {operation.state === "error" && screen !== "seal" && (
@@ -706,7 +718,7 @@ function App() {
         </div>
       )}
       {screen !== "recovery" && autosaveNotice && <p className="operation-notice" role="status">{autosaveNotice}</p>}
-      <main id="main-content" aria-busy={operation.state === "working"}><fieldset className="workflow-controls" disabled={operation.state === "working"}>{main}<div hidden={screen !== "recovery"}><RecoveryPanel onAutosaveStatus={setAutosaveNotice} snapshot={recoverySnapshot} onExport={exportRecovery} onImport={importRecovery} canImport={!reportId && !pendingPreparation && !api} /></div><div hidden={screen !== "handoff"}><HandoffPanel keys={recipientKeys} onKeys={setRecipientKeys} disclosure={sealed && reportId && reportSalt ? { network: api ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null, programId: bytesToHex(programBytes), reportId: bytesToHex(reportId), envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt) } : undefined} /></div></fieldset></main>
+      <main id="main-content" aria-busy={operation.state === "working"}><fieldset className="workflow-controls" disabled={operation.state === "working"}>{main}<div hidden={screen !== "recovery"}><RecoveryPanel onAutosaveStatus={setAutosaveNotice} snapshot={recoverySnapshot} onExport={exportRecovery} onImport={importRecovery} canImport={!deploymentAttempt && !reportId && !pendingPreparation && !api} /></div><div hidden={screen !== "handoff"}><HandoffPanel keys={recipientKeys} onKeys={setRecipientKeys} disclosure={sealed && reportId && reportSalt ? { network: api ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null, programId: bytesToHex(programBytes), reportId: bytesToHex(reportId), envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt) } : undefined} /></div></fieldset></main>
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {navigation.slice(0, 5).map((item) => (
           <button key={item.screen} className={screen === item.screen ? "active" : ""} onClick={() => changeScreen(item.screen)}>

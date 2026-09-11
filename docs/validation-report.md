@@ -1,5 +1,13 @@
 # Validation report
 
+## Preserve unconfirmed combined deployments -- 2026-09-11
+
+Combined deployment now captures the attempted program ID, validated policy, authority and start timestamp before calling the SDK. SDK failure or the ten-minute UI deadline retains that attempt and blocks creating another program. Late success cannot replace that state after timeout. Recovery v6 can export it to a file/browser copy and restore without Lace, with creation still blocked. Normal deployed/local exports remain v5. This is recoverable local uncertainty, not a durable pre-broadcast identifier journal.
+
+**49 tests / 4 files** passed in **50.58 seconds**, covering rejection, timeout, late completion, exact authority and constructor-equivalent ID/policy, encrypted export, wallet-free restore and schema rejection. A separate **11 tests / 2 files** passed in **11.09 seconds** for App/autosave regression: **60 tests / 6 files across two runs**. **4 desktop/mobile E2E checks** passed in **1.2 minutes**, including synthetic unconfirmed deployment file restore, browser-copy reload/download and isolated-context file restore, plus the existing normal browser recovery flow. Normal build/typecheck and release validation passed: **8 circuits / 80 files / 65,469,465 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/combined-deployment-recovery.json) preserves earlier failures: the old leave-warning expectation, new-test timing/form simulation and fixture normalization. No native-wallet execution, full regression or runtime refresh is claimed. The attempt still needs a confirmed backup before a crash; transaction identifiers and authenticated reconciliation remain open.
+
 ## Export saved combined recovery copies -- 2026-09-11
 
 A selected browser copy now downloads its existing encrypted bytes without a password or live-session unlock. Its filename records the actual committed revision read. The existing password is still required for restore; newer unsaved changes are outside this file. The same download helper retains cleanup on failure for manual exports. Late stored-copy reads after unmount cannot initiate downloads.

@@ -13,7 +13,8 @@ const buffer = (value: Uint8Array): ArrayBuffer => Uint8Array.from(value).buffer
 export const uncertainCircuits = ["beginTriage", "acceptReport", "rejectReport", "anchorPatch", "submitRetest", "authorizePayout", "closeReport"] as const;
 export type UncertainCircuit = typeof uncertainCircuits[number];
 export type RecoverySnapshot = {
-  readonly version: 1 | 2 | 3 | 4 | 5;
+  readonly version: 1 | 2 | 3 | 4 | 5 | 6;
+  readonly deploymentAttempt?: { readonly startedAt: string };
   readonly programDraft?: ProgramDraft;
   readonly uncertainTransition?: UncertainCircuit | null;
   readonly pendingReport?: { readonly report: NonNullable<RecoverySnapshot["report"]>; readonly submissionStarted: boolean } | null;
@@ -79,11 +80,19 @@ const validateDraft = (input: unknown): VulnerabilityReport => {
 export const validateRecovery = async (input: unknown): Promise<{ snapshot: RecoverySnapshot; sealed: SealedReport | undefined; pendingSeal?: SealedReport | undefined }> => {
   // Capture nested caller-owned state before the first asynchronous crypto check.
   const value = object(structuredClone(input));
-  if (![1, 2, 3, 4, 5].includes(Number(value.version)) || typeof value.version !== "number" || !["guided-local", "midnight"].includes(String(value.mode))) throw new Error("Unsupported recovery version or mode");
+  if (![1, 2, 3, 4, 5, 6].includes(Number(value.version)) || typeof value.version !== "number" || !["guided-local", "midnight"].includes(String(value.mode))) throw new Error("Unsupported recovery version or mode");
   if (!["undeployed", "local", "preview", "preprod", "mainnet"].includes(String(value.network))) throw new Error("Unsupported recovery network");
   const mode = value.mode as RecoverySnapshot["mode"];
   const contractAddress = optionalHex(value.contractAddress);
-  if ((mode === "midnight") !== (contractAddress !== null)) throw new Error("Recovery network mode and contract address disagree");
+  let deploymentAttempt: RecoverySnapshot["deploymentAttempt"];
+  if (value.version === 6) {
+    const attempt = object(value.deploymentAttempt);
+    const startedAt = text(attempt.startedAt, "deployment timestamp");
+    if (Object.keys(attempt).length !== 1 || !Number.isFinite(Date.parse(startedAt)) || new Date(startedAt).toISOString() !== startedAt) throw new Error("Invalid recovery deployment timestamp");
+    if (mode !== "midnight" || value.network === "undeployed" || contractAddress !== null || value.report !== null || value.pendingReport !== null || value.uncertainTransition !== null || value.patch !== null || value.retest !== null || value.payout !== null) throw new Error("Recovery deployment attempt conflicts with a deployed workflow");
+    deploymentAttempt = { startedAt };
+  } else if (value.deploymentAttempt !== undefined) throw new Error("Deployment attempts require recovery version 6");
+  if (!deploymentAttempt && (mode === "midnight") !== (contractAddress !== null)) throw new Error("Recovery network mode and contract address disagree");
   const policyInput = object(value.policy);
   const form = new FormData();
   for (const name of ["name", "primaryScope", "additionalScope", "responseDays", "disclosureDays", "rewardPolicy"]) {
@@ -118,7 +127,7 @@ export const validateRecovery = async (input: unknown): Promise<{ snapshot: Reco
   } else if (history.length !== 0 || status !== "COMMITTED") throw new Error("Recovery history has no report");
   if (value.version < 5 && value.programDraft !== undefined) throw new Error("Program drafts require recovery version 5");
   const snapshot: RecoverySnapshot = {
-    version: value.version as RecoverySnapshot["version"], ...(value.version === 5 ? { programDraft: validateProgramDraft(value.programDraft) } : {}), ...(value.version >= 2 ? { attachmentDraft: value.attachmentDraft === null ? null : validateAttachmentDraft(value.attachmentDraft) } : {}), mode, network: String(value.network), contractAddress, programId, policy, vendorSecret, researcherSecret, draft, report, status, history,
+    version: value.version as RecoverySnapshot["version"], ...(deploymentAttempt ? { deploymentAttempt } : {}), ...(value.version >= 5 ? { programDraft: validateProgramDraft(value.programDraft) } : {}), ...(value.version >= 2 ? { attachmentDraft: value.attachmentDraft === null ? null : validateAttachmentDraft(value.attachmentDraft) } : {}), mode, network: String(value.network), contractAddress, programId, policy, vendorSecret, researcherSecret, draft, report, status, history,
     patch: optionalHex(value.patch), retest: optionalHex(value.retest), payout: optionalHex(value.payout), severity: Number(value.severity),
     rationale: text(value.rationale, "rationale"), patchReference: text(value.patchReference, "patch reference"), retestNotes: text(value.retestNotes, "retest notes"),
   };
@@ -144,7 +153,7 @@ export const validateRecovery = async (input: unknown): Promise<{ snapshot: Reco
       const material = object(pending.report);
       if (Object.keys(material).sort().join() !== "envelope,id,key,salt") throw new Error("Invalid pending recovery report");
       // Reuse all envelope/commitment checks without treating this local preparation as a completed report.
-      const checked = await validateRecovery({ ...snapshot, version: 2, programDraft: undefined, report: material, status: "COMMITTED", history: ["COMMITTED"] });
+      const checked = await validateRecovery({ ...snapshot, version: 2, deploymentAttempt: undefined, programDraft: undefined, report: material, status: "COMMITTED", history: ["COMMITTED"] });
       pendingSeal = checked.sealed;
       if (!pendingSeal || pendingSeal.canonicalReport !== canonicalizeReport(draft)) throw new Error("Pending recovery report differs from its draft");
       pendingReport = { report: checked.snapshot.report!, submissionStarted: pending.submissionStarted };

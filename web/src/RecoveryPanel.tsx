@@ -101,7 +101,7 @@ export function RecoveryPanel({ onAutosaveStatus, snapshot, onExport, onImport, 
       }
     })}>
       <h2>Restore a saved session</h2>
-      <p>Restore in a fresh tab. An existing draft is replaced. Network recovery connects Lace and checks the contract and report on the file’s network; it does not submit a transaction.</p>
+      <p>Restore in a fresh tab. An existing draft is replaced. Unconfirmed deployment backups reopen without a wallet and keep creation blocked. Deployed network recovery connects Lace and checks the contract and report on the file’s network; it does not submit a transaction.</p>
       {!restoreAllowed && <p role="status">This tab has an active program/report or autosave writer. Open a fresh tab to restore without replacing it.</p>}
       <label>Recovery file<input ref={fileInput} type="file" accept=".json,application/json" required disabled={!restoreAllowed || working} onChange={(event) => setFile(event.target.files?.[0])} /></label>
       <label>Recovery password<input type="password" autoComplete="current-password" minLength={12} required value={restorePassword} onChange={(event) => setRestorePassword(event.target.value)} disabled={!restoreAllowed || working} /></label>

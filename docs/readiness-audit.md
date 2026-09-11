@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- Combined deployment now retains the attempted program ID, policy and authority when SDK confirmation fails or exceeds ten minutes. Recovery v6 preserves that unconfirmed attempt in files/browser copies and reopens without a wallet, with creation still blocked. Durable pre-wallet persistence, transaction identifiers and authenticated reconciliation remain open; see [evidence](evidence/combined-deployment-recovery.json).
+
 - A selected combined browser recovery copy can now be downloaded with its existing encryption and password. Desktop/mobile checks compare exact encrypted bytes and restore the file in an isolated browser context after source-copy removal. This exports the committed revision, not newer unsaved edits; see [evidence](evidence/recovery-copy-export.json).
 
 - Combined-demo transition waits now recheck both elapsed deadlines before starting submit and accepting SDK results, even if timer callbacks are delayed. Tests cover both clocks and late resolve/reject paths; existing uncertainty and retry blocking remain. Already-started SDK/wallet work is not canceled.

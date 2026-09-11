@@ -164,3 +164,14 @@ describe("encrypted browser recovery", () => {
     expect(pending.pendingReport.submissionStarted).toBe(submissionStarted);
   });
 });
+
+
+it("round trips deployment recovery v6 and rejects conflicting workflow or downgraded attempts", async () => {
+  const { snapshot } = await recoveryFixture();
+  const deployment = { ...snapshot, version: 6 as const, mode: "midnight" as const, network: "preprod", contractAddress: null, report: null, history: [], programDraft: defaultProgramDraft, pendingReport: null, uncertainTransition: null, attachmentDraft: null, deploymentAttempt: { startedAt: "2026-09-11T00:00:00.000Z" } };
+  expect((await decryptRecovery(await encryptRecovery(deployment, password), password)).snapshot).toEqual(deployment);
+  for (const change of [
+    { version: 5 }, { deploymentAttempt: undefined }, { deploymentAttempt: {} }, { deploymentAttempt: { startedAt: "yesterday" } }, { deploymentAttempt: { ...deployment.deploymentAttempt, extra: true } },
+    { contractAddress: "ab".repeat(32) }, { mode: "guided-local" }, { network: "undeployed" }, { report: snapshot.report }, { pendingReport: { report: snapshot.report, submissionStarted: true } }, { uncertainTransition: "beginTriage" }, { patch: "ab".repeat(32) }, { history: ["COMMITTED"] }, { programDraft: undefined },
+  ]) await expect(validateRecovery({ ...deployment, ...change })).rejects.toThrow();
+});
