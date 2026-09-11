@@ -1,5 +1,13 @@
 # Validation report
 
+## Capture recipient intent and validate backup key pairs -- 2026-09-11
+
+Disclosure export now captures the public recipient file before asynchronous report validation. Previously it read the caller's recipient object afterward, permitting a changed recipient to redirect a pending export. Receiving-key backup now captures its public recipient and private key before awaiting, validates the public file, and checks the matching RSA-OAEP SHA-256 key pair before encryption. The pair check is shared with restoration. Mismatched key pairs fail during backup creation instead of producing an unrestorable file. File formats and ordinary UI key creation remain unchanged.
+
+All **17 handoff/panel tests / 2 files** passed in **6.99 seconds**. New boundary tests replace recipient fields during disclosure validation and replace both key fields during backup preparation; decrypted outputs retain the originally requested recipient and key. A mismatched public/private pair is rejected. The actual desktop/mobile exchange suite passed **6 E2E tests in 1.2 minutes**, covering key-backup/download retry, independent recipient restoration/decryption, leave warnings and renewed confirmation after changing saved reports. Mutation races are tested at the helper boundary, not through synthetic browser scheduling.
+
+The normal web build and release gate passed with **8 circuits / 80 files / 65,418,379 bytes**. Logs: `.compact/recipient-snapshot-tests.log`, `.compact/recipient-snapshot-browser.log` and `.compact/recipient-snapshot-release.log`. This is targeted exchange validation, not authenticated recipient identity, delivery, native-wallet verification or full workspace regression.
+
 ## Capture validated recovery data before export -- 2026-09-11
 
 Combined recovery validation now deep-copies input synchronously before cryptographic checks, and encryption serializes the returned validated snapshot. Previously it validated asynchronously and then serialized the original caller-owned object, allowing intervening mutations or out-of-schema fields into the encrypted export. The fix preserves the existing backup format and captures the export's starting state; subsequent work requires another backup.

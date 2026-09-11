@@ -54,8 +54,11 @@ const passwordKey = async (password: string, salt: Uint8Array, usage: KeyUsage) 
   return crypto.subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt: buffer(salt), iterations: 600_000 }, material, { name: "AES-GCM", length: 256 }, false, [usage]);
 };
 export const backupRecipient = async (keys: RecipientKeys, password: string): Promise<string> => {
+  const recipientFile = JSON.stringify(keys.recipient), privateKey = keys.privateKey;
+  const recipient = await parseRecipient(recipientFile);
+  await assertRecipientPair(recipient, privateKey);
   const salt = randomBytes(16), iv = randomBytes(12);
-  const plaintext = JSON.stringify({ recipient: keys.recipient, privateKey: encode(await crypto.subtle.exportKey("pkcs8", keys.privateKey)) });
+  const plaintext = JSON.stringify({ recipient, privateKey: encode(await crypto.subtle.exportKey("pkcs8", privateKey)) });
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv: buffer(iv), additionalData: backupAad }, await passwordKey(password, salt, "encrypt"), buffer(utf8(plaintext)));
   return JSON.stringify({ format: "vulnseal-recipient-backup", version: 1, salt: bytesToBase64Url(salt), iv: bytesToBase64Url(iv), ciphertext: encode(ciphertext) });
 };
@@ -71,11 +74,17 @@ export const restoreRecipient = async (serialized: string, password: string): Pr
   const inner = object(parse(new TextDecoder("utf-8", { fatal: true }).decode(plaintext), 8192), ["recipient", "privateKey"]);
   const recipient = await parseRecipient(JSON.stringify(inner.recipient));
   const privateKey = await crypto.subtle.importKey("pkcs8", buffer(decode(inner.privateKey)), { name: "RSA-OAEP", hash: "SHA-256" }, true, ["decrypt"]);
+  await assertRecipientPair(recipient, privateKey);
+  return { recipient, privateKey };
+};
+
+async function assertRecipientPair(recipient: Recipient, privateKey: CryptoKey): Promise<void> {
+  const algorithm = privateKey.algorithm as RsaHashedKeyAlgorithm;
+  if (privateKey.type !== "private" || algorithm.name !== "RSA-OAEP" || algorithm.hash?.name !== "SHA-256" || !privateKey.usages.includes("decrypt")) throw new Error("Unsupported recipient private key");
   const privateJwk = await crypto.subtle.exportKey("jwk", privateKey);
   const publicJwk = await crypto.subtle.exportKey("jwk", await importPublic(recipient.publicKey));
   if (privateJwk.n !== publicJwk.n || privateJwk.e !== publicJwk.e) throw new Error("Recipient backup key pair does not match");
-  return { recipient, privateKey };
-};
+}
 
 export type Disclosure = { readonly network: string; readonly contractAddress: string | null; readonly programId: string; readonly reportId: string; readonly envelope: string; readonly key: string; readonly salt: string };
 export const validateDisclosure = async (input: unknown) => {
@@ -92,8 +101,9 @@ export const validateDisclosure = async (input: unknown) => {
 };
 const handoffAad = (fingerprint: string) => buffer(utf8(`vulnseal:recipient-handoff:v1:${fingerprint}`));
 export const encryptDisclosure = async (input: Disclosure, recipient: Recipient): Promise<string> => {
+  const recipientFile = JSON.stringify(recipient);
   const { disclosure } = await validateDisclosure(input);
-  const checked = await parseRecipient(JSON.stringify(recipient));
+  const checked = await parseRecipient(recipientFile);
   const aad = handoffAad(checked.fingerprint);
   const key = randomBytes(32), iv = randomBytes(12);
   const aes = await crypto.subtle.importKey("raw", buffer(key), "AES-GCM", false, ["encrypt"]);

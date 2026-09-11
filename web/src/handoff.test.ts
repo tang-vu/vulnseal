@@ -31,6 +31,25 @@ describe("recipient-bound private disclosure", () => {
       await expect(decryptDisclosure(JSON.stringify(changed), keys)).rejects.toThrow("authentication failed");
     }
   });
+  it("keeps the recipient captured before disclosure validation starts", async () => {
+    const recipient = { ...keys.recipient };
+    const pending = encryptDisclosure(disclosure, recipient);
+    Object.assign(recipient, other.recipient);
+    const serialized = await pending;
+    expect(JSON.parse(serialized).recipient).toBe(keys.recipient.fingerprint);
+    expect((await decryptDisclosure(serialized, keys)).disclosure).toEqual(disclosure);
+    await expect(decryptDisclosure(serialized, other)).rejects.toThrow("different recipient");
+  });
+  it("captures a matching key pair for backup and rejects mismatched pairs before export", async () => {
+    const source = { recipient: { ...keys.recipient }, privateKey: keys.privateKey };
+    const pending = backupRecipient(source, "Recipient backup test password");
+    Object.assign(source.recipient, other.recipient);
+    source.privateKey = other.privateKey;
+    const restored = await restoreRecipient(await pending, "Recipient backup test password");
+    expect(restored.recipient).toEqual(keys.recipient);
+    expect((await decryptDisclosure(await encryptDisclosure(disclosure, keys.recipient), restored)).disclosure).toEqual(disclosure);
+    await expect(backupRecipient({ recipient: keys.recipient, privateKey: other.privateKey }, "Recipient backup test password")).rejects.toThrow("key pair does not match");
+  });
   it("checks public-key fingerprints and rejects private fields in public files", async () => {
     expect(await parseRecipient(JSON.stringify(keys.recipient))).toEqual(keys.recipient);
     await expect(parseRecipient(JSON.stringify({ ...keys.recipient, fingerprint: "00".repeat(32) }))).rejects.toThrow("fingerprint");

@@ -10,6 +10,8 @@ The recipient generates RSA-3072 with exponent 65537 and OAEP SHA-256 using Web 
 
 Each disclosure uses a fresh AES-256 key and 96-bit IV. AES-GCM authenticates the versioned protocol context and recipient fingerprint; RSA-OAEP wraps the AES key using that context as its label. The outer file exposes only format/version, recipient fingerprint, wrapped key, IV and ciphertext. The encrypted inner allowlist is network, contract address (null for guided local), program ID, report commitment, original ciphertext envelope, report decryption key and salt. Actor secrets, wallet data and private triage/retest notes are excluded. Original binary attachments remain separately exchanged.
 
+Export captures the public recipient file before asynchronous report validation, so later changes to the caller's recipient object cannot redirect a pending package. Receiving-key backup similarly captures the public recipient and private key at entry, validates the public file, and verifies the key pair before encryption. Both backup creation and restoration require a matching RSA-OAEP SHA-256 private key with decryption usage. A caller cannot obtain an apparently successful backup of mismatched keys; ordinary UI key creation and the encrypted v1 file formats are unchanged.
+
 Decryption enforces the schema, checks program AAD, decrypts the report and recomputes its Compact commitment. This establishes correspondence with the supplied commitment, not sender authority, original submission or network inclusion. Network packages offer an independent-verifier link with public identifiers and expected ciphertext digest only. Guided reports explicitly have no network evidence.
 
 ## Key recovery and limits
