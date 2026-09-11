@@ -1,0 +1,61 @@
+{
+  "recordedAt": "2026-09-11T03:30:04.928083+00:00",
+  "applicationRevision": "0ada0b27061b19385da695ddccd25a7ad4a9c017",
+  "webUnit": {
+    "command": "npm run test:run -w @vulnseal/web",
+    "tests": 374,
+    "files": 59,
+    "seconds": 189.22,
+    "workers": 2,
+    "exitCode": 0
+  },
+  "browser": {
+    "initialFullRun": {
+      "command": "CI=1 npm run test:e2e",
+      "passed": 136,
+      "failed": 2,
+      "reportedDuration": "6.3m",
+      "workers": 2,
+      "retries": 0,
+      "exitCode": 1
+    },
+    "failure": "Desktop/mobile stalled-upload recovery checks expected snapshot version 4; the current application exports version 5. Both failed before their final restore/retry checks.",
+    "correction": "Expect version 5 and compare its programDraft to the default draft; all uncertainty, ciphertext, isolated-context restore and identical upload/readback assertions retained.",
+    "correctedRun": {
+      "command": "CI=1 npx playwright test e2e/cipherstore-timeout.spec.ts --grep \"stalled upload preserves\"",
+      "passed": 2,
+      "failed": 0,
+      "seconds": 53.6,
+      "workers": 2,
+      "retries": 0,
+      "exitCode": 0
+    },
+    "finalCoveredCases": 138,
+    "singleSuccessfulFullInvocation": false
+  },
+  "release": {
+    "command": "npm run build -w @vulnseal/web && node scripts/check-web-release.mjs --write-manifest",
+    "circuits": 8,
+    "files": 80,
+    "bytes": 65454274,
+    "exitCode": 0
+  },
+  "testCorrectionSha256": "2b2823cd40c5ad8aeb2362f92281641a656c4d691bd6391fa15257b5877ce0a7",
+  "rawLogSha256": {
+    "web-autosave-full-tests": "fe402e316fbed9926ff4e133a83f7858c64c428b15fb346ce03f717459b93165",
+    "web-autosave-full-e2e": "184b921c35541e732f236c920f163315a3b381f63c011f150a7d227d9cb8945b",
+    "web-autosave-corrected-e2e": "bd3bdecc032933e58b7ce6c041b62562ad87dbd777e1916ab0f10f51fe58d419",
+    "web-autosave-regression-release": "ffeab74f8803cc1b46ad09118d6cac85f394d4c20098e5e32dfbad2bc9b3e90a"
+  },
+  "failedContextSha256": {
+    "desktop-chrome": "27f6be27f343d726d2889d6947ffdf9e116b5af11d32d4822131416d104278c3",
+    "mobile-chrome": "dbde6d72883414788a4b56e9f951f7021b9c13e4df2b28da611d581cb57bc7cc"
+  },
+  "limits": [
+    "Web-only full unit regression; other five workspaces were not rerun in this record.",
+    "Browser coverage combines the full failed run and the corrected two-case run. No single green complete E2E invocation is claimed.",
+    "The assertion was edited after both affected cases had failed while the remaining initial cases finished; runtime application source remained unchanged.",
+    "Web unit and initial E2E overlapped with two workers each; unit tests do not write web/dist. The normal artifact was rebuilt after browser completion.",
+    "Retained proving keys were checked, not freshly generated. Native wallet and public deployment remain unverified."
+  ]
+}

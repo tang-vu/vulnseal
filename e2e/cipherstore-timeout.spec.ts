@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { expect, test, type Route } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { defaultProgramDraft } from "../web/src/program.js";
 import { decryptRecovery } from "../web/src/recovery.js";
 
 test("an oversized storage response falls back to the authenticated local ciphertext", async ({ page }) => {
@@ -49,7 +50,8 @@ test("a stalled upload preserves exact ciphertext through encrypted file recover
     const filename = testInfo.outputPath("pending-report-backup.json");
     await (await download).saveAs(filename);
     const recovered = await decryptRecovery(await readFile(filename, "utf8"), "Preserve the original encrypted report");
-    expect(recovered.snapshot.version).toBe(4);
+    expect(recovered.snapshot.version).toBe(5);
+    expect(recovered.snapshot.programDraft).toEqual(defaultProgramDraft);
     expect(recovered.snapshot.uncertainTransition).toBeNull();
     expect(recovered.snapshot.report).toBeNull();
     expect(recovered.snapshot.history).toEqual([]);

@@ -1,0 +1,55 @@
+{
+  "recordedAt": "2026-09-11T03:33:34.737907+00:00",
+  "applicationRevision": "0ada0b27061b19385da695ddccd25a7ad4a9c017",
+  "applicationRegression": "docs/evidence/web-autosave-regression.json",
+  "imageId": "sha256:ee5772a8bba9fa96ff820de55505f91ad75a87b198a1b104ac0631a585eb8859",
+  "build": {
+    "command": "docker build -f infra/web.Dockerfile -t vulnseal-web:local .",
+    "exitCode": 0,
+    "circuits": 8,
+    "artifactFiles": 80,
+    "artifactBytes": 65454274,
+    "caddyCompilerAndMatcherTests": "cached; not newly run",
+    "rawLogSha256": "e295cf8dae1fa9088ba8e69f041c24780882a1ff8865a1f239bbd9cf5eba4d8b"
+  },
+  "containerDrill": {
+    "command": "VULNSEAL_DOCKER_WSL_DISTRO=Ubuntu node scripts/test-web-container.mjs --write-evidence",
+    "exitCode": 0,
+    "capturedAt": "2026-09-11T03:31:47.862Z",
+    "requests": 81,
+    "transferredBytes": 65455553,
+    "evidence": "docs/evidence/web-container-drill.json",
+    "cleanupCompleted": true,
+    "rawLogSha256": "ecdd3a9df3a12e444ea164087e79e89025d729e0a858b05f5f7ba3183e3b3af5"
+  },
+  "scanner": {
+    "command": "sh scripts/scan-container.sh sha256:ee5772a8bba9fa96ff820de55505f91ad75a87b198a1b104ac0631a585eb8859",
+    "exitCode": 1,
+    "completed": true,
+    "os": "Alpine 3.23.5",
+    "osPackages": 32,
+    "osFindings": 0,
+    "findings": [
+      {
+        "id": "GO-2026-5932",
+        "severity": "UNKNOWN",
+        "module": "golang.org/x/crypto",
+        "installed": "v0.56.0",
+        "fixedVersion": null
+      }
+    ],
+    "suppressedFindings": 0,
+    "rawLogSha256": "a735948676be1fdda94ceedb789a08d5f5472b4f1f4bc752d433b090f9dedaf7"
+  },
+  "cleanup": {
+    "webTestContainerLabelQueryEmpty": true,
+    "scannerContainerLabelQueryEmpty": true,
+    "rawLogSha256": "46107384ef81f79b5d87a90f6baacbd9747f005a21d3ea2842990e3cf15afd89"
+  },
+  "limits": [
+    "Container drill verifies its listed hosted-byte/worker/widget/exchange/restart behavior; complete recovery/autosave journeys are covered separately in source-artifact E2E.",
+    "No fresh Go source scan, full compiler/key generation, native-wallet verification or external deployment.",
+    "The exact-runtime strict security gate remains failed.",
+    "Drill and scanner ran concurrently against the immutable image identity; final owned-container queries were empty."
+  ]
+}
