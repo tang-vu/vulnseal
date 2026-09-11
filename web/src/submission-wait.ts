@@ -21,10 +21,21 @@ export function submissionWait() {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let closed = false, started = false;
   let checkpointId: string | undefined;
+  let monotonicDeadline = 0, wallDeadline = 0;
+  let deadlineError: Error;
   let reject!: (error: Error) => void;
   const timeout = new Promise<never>((_resolve, fail) => { reject = fail; });
   const close = (error: Error) => { if (closed) return; closed = true; clearTimeout(timer); if (started) reject(error); };
-  const assertActive = () => { if (closed || !started) throw new Error("Submission wait is closed. No transaction was sent by this checkpoint."); };
+  const arm = (duration: number, error: Error) => {
+    clearTimeout(timer);
+    monotonicDeadline = performance.now() + duration; wallDeadline = Date.now() + duration; deadlineError = error;
+    timer = setTimeout(() => close(error), duration);
+  };
+  const assertActive = () => {
+    if (closed || !started) throw new Error("Submission wait is closed. No transaction was sent by this checkpoint.");
+    // A queued timer can lose the race to a resumed SDK promise. Neither clock may extend the wait.
+    if (performance.now() >= monotonicDeadline || Date.now() >= wallDeadline) { close(deadlineError); throw deadlineError; }
+  };
   return {
     get transactionId() { return checkpointId; },
     assertActive,
@@ -33,14 +44,14 @@ export function submissionWait() {
       assertActive();
       if (checkpointId !== undefined) throw new Error("A transaction is already being observed");
       checkpointId = transactionId;
-      clearTimeout(timer);
-      timer = setTimeout(() => close(new SubmissionConfirmationTimeout(transactionId)), SUBMISSION_CONFIRMATION_TIMEOUT_MS);
+      arm(SUBMISSION_CONFIRMATION_TIMEOUT_MS, new SubmissionConfirmationTimeout(transactionId));
     },
     async run<T>(action: () => Promise<T>): Promise<T> {
       if (started || closed) throw new Error("Submission wait cannot be reused");
       started = true;
-      timer = setTimeout(() => close(new SubmissionPreparationTimeout()), SUBMISSION_PREPARATION_TIMEOUT_MS);
-      try { return await Promise.race([action(), timeout]); }
+      arm(SUBMISSION_PREPARATION_TIMEOUT_MS, new SubmissionPreparationTimeout());
+      try { const result = await Promise.race([action(), timeout]); assertActive(); return result; }
+      catch (cause) { if (!closed) assertActive(); throw cause; }
       finally { closed = true; clearTimeout(timer); }
     },
   };

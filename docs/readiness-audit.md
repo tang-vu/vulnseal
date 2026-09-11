@@ -4,7 +4,7 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
-- Role transaction preparation now has a 15-minute deadline before the durable checkpoint, followed by the existing 10-minute confirmation wait. Late checkpoints are tied to their original wait and cannot authorize broadcast after expiry/unmount. Preparation expiry stops the old autosave writer and blocks the session while preserving backup access; already-started storage writes may still commit and require inspection. Native-wallet cancellation remains unverified.
+- Role transaction preparation now has a 15-minute deadline before the durable checkpoint, followed by the existing 10-minute confirmation wait. Late checkpoints are tied to their original wait and cannot authorize broadcast after expiry/unmount. Both monotonic and wall-clock deadlines are rechecked at checkpoints and SDK completion, so delayed timer dispatch cannot accept an expired result. Preparation expiry stops the old autosave writer and blocks the session while preserving backup access; already-started storage writes may still commit and require inspection. Native-wallet cancellation remains unverified.
 
 - Ciphertext clients now count only HTTP 200/201 as completed upload acknowledgments. Unsupported 2xx responses remain unconfirmed and cannot inflate replication completion. API checks cover 202/204/206 and partial replication; desktop/mobile recovery tests cover retained ciphertext, encrypted backup restore and explicit identical retry after a substituted 202 or lost response. This verifies response handling, not operator honesty or long-term retention.
 

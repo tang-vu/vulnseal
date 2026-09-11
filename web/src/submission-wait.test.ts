@@ -2,7 +2,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { submissionWait, SUBMISSION_CONFIRMATION_TIMEOUT_MS, SUBMISSION_PREPARATION_TIMEOUT_MS, SubmissionPreparationTimeout, SubmissionConfirmationTimeout } from "./submission-wait.js";
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 it.each(["resolve", "reject"])("starts confirmation at the saved checkpoint and ignores late %s", async (outcome) => {
   vi.useFakeTimers();
@@ -60,4 +60,44 @@ it("can cancel an unused wait without invoking an action", async () => {
   const wait = submissionWait(), action = vi.fn(); wait.cancel();
   await expect(wait.run(action)).rejects.toThrow("cannot be reused");
   expect(action).not.toHaveBeenCalled();
+});
+
+
+it.each((["wall", "monotonic"] as const).flatMap(clock => (["checkpoint", "preparation result", "confirmation result"] as const).map(boundary => ({ clock, boundary }))))("rejects $boundary when the $clock clock expires before the timer callback", async ({ clock, boundary }) => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-11T00:00:00Z"));
+    let monotonic = 0;
+    const now = vi.spyOn(performance, "now").mockImplementation(() => monotonic);
+    const wait = submissionWait(), accepted = vi.fn(), broadcast = vi.fn();
+    let finish!: () => void;
+    const result = wait.run(async () => {
+      if (boundary === "confirmation result") wait.checkpoint("saved-id");
+      await new Promise<void>(resolve => { finish = resolve; });
+      if (boundary === "checkpoint") { wait.checkpoint("late-id"); broadcast(); }
+      return "late SDK result";
+    }).then(accepted).catch((error: unknown) => error);
+    const duration = boundary === "confirmation result" ? SUBMISSION_CONFIRMATION_TIMEOUT_MS : SUBMISSION_PREPARATION_TIMEOUT_MS;
+    if (clock === "wall") vi.setSystemTime(Date.now() + duration);
+    else { monotonic = duration; vi.setSystemTime(Date.now() - 60_000); }
+    // Do not execute scheduled timers: the SDK continuation wins scheduling order.
+    finish();
+    expect(await result).toBeInstanceOf(boundary === "confirmation result" ? SubmissionConfirmationTimeout : SubmissionPreparationTimeout);
+    expect(accepted).not.toHaveBeenCalled(); expect(broadcast).not.toHaveBeenCalled();
+    expect(wait.transactionId).toBe(boundary === "confirmation result" ? "saved-id" : undefined);
+    expect(vi.getTimerCount()).toBe(0);
+    now.mockRestore(); vi.useRealTimers();
+});
+
+
+it.each([false, true])("reports a deadline instead of a late SDK rejection (checkpoint=%s)", async checkpoint => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-11T00:00:00Z"));
+  const wait = submissionWait(); let fail!: (cause: Error) => void;
+  const result = wait.run(() => {
+    if (checkpoint) wait.checkpoint("saved-id");
+    return new Promise<void>((_resolve, reject) => { fail = reject; });
+  }).catch((cause: unknown) => cause);
+  vi.setSystemTime(Date.now() + (checkpoint ? SUBMISSION_CONFIRMATION_TIMEOUT_MS : SUBMISSION_PREPARATION_TIMEOUT_MS));
+  fail(new Error("Late SDK rejection"));
+  expect(await result).toBeInstanceOf(checkpoint ? SubmissionConfirmationTimeout : SubmissionPreparationTimeout);
+  expect(wait.transactionId).toBe(checkpoint ? "saved-id" : undefined);
+  expect(vi.getTimerCount()).toBe(0);
 });

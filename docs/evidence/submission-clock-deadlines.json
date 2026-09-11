@@ -1,0 +1,50 @@
+{
+  "recordedAt": "2026-09-11T03:50:59.445896+00:00",
+  "baseRevision": "dc892db",
+  "reproduction": {
+    "passed": 6,
+    "failed": 2,
+    "exitCode": 1,
+    "trigger": "Advance either wall or monotonic clock without executing scheduled timeout callbacks, then release SDK continuation. Old checkpoint accepts the late continuation."
+  },
+  "validation": {
+    "sharedAndComponentRun": {
+      "tests": 37,
+      "files": 4,
+      "seconds": 94.51,
+      "exitCode": 0
+    },
+    "expandedHelperRun": {
+      "tests": 14,
+      "files": 1,
+      "seconds": 2.24,
+      "exitCode": 0
+    },
+    "uniqueCoveredTests": 39,
+    "uniqueFiles": 4,
+    "normalWebBuildAndRelease": {
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65458980,
+      "exitCode": 0
+    }
+  },
+  "rawLogSha256": {
+    "submission-clock-reproduction": "88deb50dfd9a7adbb2859a210541e2d00979e4d38f7d939c4e42338d38561e8f",
+    "submission-clock-tests": "d841d35a4b05d4ad7c9c735d43a159c090d01b237ed592956f294e8e283d43e2",
+    "submission-clock-extra-tests": "5c543ea6d5cc4a6b53edb2478c8cd742f1cd21d72a508d31be29c2bcc119f59e",
+    "submission-clock-release": "2dd0f4995dfa9822ed76b2ce1303d75cdd9a884ea3bfa5398a714299ba032b43"
+  },
+  "coverage": [
+    "Deadline checks at checkpoint and resolved SDK result with timer callbacks deliberately undispatched",
+    "Monotonic expiry despite a backwards wall clock; wall expiry while monotonic clock remains fixed",
+    "Late SDK rejections are classified by the expired preparation/confirmation deadline",
+    "Existing role journal persistence, deployment timeout and private operation-context behavior"
+  ],
+  "limits": [
+    "Tests control clock values and callback ordering; physical OS suspend/resume and native-wallet behavior are not claimed.",
+    "A forward wall-clock adjustment can expire the wait conservatively. No hard real-time guarantee when browser execution is suspended.",
+    "A post-checkpoint timeout remains an unknown transaction outcome, not proof of failure or safe retry.",
+    "No new E2E/full regression, runtime image refresh or public deployment."
+  ]
+}

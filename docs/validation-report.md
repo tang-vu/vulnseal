@@ -1,5 +1,13 @@
 # Validation report
 
+## Enforce deadlines when timer dispatch is delayed -- 2026-09-11
+
+A targeted reproduction produced **6 passed / 2 failed**: the old wait accepted a checkpoint after its deadline if the timer callback had not yet run. The helper now records monotonic and wall-clock deadlines for each phase, rejects expiry at the checkpoint and at SDK completion, and classifies late SDK rejections as the expired phase. Either clock can expire the wait; a backwards wall clock cannot extend an elapsed monotonic deadline. Timely errors and results retain their existing behavior.
+
+The shared-helper/role-component run passed **37 tests / 4 files in 94.51 seconds**. An expanded helper run passed **14 tests in 2.24 seconds**, adding late SDK rejection checks; combined unique coverage is **39 tests / 4 files across the two runs**. Tests deliberately withhold timer callbacks and independently move either clock, including backwards wall time, while releasing SDK continuations. Existing journal, deployment and role-command checks remain covered. The normal web build/typecheck and artifact gate passed: **8 circuits / 80 files / 65,458,980 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/submission-clock-deadlines.json) preserves the failing reproduction and final logs. A forward wall-clock adjustment can expire the wait conservatively. This is application continuation ordering, not physical suspend/resume, native-wallet cancellation or a hard real-time guarantee. No new E2E suite, runtime image refresh or external deployment is claimed.
+
 ## Bound role preparation and reject late checkpoints -- 2026-09-11
 
 Role `duringSubmission` calls now have a **15-minute preparation deadline**, replaced by the existing **10-minute confirmation deadline** only after the journal checkpoint. Expiry closes the captured wait immediately; workspace unmount cancels it. Journal preparation captures its operation context and wait before asynchronous work, rechecks before persistence and checkpoints against that same wait. Preparation expiry blocks transactions, clears connected state and remounts the local-storage panel to stop the old writer. The live vault and file-backup controls remain available; a storage write already started may still commit.
