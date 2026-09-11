@@ -1,5 +1,13 @@
 # Validation report
 
+## Consolidate deployment recovery regression and runtime -- 2026-09-11
+
+At application revision `05f20ef`, the complete web suite passed **407 tests / 60 files in 208.92 seconds**. All **144 ordinary Chrome desktop/mobile E2E cases** passed in **6.5 minutes**, with two workers and no retries. Each complete suite passed in its own single invocation. Normal build/typecheck and release validation passed after restoring the usual build configuration: **8 circuits / 80 files / 65,483,628 bytes**. See [regression evidence](evidence/deployment-full-regression.json).
+
+The refreshed local image `sha256:418a22d1ee676d2fc5e5ae3f0d0397bd0c02724951543b7b0828724b23630b16` passed the build gate and image-pinned container drill: **80 files / 81 requests / 65,484,907 served bytes**, non-root/read-only configuration, headers/404s, public/deployment workers, busy-worker deadline/retry/cancel, cross-origin widget isolation/CORS, exchange input retention/clear and graceful restart. Owned cleanup passed, and final scoped Docker queries found no web-test or scanner containers. Its exact-image scan exited **1**: **0 OS findings across 32 Alpine packages**, and **1 UNKNOWN GO-2026-5932** for Caddy's `golang.org/x/crypto v0.56.0`, with no fixed version reported. The finding remains unsuppressed. See [runtime evidence](evidence/deployment-full-runtime.json).
+
+The new [combined recovery guide](combined-recovery.md) documents mandatory deployment copies, optional autosave, direct saved-copy downloads, restore paths and interrupted-operation limits. Local guide links and `git diff --check` passed. No native-wallet operation, public deployment, new Compact compilation or fresh full regression of the other five workspaces is claimed. The failed security gate and remaining reconciliation/report-journal gaps prevent an overall completion claim.
+
 ## Update recovery after confirmed deployment -- 2026-09-11
 
 After a deployment result matches its saved identifier, the writer updates the encrypted browser copy with the confirmed contract address and removes the unconfirmed-attempt marker. The next revision remains checked. Recovery-save failure keeps the deployed API/evidence and displays file-backup guidance; it does not report deployment as failed or retry it.

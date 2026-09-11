@@ -1,0 +1,53 @@
+# Recover a combined demo session
+
+The combined demo holds both vendor and researcher secrets. Its recovery files contain both roles, private report material and working notes. Keep them private. For independent people acting as separate roles, use the [role workspace](role-workspace.md).
+
+## Protect a new network deployment
+
+After connecting Lace, **Create program** asks for a **Deployment backup password** and confirmation. Use at least 12 characters and retain the password separately. This is not a wallet seed backup.
+
+The application confirms a new encrypted browser copy before calling the deployment SDK. It then saves the transaction identifier to that copy before allowing broadcast. If the initial copy cannot be saved, deployment does not start and the password fields remain available for an explicit retry. Once SDK work begins, an error or timeout leaves the attempt blocked for investigation.
+
+After matching SDK confirmation, the application updates the same browser copy with the contract address. A message distinguishes a confirmed recovery update from an update that failed. A failed backup update does not undo the deployment: keep the tab open and download an updated encrypted file through **Private recovery**. A timed-out write may already have committed.
+
+## Keep a file outside the browser
+
+Open **Private recovery**. Choose the action that matches the data you want:
+
+| Action | What it saves |
+| --- | --- |
+| **Download encrypted backup** | The current recoverable session, encrypted with the Backup password and confirmation entered above it. |
+| **Save encrypted browser copy** | A new encrypted checkpoint of the current session on this browser and site. It does not replace earlier copies. |
+| **Download selected browser copy** | The exact encrypted revision already stored in the selected browser copy. It may be older than live edits. Its existing password remains required for restore. |
+
+To download an existing deployment copy, select **Refresh browser copies**, choose the `Combined deployment` entry and select **Download selected browser copy**. No password is needed to copy its encrypted bytes. The filename includes its copy ID and revision.
+
+Confirm that the file was saved before removing a browser copy. The app can start a download but cannot confirm that you kept it. Store the file on another device or independent storage, and keep its password separately. Clearing site data, changing browser/profile/origin, eviction or device loss can remove or hide browser copies.
+
+## Save later report edits
+
+**Enable encrypted autosave** creates a separate copy after password confirmation. Edits are encrypted after a short pause. Wait for the visible saved confirmation before leaving; newer edits may still be pending.
+
+Autosave stops after a storage error, conflicting revision, program/network change or reload. It does not automatically restart when you restore a copy. **Stop encrypted autosave** retains its saved copy. The active autosave copy cannot be removed through the panel until autosave stops.
+
+The deployment checkpoint does not automatically save later report work. Combined report submissions and transitions still lack mandatory identifier checkpoints. Optional autosave is not a guarantee that these actions were saved before a wallet request. Keep fresh backups and treat interrupted transactions as uncertain.
+
+## Restore a saved session
+
+Open a fresh tab on the application. In **Private recovery**, either choose a **Recovery file** or refresh and select a saved browser copy. Enter that copy's existing **Recovery password**, then select the corresponding restore button. Restoring replaces that tab's draft; the application blocks restoration over an active network program, prepared/submitted report, deployment attempt or autosave writer.
+
+| Saved state | Restore behavior |
+| --- | --- |
+| Guided local session | Restores local data without claiming network transactions. |
+| Network session with a contract address | Connects Lace on the saved network and checks the program/authority and applicable report bindings against the ledger. It does not deploy again. |
+| Unconfirmed deployment without a contract address | Opens without Lace, retains the saved material and keeps creation blocked. A saved identifier is shown when available. |
+
+For an unconfirmed deployment, **Check transaction status** performs a read-only observation when an identifier is present. Not found, a connection error or a status observation does not establish that retry is safe. This view does not automatically discover and adopt a contract or unlock another deployment. Keep the backup and inspect the original wallet/network records. Absence of an identifier in an earlier copy does not prove that no transaction was sent later.
+
+## Interrupted report uploads and transactions
+
+If ciphertext upload was interrupted before submission setup started, the combined demo keeps the prepared report. **Retry saved report upload** reuses its ciphertext, key, salt and report identifier. Back it up before closing. Once network submission setup starts, retry remains blocked because the transaction may still finalize. See [prepared-report recovery](adr/0022-pending-demo-preparation.md).
+
+Private recovery does not include receiving keys from **Private exchange**, unfinished child-form passwords or a wallet seed. Retain the receiving-key backup separately. A leave warning is best effort and does not save data; crashes and mobile app termination may bypass it.
+
+Format and validation details are recorded in [the recovery design](adr/0006-encrypted-browser-recovery.md).

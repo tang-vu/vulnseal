@@ -1,0 +1,40 @@
+{
+  "recordedAt": "2026-09-11T04:45:11.262705+00:00",
+  "applicationRevision": "05f20efe11320e32bbada296eb0750bd85bbbf26",
+  "validation": {
+    "fullWebSuite": {
+      "tests": 407,
+      "files": 60,
+      "seconds": 208.92,
+      "exitCode": 0
+    },
+    "fullOrdinaryE2E": {
+      "tests": 144,
+      "reportedDuration": "6.5m",
+      "workers": 2,
+      "retries": 0,
+      "exitCode": 0
+    },
+    "normalWebBuildAndRelease": {
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65483628,
+      "exitCode": 0
+    }
+  },
+  "rawLogSha256": {
+    "deployment-full-web-tests": "a3590c59381489dd9bcee89a35b175655125017e81453fc81929cdf75f8651b5",
+    "deployment-full-browser": "49700603bd679e2de792c3d4fae17036012520cd64061ddd34c49e8e554d1b87",
+    "deployment-full-release": "bf319e4bcc496fe60ec7d2442bc03cf966564368944868ed55b559fcb2651ce5"
+  },
+  "scope": [
+    "Both complete suites passed in their respective single invocations.",
+    "Ordinary E2E uses installed Chrome desktop and Pixel 7 emulation, synthetic data and mocked wallet/network fixtures where applicable.",
+    "Final release build restores normal environment after E2E configuration.",
+    "New combined recovery guide documents mandatory deployment copies, optional autosave, direct encrypted-copy downloads, restore paths and uncertainty."
+  ],
+  "limits": [
+    "No new full regression of the other five workspaces or Compact compilation.",
+    "No native wallet signing/broadcast, public deployment, authenticated reconciliation or overall completion claim."
+  ]
+}
