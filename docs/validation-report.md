@@ -1,5 +1,15 @@
 # Validation report
 
+## Diagnose lost ciphertext upload acknowledgments -- 2026-09-11
+
+The container drill now records bounded request-stage/timing observations and, before owned cleanup, independently reads container state, metrics and the failed upload's content address. Readback reports only status/digest equality. It never retries the PUT or converts failure into a passing drill. Server metrics add a fixed-cardinality socket inactivity counter while preserving timeout closure. A fully received request held at storage verifies this path; the initial silent-socket assertion failed because a receipt deadline can close that socket instead. The corrected targeted suite passed **17 tests / 2 files**, and the fresh image build passed **50 tests / 10 files**.
+
+Concurrent filesystem/SQLite runs reproduced SQLite's initial PUT failure twice, each after **1011 ms** under the existing 1000 ms timeout. On the instrumented image `sha256:448b29f1a562dd52ce62e869b4d7ac24415499c4a383acea185011e7feea9eae`, the container remained running without OOM, metrics recorded socket timeouts, and a subsequent GET returned **200 with matching ciphertext digest**. This establishes stored bytes with a lost acknowledgment. Timeout timing is consistent with socket inactivity; the aggregate counter and evidence do not isolate the underlying scheduling/filesystem delay. The SQLite drill remains **failed**, without an automatic retry. The concurrent filesystem drill passed, including restart/decryption and cleanup.
+
+The single-store API now explains that a transport failure may follow successful storage, preserves the cause, and directs the caller to retain its saved report and retry identical ciphertext explicitly. An actual HTTP fixture stores bytes then drops the response; it verifies no automatic PUT retry, explicit integrity-checked readback and identical retry. All **80 API tests / 7 files** and the API build passed. The normal web build and release gate passed with **8 circuits / 80 files / 65,416,196 bytes**. Existing timeout and explicit HTTP refusal handling remain covered.
+
+The exact-image scan passed with **zero findings**, retaining the scanner's Alpine 3.24 EOL-list warning. Final test-container, test-volume and scanner label queries were empty. The first interrupted build had an unavailable process handle and incomplete log; the subsequent build completed successfully. [Diagnostic evidence and raw-log hashes](evidence/cipherstore-socket-diagnostic.json) preserve failures as well as successful checks. This is not a completed SQLite concurrency gate, production SLO, full workspace regression or public deployment.
+
 ## Refresh ciphertext runtime and publish evidence after cleanup -- 2026-09-10
 
 Image `sha256:d835406a803ae6d60289077cf42a3b2a559ab6167759e58dd0488f9466ce3f26` packages the current ciphertext service, including the SQLite worker stdin/eval argument fix. The build exited **0** with **49 tests / 10 files in 46.95 seconds** on Node 24.20.0. The container drill now defers success output/evidence writes until both owned container and volume cleanup have completed; syntax validation passed.

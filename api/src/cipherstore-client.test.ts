@@ -2,6 +2,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CipherstoreClient, ReplicatedCipherstoreClient, verifyCipherstoreCopies, MAX_CIPHERSTORE_BYTES } from "./cipherstore-client.js";
 import { createHash } from "node:crypto";
+import { createServer } from "node:http";
+import { once } from "node:events";
 
 describe("CipherstoreClient", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -56,6 +58,36 @@ describe("CipherstoreClient", () => {
     await expect(new CipherstoreClient("http://127.0.0.1:8787", 30).put(`sha256:${digest}`, body)).rejects.toThrow("may already be stored");
     expect(signal?.aborted).toBe(true);
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+  it("explains a lost upload acknowledgment and permits explicit readback and identical retry", async () => {
+    const body = "{}", address = `sha256:${createHash("sha256").update(body).digest("hex")}`;
+    let stored = "", uploads = 0;
+    const server = createServer(async (request, response) => {
+      if (request.method === "PUT") {
+        uploads++;
+        const chunks: Buffer[] = [];
+        for await (const chunk of request) chunks.push(Buffer.from(chunk));
+        stored = Buffer.concat(chunks).toString("utf8");
+        if (uploads === 1) { response.destroy(); return; }
+        response.writeHead(200); response.end(); return;
+      }
+      response.end(stored);
+    });
+    server.listen(0, "127.0.0.1"); await once(server, "listening");
+    try {
+      const endpoint = server.address(); if (!endpoint || typeof endpoint === "string") throw new Error("Missing test port");
+      const client = new CipherstoreClient(`http://127.0.0.1:${endpoint.port}`, 5000);
+      await expect(client.put(address, body)).rejects.toThrow("may already be stored");
+      expect(uploads).toBe(1);
+      expect(await client.get(address)).toBe(body);
+      expect(uploads).toBe(1);
+      await client.put(address, body);
+      expect(uploads).toBe(2);
+      expect(stored).toBe(body);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
   it("keeps the download deadline active while reading the response body", async () => {
     let signal: AbortSignal | undefined;

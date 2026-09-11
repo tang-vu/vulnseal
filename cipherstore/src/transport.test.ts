@@ -5,8 +5,9 @@ import { mkdtemp, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { createCipherstoreServer, MEDIA_TYPE } from "./server.js";
+import { FilesystemCiphertextStorage } from "./filesystem-storage.js";
 
 let server: ReturnType<typeof createCipherstoreServer> | undefined;
 const sockets: Socket[] = [];
@@ -58,6 +59,30 @@ it("closes silent connections and refuses excess sockets before HTTP handlers ru
   const secondClosed = new Promise<void>((resolve) => second.once("close", () => resolve()));
   await dropped; await secondClosed; await firstClosed;
   expect((await fetch(`${base}/healthz`)).status).toBe(200);
+});
+
+it("counts socket inactivity while a fully received request awaits storage", async () => {
+  const dataDirectory = await mkdtemp(path.join(tmpdir(), "vulnseal-stalled-read-"));
+  const storage = new FilesystemCiphertextStorage(dataDirectory, 1024, 1);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  const read = vi.spyOn(storage, "read").mockImplementation(async () => {
+    await held;
+    throw Object.assign(new Error("Synthetic missing blob"), { code: "ENOENT" });
+  });
+  server = createCipherstoreServer({ dataDirectory, storage, requestTimeoutMs: 1000, metricsEnabled: true });
+  server.listen(0, "127.0.0.1"); await once(server, "listening");
+  const address = server.address(); if (!address || typeof address === "string") throw new Error("Missing test port");
+  const socket = await socketAt(address.port);
+  const closed = new Promise<void>((resolve) => socket.once("close", () => resolve()));
+  try {
+    socket.write(`GET /v1/blobs/sha256:${"ab".repeat(32)} HTTP/1.1\r\nHost: localhost\r\n\r\n`);
+    await closed;
+    expect(read).toHaveBeenCalledOnce();
+    const metrics = await (await fetch(`http://127.0.0.1:${address.port}/metrics`)).text();
+    expect(metrics).toContain("vulnseal_http_socket_timeouts_total 1\n");
+    expect(metrics).toContain("vulnseal_http_aborted_responses_total 1\n");
+  } finally { release(); await server.drain(); }
 });
 
 it("rejects disabled, fractional and unbounded transport settings", () => {

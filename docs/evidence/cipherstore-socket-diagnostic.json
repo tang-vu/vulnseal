@@ -1,0 +1,150 @@
+{
+  "capturedAt": "2026-09-11",
+  "imageId": "sha256:448b29f1a562dd52ce62e869b4d7ac24415499c4a383acea185011e7feea9eae",
+  "sourceBaseRevision": "5107383",
+  "sourceIncludesUncommittedSocketMetric": true,
+  "build": {
+    "exitCode": 0,
+    "tests": 50,
+    "files": 10,
+    "testDurationSeconds": 47.82,
+    "initialAttempt": "Process handle unavailable after session transition; initial log incomplete and old image still installed. A subsequent build completed successfully."
+  },
+  "targetedTests": {
+    "exitCode": 0,
+    "tests": 17,
+    "files": 2,
+    "durationSeconds": 5.98,
+    "initialFailure": "Silent socket test expected inactivity counter 1 but received 0; HTTP receipt deadline can close a silent socket. Replaced assertion with fully received GET held at storage to isolate socket inactivity."
+  },
+  "apiTests": {
+    "exitCode": 0,
+    "tests": 80,
+    "files": 7,
+    "durationSeconds": 16.05,
+    "coverage": "Actual HTTP peer stores synthetic bytes then closes without response; no automatic upload retry; explicit verified GET and identical PUT retry succeed."
+  },
+  "attempts": [
+    {
+      "imageId": "sha256:d835406a803ae6d60289077cf42a3b2a559ab6167759e58dd0488f9466ce3f26",
+      "backend": "sqlite",
+      "exitCode": 1,
+      "concurrentWork": "filesystem drill, no scanner",
+      "failedStage": "initial upload",
+      "startedAt": "2026-09-10T16:16:59.604Z",
+      "headersOrErrorElapsedMs": 1011,
+      "causeCode": "UND_ERR_SOCKET",
+      "containerRunning": true,
+      "oomKilled": false,
+      "abortedResponses": 2,
+      "activeUploads": 0,
+      "readiness": 0
+    },
+    {
+      "backend": "sqlite",
+      "exitCode": 1,
+      "concurrentWork": "filesystem drill, no scanner",
+      "failedStage": "initial upload",
+      "startedAt": "2026-09-11T01:36:26.954Z",
+      "headersOrErrorElapsedMs": 1011,
+      "causeCode": "UND_ERR_SOCKET",
+      "containerRunning": true,
+      "oomKilled": false,
+      "socketTimeouts": 2,
+      "abortedResponses": 3,
+      "activeUploads": 0,
+      "readiness": 0,
+      "readback": {
+        "status": 200,
+        "storedDigestMatches": true
+      },
+      "note": "Readback and metrics ran concurrently; metrics active_requests=1 includes diagnostic readback. Earlier health probe also failed once. Aggregate socket counter cannot attribute every timeout to the failed PUT."
+    },
+    {
+      "backend": "filesystem",
+      "exitCode": 0,
+      "capturedAt": "2026-09-11T01:36:40.880Z",
+      "initialUploadHeadersElapsedMs": 114,
+      "fullDrillPassed": true,
+      "cleanupCompleted": true
+    }
+  ],
+  "scan": {
+    "exitCode": 0,
+    "findings": 0,
+    "os": "Alpine 3.24.1",
+    "warning": "Alpine 3.24 missing from scanner EOL list"
+  },
+  "ownedCleanup": {
+    "containerLabelQueryEmpty": true,
+    "volumeLabelQueryEmpty": true,
+    "scannerLabelQueryEmpty": true
+  },
+  "conclusion": "Reproduced lost upload acknowledgment after ciphertext was stored. Timing and socket metrics support inactivity timeout; exact scheduling/filesystem delay is not established. No timeout increase, automatic upload retry or successful SQLite drill claimed for this image.",
+  "limitations": [
+    "No full workspace or browser E2E regression in this change",
+    "No production latency or durability guarantee",
+    "Historical isolated SQLite success does not erase concurrent failures"
+  ],
+  "logs": [
+    {
+      "path": ".compact/cipherstore-observed-sqlite.log",
+      "sha256": "21655b1f92fbff0f844d45cd424d689477b891f792d818217116f0628f5b30fb"
+    },
+    {
+      "path": ".compact/cipherstore-observed-filesystem.log",
+      "sha256": "32c4de236580d3bf221e1a29f88b3c07720bc75267b12db1e37bfa4bc3fa8225"
+    },
+    {
+      "path": ".compact/cipherstore-socket-metrics-tests.log",
+      "sha256": "d28622ad0bc58da61f01a764de85f75b07b694b3a3c00e5b138c46ba8482f784"
+    },
+    {
+      "path": ".compact/cipherstore-socket-metrics-tests-final.log",
+      "sha256": "7effac9edabb7d0bf212b84c49029096ae4c9a6a1f0d25b8664c0cb343492953"
+    },
+    {
+      "path": ".compact/cipherstore-socket-image-build.log",
+      "sha256": "d7629884878675f438e40c59ab7267a9f1ed5e81dcc4fe5b8fb49bcdddd08a8d"
+    },
+    {
+      "path": ".compact/cipherstore-socket-image-build-resumed.log",
+      "sha256": "b7e9d98bde41bc160addd717f6f5c41deba3799020544aa2d4b11b19d8c5e864"
+    },
+    {
+      "path": ".compact/cipherstore-socket-sqlite.log",
+      "sha256": "7d9fc1e9a3acf7fec73d2fde243f7c628afb87363da91414ad83dcf47d5e578a"
+    },
+    {
+      "path": ".compact/cipherstore-socket-filesystem.log",
+      "sha256": "5c4d74d4ae2eb1af655a59ccfcfa64950fb254a86afb9f489e0771f042ba2bc8"
+    },
+    {
+      "path": ".compact/cipherstore-socket-image-scan.log",
+      "sha256": "21f9ab9e4cdc52db975933f4aa689930e4d9a594f576480686db1aad52feab84"
+    },
+    {
+      "path": ".compact/cipherstore-ack-api-tests.log",
+      "sha256": "819e97a8cf4bffc4a190f80f9d4bf15d252a49c903a7fe87e4142d1e94d9515f"
+    },
+    {
+      "path": ".compact/cipherstore-ack-web-build.log",
+      "sha256": "7bbe363f0edb882b9ab76df59d39f100e5e7021c4d5026bf8a77c4a69d8db172"
+    }
+  ],
+  "webRelease": {
+    "exitCode": 0,
+    "circuits": 8,
+    "files": 80,
+    "bytes": 65416196,
+    "browserE2ERerun": false
+  },
+  "sourceHashes": {
+    "cipherstore/src/server.ts": "b31b2cf1eb04379cd2a925137de4e7ff6eac19d0fa76592de94a93a6605e053c",
+    "cipherstore/src/transport.test.ts": "0a6986b6dcc04a13cb4374da722d5b5b8938aadcdbb48552adf20e98fa2b5c74",
+    "api/src/cipherstore-client.ts": "f7185bcae09f7b4761f331bb657bbc2b5f158230c6438e6634b3ce536a579b41",
+    "api/src/cipherstore-client.test.ts": "3fa87a0d2c34308f0ed0c78c28740d209f3750ad6aadc8f29e944bf19b13e60b",
+    "scripts/test-cipherstore-container.mjs": "a7ca0ac74acc016988d984a4e9eb73724f93df337e0a5f12c189ca28f03b58bd",
+    "infra/cipherstore.Dockerfile": "5c8f95060094c2a36f21e60e3b14fd387cddbcdcd8df2b861ad3f1f20e9c61e9"
+  }
+}

@@ -95,7 +95,7 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
   if (maxConcurrentUploads < 1) throw new Error("Cipherstore upload concurrency must be positive");
   const storage = options.storage ?? new FilesystemCiphertextStorage(options.dataDirectory, maxStoredBytes, maxStoredBlobs);
   let activeUploads = 0;
-  let activeRequests = 0, abortedResponses = 0;
+  let activeRequests = 0, abortedResponses = 0, socketTimeouts = 0;
   const completed = [0, 0, 0, 0, 0];
   const metrics = (storageReady: boolean) => [
     "# HELP vulnseal_storage_ready Current storage capacity and write/read probe succeeded (1), otherwise 0.",
@@ -107,6 +107,9 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
     "# HELP vulnseal_http_aborted_responses_total Responses closed before completion, excluding metrics scrapes.",
     "# TYPE vulnseal_http_aborted_responses_total counter",
     `vulnseal_http_aborted_responses_total ${abortedResponses}`,
+    "# HELP vulnseal_http_socket_timeouts_total Socket inactivity timeouts, including silent connections and keep-alive expiry; excludes HTTP receipt deadlines.",
+    "# TYPE vulnseal_http_socket_timeouts_total counter",
+    `vulnseal_http_socket_timeouts_total ${socketTimeouts}`,
     "# HELP vulnseal_http_active_requests Requests awaiting response completion, excluding metrics scrapes.",
     "# TYPE vulnseal_http_active_requests gauge",
     `vulnseal_http_active_requests ${activeRequests}`,
@@ -257,7 +260,11 @@ export const createCipherstoreServer = (options: CipherstoreOptions) => {
   server.maxConnections = maxConnections;
   server.maxRequestsPerSocket = 100;
   // Also close silent sockets and stalled responses; requestTimeout bounds receipt.
-  server.setTimeout(requestTimeoutMs);
+  server.setTimeout(requestTimeoutMs, (socket) => {
+    if (options.metricsEnabled) socketTimeouts++;
+    // A timeout listener takes ownership of closure from Node's default handler.
+    socket.destroy();
+  });
   return Object.assign(server, { drain: async () => { while (operations.size) await Promise.allSettled([...operations]); } });
 };
 

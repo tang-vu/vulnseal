@@ -29,10 +29,27 @@ const docker = async (...args) => (await execute(executable, [...(distro ? ["--d
 const failed = async (...args) => { try { await docker(...args); return false; } catch (error) { if (error.code === 1) return true; throw error; } };
 const imageId = await docker("image", "inspect", image, "--format", "{{.Id}}");
 assert.match(imageId, /^sha256:[a-f0-9]{64}$/);
-let stage = "startup", evidence;
-const request = (url, options = {}) => {
-  stage = `${options.method ?? "GET"} ${new URL(url).pathname}`;
-  return fetch(url, { ...options, signal: AbortSignal.timeout(5000) });
+let stage = "startup", evidence, failedUploadUrl;
+const requestObservations = [];
+const request = async (url, options = {}, purpose = "request") => {
+  stage = `${purpose}: ${options.method ?? "GET"} ${new URL(url).pathname}`;
+  const observation = { stage, startedAt: new Date().toISOString() };
+  requestObservations.push(observation);
+  if (requestObservations.length > 64) requestObservations.shift();
+  const started = performance.now();
+  try {
+    const response = await fetch(url, { ...options, signal: AbortSignal.timeout(5000) });
+    observation.status = response.status;
+    return response;
+  } catch (error) {
+    observation.error = error.name;
+    observation.causeCode = error.cause?.code;
+    if (options.method === "PUT") failedUploadUrl = url;
+    throw error;
+  } finally {
+    // Fetch resolves at headers, not after response-body consumption.
+    observation.headersOrErrorElapsedMs = Math.round(performance.now() - started);
+  }
 };
 const baseUrl = async () => `http://${await docker("port", name, "8787/tcp")}`;
 async function live() {
@@ -94,6 +111,7 @@ try {
     assert.deepEqual(readdirSync(root), [marker]);
   `), "");
   // Continuous progress must not extend the complete-request receipt deadline.
+  stage = "trickled upload receipt deadline";
   const endpoint = new URL(await baseUrl());
   await new Promise((resolve, reject) => {
     const socket = createConnection({ host: endpoint.hostname, port: Number(endpoint.port) });
@@ -116,13 +134,13 @@ try {
     return JSON.stringify({ version: 1, algorithm: "AES-256-GCM", keyDerivation: "none-random-256-bit-key", aad, iv: Buffer.from(iv).toString("base64url"), ciphertext: Buffer.from(ciphertext).toString("base64url") });
   };
   const body = await seal(), digest = createHash("sha256").update(body).digest("hex");
-  const put = async (content) => request(`${await baseUrl()}/v1/blobs/sha256:${createHash("sha256").update(content).digest("hex")}`, { method: "PUT", headers: { "content-type": "application/vnd.vulnseal.ciphertext+json", origin: "http://127.0.0.1:5173" }, body: content });
-  assert.equal((await put(body)).status, 201);
+  const put = async (content, purpose) => request(`${await baseUrl()}/v1/blobs/sha256:${createHash("sha256").update(content).digest("hex")}`, { method: "PUT", headers: { "content-type": "application/vnd.vulnseal.ciphertext+json", origin: "http://127.0.0.1:5173" }, body: content }, purpose);
+  assert.equal((await put(body, "initial upload")).status, 201);
   if (backend === "sqlite") {
     assert.equal(await docker("exec", name, "node", "-e", "const fs=require('node:fs');const fd=fs.openSync('/data/ciphertext.sqlite','r');const b=Buffer.alloc(16);fs.readSync(fd,b,0,16,0);fs.closeSync(fd);if(b.toString()!=='SQLite format 3\\0')process.exit(1)"), "");
   }
-  assert.equal((await put(body)).status, 200);
-  assert.equal((await put(await seal())).status, 507);
+  assert.equal((await put(body, "idempotent upload")).status, 200);
+  assert.equal((await put(await seal(), "capacity rejection")).status, 507);
   assert.equal((await request(`${await baseUrl()}/readyz`)).status, 503);
   assert.equal((await request(`${await baseUrl()}/healthz`)).status, 200);
   assert.equal(await failed("exec", name, "node", "healthcheck.mjs"), true);
@@ -141,8 +159,29 @@ try {
   assert.equal(JSON.parse(await docker("inspect", name))[0].State.ExitCode, 0, "Final stop must close storage and release its lease");
   evidence = { capturedAt: new Date().toISOString(), backend, imageId, nonRoot: true, readOnlyRoot: true, metricsEnabled: true, readyBeforeUpload: true, incompleteRestoreStartupRefused: true, incompleteRestoreBackupRefused: true, incompleteRestoreMarkerRetained: true, incompleteRestoreLeaseReleased: true, trickledUploadTerminated: true, quotaRejectsNewBlob: true, fullStoreRemainsReadable: true, secondWriterRefused: true, gracefulRestart: true, persistedCiphertextDecrypted: true };
   evidence.retirement = retirement;
+  evidence.requestObservations = requestObservations;
 } catch (error) {
   process.stderr.write(`Container drill failed (${backend}, ${stage}): ${String(error)}\n`);
+  process.stderr.write(JSON.stringify({ requestObservations }) + "\n");
+  // Read-only diagnostics run before cleanup. Keep each failure independent and
+  // preserve the original exception; never retry a failed upload automatically.
+  const diagnostics = await Promise.allSettled([
+    docker("inspect", "--format", "{{json .State}}", name),
+    (async () => {
+      const response = await fetch(`${await baseUrl()}/metrics`, { signal: AbortSignal.timeout(5000) });
+      return JSON.stringify({ status: response.status, metrics: await response.text() });
+    })(),
+    (async () => {
+      if (!failedUploadUrl) return "No failed upload to inspect";
+      const response = await fetch(failedUploadUrl, { signal: AbortSignal.timeout(5000) });
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      return JSON.stringify({ status: response.status, storedDigestMatches: response.status === 200 &&
+        createHash("sha256").update(bytes).digest("hex") === new URL(failedUploadUrl).pathname.split("sha256:")[1] });
+    })(),
+  ]);
+  for (const [index, result] of diagnostics.entries()) {
+    process.stderr.write(`${["Container state", "Failure metrics", "Failed upload readback"][index]}: ${result.status === "fulfilled" ? result.value : String(result.reason)}\n`);
+  }
   try { process.stderr.write(await docker("logs", "--tail", "30", name) + "\n"); } catch {}
   throw error;
 } finally {

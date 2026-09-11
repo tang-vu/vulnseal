@@ -65,6 +65,8 @@ export class CipherstoreClient {
         body: serializedEnvelope,
         signal,
         credentials: "omit", redirect: "error", referrerPolicy: "no-referrer",
+      }).catch((cause: unknown) => {
+        throw new Error("Ciphertext upload did not receive a response. The ciphertext may already be stored. Keep your saved report and retry its identical ciphertext when storage is reachable; no contract submission was started by this upload.", { cause });
       });
       // PUT status is sufficient; do not buffer an arbitrary response body.
       void response.body?.cancel().catch(() => {});
