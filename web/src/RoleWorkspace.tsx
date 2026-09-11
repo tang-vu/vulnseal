@@ -206,9 +206,14 @@ function ActiveRoleWorkspace({ onLock, justLocked }: { readonly onLock: () => vo
   }, [warnBeforeLeaving]);
   const load = async (expected?: { id: Uint8Array; status: string }) => {
     if (!session) throw new Error("Join the program first");
-    const current = await session.readPublicState();
-    if (expected && (!current.ledger.reports.member(expected.id) || contractStatusName(current.ledger.reports.lookup(expected.id).status) !== expected.status)) throw new Error("The public read does not yet match the finalized transaction. Refresh ledger before continuing; do not resubmit automatically.");
-    setSnapshot(current);
+    const lifetime = workspaceLifetime.current;
+    setSnapshot(undefined);
+    await continuationDeadline(180_000, "Ledger refresh timed out. Saved transaction evidence is retained. Retry the read explicitly; do not resubmit a transaction because this read failed.", async check => {
+      check(); const current = await session.readPublicState(); check();
+      if (workspaceLifetime.current !== lifetime) throw new Error("Ledger refresh session closed");
+      if (expected && (!current.ledger.reports.member(expected.id) || contractStatusName(current.ledger.reports.lookup(expected.id).status) !== expected.status)) throw new Error("The public read does not yet match the finalized transaction. Refresh ledger before continuing; do not resubmit automatically.");
+      setSnapshot(current);
+    });
   };
   const write = (input: RoleCommand | (() => Promise<RoleCommand>)) => run(async () => {
     requireJournal();

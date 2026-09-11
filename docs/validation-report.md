@@ -1,5 +1,11 @@
 # Validation report
 
+## Role ledger refresh deadlines -- 2026-09-11
+
+Manual ledger refresh and the read after a finalized report transaction now have a three-minute deadline and workspace lifetime check. Starting the read clears the previous actionable snapshot. Failure/expiry leaves transaction actions unavailable until a successful explicit read, while saved receipts and journals remain intact. A late stale result cannot replace a successful retry.
+
+The complete RoleWorkspace suite passed **22 tests in 97.22 seconds**. New cases cover manual timer expiry with a stale result after retry, and post-finality wall-clock expiry with a decryptable finalization journal and only one SDK transaction. Normal web build/typecheck and release validation passed: **8 circuits / 80 files / 65,574,413 bytes**. [Evidence](evidence/role-ledger-refresh-deadlines.json) records the mocked ledger/SDK scope; no new E2E or runtime refresh is claimed.
+
 ## Role invitation and reconnect deadlines -- 2026-09-11
 
 Researcher invitation joining and offline-role reconnection now share a three-minute bounded connection path across validation, wallet setup, SDK join and ledger/report checks. Installation runs only under the current workspace lifetime/deadline guard. Expiry releases the operation lock and preserves the current offline workspace or invitation review for explicit retry.

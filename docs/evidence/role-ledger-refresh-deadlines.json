@@ -1,0 +1,32 @@
+{
+  "date": "2026-09-11",
+  "scope": "Bound role ledger refresh and invalidate the prior actionable snapshot while retaining confirmed transaction evidence",
+  "behavior": [
+    "Manual refresh and post-transaction refresh have a three-minute continuation deadline and workspace lifetime check.",
+    "Starting a refresh clears the prior snapshot; failed/expired reads cannot leave transaction actions enabled from stale state.",
+    "Late reads cannot replace a successful explicit retry. Existing receipt and encrypted finalization journal remain available; no automatic transaction retry is added."
+  ],
+  "validation": {
+    "unit": {
+      "log": ".compact/role-ledger-refresh-tests.log",
+      "passed": 22,
+      "files": 1,
+      "seconds": 97.22,
+      "exit": 0,
+      "scope": "Complete RoleWorkspace suite, including a new manual timer expiry followed by successful retry and a late stale response, plus post-finality wall-clock expiry with retained/decryptable journal and only one SDK transaction."
+    },
+    "release": {
+      "log": ".compact/role-ledger-refresh-release.log",
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65574413,
+      "scope": "Normal web build/typecheck and release manifest."
+    }
+  },
+  "limits": [
+    "Ledger/SDK responses are mocked in component tests; existing backup encryption remains real. No new browser E2E or native-wallet ceremony.",
+    "Already-started SDK reads are not cancelled. Refresh does not independently authenticate ledger inclusion/finality.",
+    "No full regression, runtime-image refresh or public deployment. Other reads, including disclosure acceptance, are separate workflows."
+  ]
+}

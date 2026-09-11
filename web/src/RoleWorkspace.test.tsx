@@ -379,17 +379,25 @@ describe("independent role workspace", () => {
     expect(session.execute).toHaveBeenCalledOnce();
     expect(session.execute.mock.calls[0]![0]).toMatchObject({ kind: "submitReport" });
   }, 30_000);
-  it("exposes researcher actions only and preserves finalized evidence through a failed ledger read", async () => {
+  it.each(["error", "expiry"])("exposes researcher actions only and preserves finalized evidence through ledger read %s", async reason => {
     const { user, session, vault, publicState } = await restore("researcher", 4);
     expect(mocks.join.mock.calls[0]![0].actorSecret).toBe(vault.actorSecret);
     expect(mocks.join.mock.calls[0]![0]).not.toHaveProperty("vendorSecret");
     expect(screen.queryByRole("button", { name: "Begin triage" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Authorize payout (no transfer)" })).not.toBeInTheDocument();
     await user.type(screen.getByLabelText("Private decision, patch reference or retest notes"), "Fixed in isolated test");
-    session.readPublicState.mockRejectedValueOnce(new Error("Indexer unavailable"));
+    let finish!: (value: typeof publicState) => void;
+    if (reason === "error") session.readPublicState.mockRejectedValueOnce(new Error("Indexer unavailable"));
+    else session.readPublicState.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Pass retest" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Pass retest" }));
+    if (reason === "expiry") {
+      await waitFor(() => expect(session.readPublicState).toHaveBeenCalledOnce(), { timeout: 5000 });
+      vi.spyOn(Date, "now").mockReturnValue(Date.now() + 180001);
+      await act(async () => finish(publicState));
+    }
     await screen.findByRole("alert");
+    if (reason === "expiry") expect(screen.getByRole("alert")).toHaveTextContent("Ledger refresh timed out");
     expect(screen.getByText(new RegExp(`Finalized submitRetest: ${roleTransactionId} at block 900`))).toBeInTheDocument();
     const durable = await decryptRoleVault(vi.mocked(writeStoredRole).mock.calls.at(-1)![2], "Workspace journal password");
     expect(durable.submissionAttempts![0]!.finalization?.blockHeight).toBe("900");
@@ -414,3 +422,24 @@ describe("independent role workspace", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Accept report" })).toBeEnabled());
   }, 15_000);
 });
+
+it("manual ledger refresh discards stale state on timeout and ignores its result after retry", async () => {
+  const { session, publicState } = await restore("vendor", 0);
+  let finish!: (value: typeof publicState) => void;
+  session.readPublicState.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  vi.useFakeTimers();
+  try {
+    fireEvent.click(screen.getByRole("button", { name: "Refresh ledger" }));
+    expect(screen.queryByRole("button", { name: "Begin triage" })).not.toBeInTheDocument();
+    await act(async () => vi.advanceTimersByTimeAsync(180000));
+    expect(screen.getByRole("alert")).toHaveTextContent("Ledger refresh timed out");
+    expect(screen.getByRole("button", { name: "Refresh ledger" })).toBeEnabled();
+    session.readPublicState.mockResolvedValue(publicState);
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Refresh ledger" })));
+    const stale = { ledger: { reports: { member: () => true, lookup: () => ({ status: 7, patchCommitment: new Uint8Array(32) }) } } };
+    await act(async () => finish(stale));
+    expect(screen.getByRole("button", { name: "Begin triage" })).toBeEnabled();
+    expect(screen.getByText("COMMITTED", { exact: true })).toBeInTheDocument();
+    expect(session.execute).not.toHaveBeenCalled();
+  } finally { vi.useRealTimers(); }
+}, 15000);
