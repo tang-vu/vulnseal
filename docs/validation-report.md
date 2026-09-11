@@ -1,5 +1,11 @@
 # Validation report
 
+## SDK transaction evidence validation -- 2026-09-11
+
+The API now validates returned transaction identifiers and non-negative integer block heights before returning evidence or logging a finalized transition. Unsafe numeric heights, malformed strings and invalid result shapes are rejected; canonical decimal strings retain exact large heights. Both 32/33-byte lowercase identifiers and the existing txHash fallback remain supported.
+
+Baseline source failed 23 of 28 new cases. Fixed source `df4869e` passed **125 API tests / 8 files in 3.65 seconds**, including generated-circuit role lifecycle regression with valid synthetic identifiers. Root release build passed: **8 circuits / 80 files / 65,578,594 bytes**. [Evidence](evidence/transaction-evidence-validation.json) records limits: shape checking does not authenticate finality, and malformed SDK results after broadcast still require uncertainty handling.
+
 ## API public read elapsed deadlines -- 2026-09-11
 
 Public ledger reads now check wall and monotonic deadlines before decoding and before returning a snapshot; late provider/decoder errors are also classified as timeout. The existing twenty-second timer and explicit read retry remain. A delayed timer callback can no longer admit an already-expired result.

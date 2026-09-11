@@ -1,0 +1,40 @@
+{
+  "date": "2026-09-11",
+  "sourceCommit": "df4869e10454dd46c2c53174fb5e55bc5e474d91",
+  "scope": "Validate SDK transaction evidence before returning it or logging a finalized transition. Accept lowercase 32/33-byte hex identifiers and exact non-negative integer block heights.",
+  "validation": {
+    "baseline": {
+      "log": ".compact/tx-evidence-baseline.log",
+      "failed": 23,
+      "passed": 5,
+      "seconds": 2.05,
+      "exit": 1,
+      "note": "Failures include invalid evidence previously accepted and null/missing evidence producing inconsistent errors."
+    },
+    "api": {
+      "log": ".compact/tx-evidence-tests.log",
+      "passed": 125,
+      "files": 8,
+      "seconds": 3.65,
+      "exit": 0
+    },
+    "release": {
+      "command": "npm run release:build",
+      "log": ".compact/tx-evidence-release.log",
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65578594,
+      "exit": 0
+    }
+  },
+  "coverage": [
+    "Malformed result shapes/identifiers and negative, fractional, non-finite, unsafe numeric or non-canonical string heights do not produce a finalized log.",
+    "Valid txId/txHash fallback accepts 32/33-byte identifiers, zero and canonical decimal heights beyond safe JS number precision without numeric conversion.",
+    "Role-session generated-circuit regression uses valid synthetic identifiers instead of simulator-prefixed strings."
+  ],
+  "limits": [
+    "Shape validation is not independent finality or inclusion verification. An invalid result can follow an actual broadcast; callers must preserve existing uncertainty and avoid automatic retry.",
+    "No new native-wallet, browser, container or complete workspace regression.",
+    "The shared evidence function also handles deployment results; new malformed-data cases exercise transition results."
+  ]
+}
