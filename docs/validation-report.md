@@ -1,5 +1,11 @@
 # Validation report
 
+## Historical scan input capture -- 2026-09-11
+
+History scans now capture input values before opening the socket. Later caller mutation cannot change the requested deployment height or redirect abort-listener cleanup to a replacement signal. Three real-localhost-socket cases failed against baseline and pass after the change, covering request values plus cleanup after success/cancellation.
+
+Source `200bd54` passed **137 API tests / 9 files in 3.65 seconds** and the root release build: **8 circuits / 80 files / 65,580,867 bytes**. [Evidence](evidence/history-input-capture.json) records scope and limits; no fresh runtime/native-wallet claim is made.
+
 ## Historical WebSocket elapsed deadlines -- 2026-09-11
 
 History scanning now checks wall and monotonic expiry before initialization/messages and at settlement, preventing delayed timer callbacks from admitting expired predecessor evidence. Socket initialization send failures also settle through cleanup.

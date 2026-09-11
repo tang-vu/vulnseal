@@ -1,0 +1,37 @@
+{
+  "date": "2026-09-11",
+  "sourceCommit": "200bd544e1452fd216f89c9356508375b8b7804b",
+  "scope": "Capture history scan input values before opening the socket, preserving the requested deployment and original abort signal across asynchronous callbacks.",
+  "validation": {
+    "baseline": {
+      "log": ".compact/history-input-baseline.log",
+      "failed": 3,
+      "passed": 6,
+      "seconds": 0.9,
+      "exit": 1
+    },
+    "api": {
+      "log": ".compact/history-input-tests.log",
+      "passed": 137,
+      "files": 9,
+      "seconds": 3.65,
+      "exit": 0
+    },
+    "release": {
+      "command": "npm run release:build",
+      "log": ".compact/history-input-release.log",
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65580867,
+      "exit": 0
+    }
+  },
+  "coverage": [
+    "Real localhost WebSocket request retains the original deployment height after caller changes the options object.",
+    "Success and cancellation remove the listener from the original signal even after the caller replaces options.signal."
+  ],
+  "limits": [
+    "No new browser/full-workspace or runtime image validation.",
+    "History remains source-reported; input capture is not an authenticated completeness or finality proof."
+  ]
+}
