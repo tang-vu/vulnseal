@@ -36,7 +36,7 @@ export type VulnSealPrivateState = {
 const zero = (): Uint8Array => new Uint8Array(BYTE_LENGTH);
 
 const bytes32 = (value: Uint8Array, label: string): Uint8Array => {
-  if (value.byteLength !== BYTE_LENGTH) {
+  if (!(value instanceof Uint8Array) || value.byteLength !== BYTE_LENGTH) {
     throw new Error(`${label} must be exactly ${BYTE_LENGTH} bytes`);
   }
   return new Uint8Array(value);

@@ -35,6 +35,16 @@ const setup = async () => {
   return { simulator, vendor, researcher, vendorApi, researcherApi, provider, calls };
 };
 
+it.each([new ArrayBuffer(32), new DataView(new ArrayBuffer(32)), new Uint16Array(16), { byteLength: 32, length: 32 }])("rejects malformed actor secrets before invoking the join SDK", async value => {
+  const join = vi.spyOn(VulnSealApi, "join").mockRejectedValue(new Error("SDK must not be invoked"));
+  try {
+    await expect(RoleSession.join({} as Parameters<typeof RoleSession.join>[0], "ab".repeat(32), {
+      role: "vendor", programId: bytes(1), actorSecret: value as unknown as Uint8Array,
+    })).rejects.toThrow("actorSecret must be exactly 32 bytes");
+    expect(join).not.toHaveBeenCalled();
+  } finally { join.mockRestore(); }
+});
+
 describe("one-role transaction sessions", () => {
   it.each(["acceptReport", "authorizePayout"] as const)("rejects malformed %s tiers before private state, ledger reads or transactions", async (kind) => {
     const { vendor, vendorApi, provider, calls } = await setup();
