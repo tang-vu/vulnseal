@@ -1,5 +1,11 @@
 # Validation report
 
+## Full web recovery regression -- 2026-09-11
+
+Unchanged application source `819eb1e3274a1bc44d37bc706a80b8df1417e3f5` passed the complete **509-test web suite / 66 files in 277.90 seconds** and all **154 ordinary desktop/mobile browser cases in 6.9 minutes**, with two workers and no retries. This refresh includes journal capacity preflight, preparation saved before upload, private recovery deadlines, offline inspection and reading sealed/prepared reports separately from edited drafts.
+
+All **8 release-tool tests** passed. After Playwright stopped, `npm run release:build` passed the contract source check, all six workspace builds and normal web release validation: **8 circuits / 80 files / 65,555,494 bytes**. Source remained unchanged and `git diff --check` passed. [Evidence](evidence/recovery-full-regression.json) records exact commands and limits. This is not a rerun of all workspace test suites, separate replication/cross-adapter E2E, native wallet ceremonies or runtime/security drills; the earlier container evidence remains tied to its recorded source and image.
+
 ## Offline sealed and prepared report reading -- 2026-09-11
 
 Offline inspection now exposes the actual report content already decrypted and commitment-checked by recovery validation. Dedicated sealed/prepared sections remain separate from the editable draft and show report fields plus local attachment metadata checking. Clearing inspection removes both report views.

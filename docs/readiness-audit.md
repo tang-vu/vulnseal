@@ -4,6 +4,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 ## Verified implementation improvements
 
+- The current recovery improvements passed a full web regression on unchanged source `819eb1e`: **509 web tests / 66 files, 154 desktop/mobile E2E cases and 8 release-tool tests**. All six workspace builds, contract source consistency and the normal web release manifest also passed. See [current source evidence](evidence/recovery-full-regression.json). Runtime image, native-wallet and security validation remain separate; this does not clear the existing failed security gate.
+
 - Combined encrypted files and selected browser copies can now be inspected offline without wallet initialization or session replacement. Inspection also reads the actual decrypted, commitment-checked sealed/prepared report separately from an edited draft; see [report-reading evidence](evidence/offline-recovery-reports.json). Saved identifiers, uncertainty markers, draft notes and immutable journal inputs remain historical; lookup and retry are not enabled by inspection. See [inspection evidence](evidence/offline-recovery-inspection.json) and [the recovery guide](combined-recovery.md).
 
 - Combined private restoration now has a three-minute deadline across decryption, wallet initialization, join, ledger read and verification. Late responses after expiry/unmount cannot progress or install a session, and recovery inputs survive timeout. Desktop/mobile browser tests with real crypto also verify late decryption before and during explicit retry without an extra wallet connection or premature unlock. See [restore deadline evidence](evidence/private-recovery-deadlines.json). Already-started SDK work and native-wallet validation remain outside this guarantee.

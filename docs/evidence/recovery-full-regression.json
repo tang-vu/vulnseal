@@ -1,0 +1,51 @@
+{
+  "date": "2026-09-11",
+  "sourceCommit": "819eb1e3274a1bc44d37bc706a80b8df1417e3f5",
+  "scope": "Full web and ordinary desktop/mobile regression after journal capacity, prepared-before-upload, recovery deadlines and offline inspection/report reading",
+  "sourceUnchangedDuringValidation": true,
+  "validation": {
+    "web": {
+      "command": "npm run test:run -w @vulnseal/web",
+      "log": ".compact/recovery-full-web.log",
+      "passed": 509,
+      "files": 66,
+      "seconds": 277.9,
+      "exit": 0
+    },
+    "browser": {
+      "command": "CI=1 npx playwright test",
+      "log": ".compact/recovery-full-browser.log",
+      "passed": 154,
+      "reportedDuration": "6.9m",
+      "workers": 2,
+      "retries": 0,
+      "projects": [
+        "desktop-chrome",
+        "mobile-chrome"
+      ],
+      "exit": 0
+    },
+    "releaseTests": {
+      "command": "npm run test:release",
+      "log": ".compact/recovery-full-release-tests.log",
+      "passed": 8,
+      "milliseconds": 458.2617,
+      "exit": 0
+    },
+    "release": {
+      "command": "npm run release:build",
+      "log": ".compact/recovery-full-release.log",
+      "exit": 0,
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65555494,
+      "scope": "Contract source consistency check, all six workspace builds and normal web release manifest after the browser environment stopped."
+    }
+  },
+  "limits": [
+    "This refresh covers the complete web suite and ordinary Playwright configuration, not all six workspace test suites or the separate replication/cross-adapter browser configurations.",
+    "No fresh Compact key generation, native wallet signing, physical crash/suspend, public deployment, container build/drill or security scan.",
+    "The latest runtime image and security evidence remain the earlier f8ad400-based journal-full-runtime record; this source regression does not refresh that image or clear its failed security gate.",
+    "Browser fixtures and simulated providers do not establish live chain authority or authenticated reconciliation."
+  ]
+}
