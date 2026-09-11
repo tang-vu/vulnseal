@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { submissionReceipt } from "./submission-receipt.js";
 import { emptyAttachmentDraft } from "./attachment-draft.js";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hexToBytes, sha256, utf8 } from "@vulnseal/shared";
@@ -11,16 +11,26 @@ import { decryptRecovery, encryptRecovery } from "./recovery.js";
 import { programConstructor } from "./program.js";
 import { DEMO_TRANSITION_TIMEOUT_MS } from "./demo-transition-wait.js";
 
-const mocks = vi.hoisted(() => ({ connect: vi.fn(), deploy: vi.fn(), join: vi.fn() }));
+const mocks = vi.hoisted(() => ({ connect: vi.fn(), deploy: vi.fn(), join: vi.fn(), write: vi.fn() }));
 vi.mock("./midnight/browser-providers.js", () => ({ initializeBrowserProviders: mocks.connect }));
 vi.mock("@vulnseal/api/api", () => ({ VulnSealApi: { deploy: mocks.deploy, join: mocks.join } }));
+vi.mock("./recovery-storage.js", async importOriginal => ({ ...await importOriginal<typeof import("./recovery-storage.js")>(), writeStoredRecovery: mocks.write }));
 import App from "./App.js";
+const deploymentId = "ab".repeat(32);
+const deploymentPassword = "Synthetic deployment copy password";
+const fillDeploymentPassword = () => {
+  fireEvent.change(screen.getByLabelText("Deployment backup password"), { target: { value: deploymentPassword } });
+  fireEvent.change(screen.getByLabelText("Confirm deployment backup password"), { target: { value: deploymentPassword } });
+};
+const checkpoint = () => mocks.connect.mock.calls[0]![1](deploymentId);
+
 
 describe("browser network workflow with mocked wallet and finalized API results", () => {
   beforeEach(() => {
     mocks.connect.mockReset().mockResolvedValue({});
     mocks.deploy.mockReset();
     mocks.join.mockReset();
+    mocks.write.mockReset().mockImplementation(async (id, label, encrypted, revision) => ({ id, label, encrypted, revision: (revision ?? 0) + 1, updatedAt: new Date().toISOString() }));
     const store = new Map<string, string>();
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === "PUT") {
@@ -35,14 +45,16 @@ describe("browser network workflow with mocked wallet and finalized API results"
   it.each(["failure", "timeout"])("retains uncertain deployment after %s through backup and wallet-free restore", async outcome => {
     const user = userEvent.setup();
     let fail!: (error: Error) => void, finish!: (value: unknown) => void;
-    mocks.deploy.mockImplementation(() => new Promise((resolve, reject) => { fail = reject; finish = resolve; }));
+    mocks.deploy.mockImplementation(async () => { await checkpoint(); return new Promise((resolve, reject) => { fail = reject; finish = resolve; }); });
     const leaving = () => { const event = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; };
     const view = render(<App />);
     expect(leaving()).toBe(false);
     await user.click(screen.getByRole("button", { name: "Guided local" }));
     await user.click(await screen.findByRole("button", { name: "Set up program" }));
     const timers = vi.spyOn(globalThis, "setTimeout");
+    fillDeploymentPassword();
     await user.click(screen.getByRole("button", { name: "Create program" }));
+    await waitFor(() => expect(fail).toBeTypeOf("function"), { timeout: 5000 });
     expect(mocks.deploy).toHaveBeenCalledOnce();
     const expire = timers.mock.calls.find(([, duration]) => duration === DEMO_TRANSITION_TIMEOUT_MS)![0] as () => void;
     timers.mockRestore();
@@ -70,7 +82,10 @@ describe("browser network workflow with mocked wallet and finalized API results"
       serialized = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsText(downloaded!); });
     } finally { click.mockRestore(); }
     const checked = await decryptRecovery(serialized, password);
-    expect(checked.snapshot.version).toBe(6);
+    expect(checked.snapshot.version).toBe(7);
+    expect(checked.snapshot.deploymentTransactionId).toBe(deploymentId);
+    const stored = await decryptRecovery(mocks.write.mock.calls[1]![2], deploymentPassword);
+    expect(stored.snapshot).toEqual(checked.snapshot);
     expect(checked.snapshot.deploymentAttempt?.startedAt).toMatch(/Z$/);
     expect(checked.snapshot.contractAddress).toBeNull();
     const [, privateState, constructor] = mocks.deploy.mock.calls[0]!;
@@ -271,10 +286,11 @@ describe("browser network workflow with mocked wallet and finalized API results"
     if (outcome === "preparation timeout") api.usePrivateState.mockImplementation(() => new Promise((resolve) => { finishLate = resolve; }));
     if (outcome === "submission timeout") api.submitReport.mockImplementation(() => new Promise((resolve) => { finishLate = resolve; }));
     const expectedSubmissions = outcome === "preparation timeout" ? 0 : 1;
-    mocks.deploy.mockResolvedValue({ api, evidence: { circuit: "constructor", txId: "deploy-tx", blockHeight: "100" } });
+    mocks.deploy.mockImplementation(async () => { await checkpoint(); return { api, evidence: { circuit: "constructor", txId: deploymentId, blockHeight: "100" } }; });
     render(<App />);
     await user.click(screen.getByRole("button", { name: "Guided local" }));
     await user.click(await screen.findByRole("button", { name: "Set up program" }));
+    fillDeploymentPassword();
     await user.click(screen.getByRole("button", { name: "Create program" }));
     await screen.findByRole("heading", { name: "Acme Security Program" });
     await user.click(screen.getAllByRole("button", { name: /Submit/ })[0]!);
@@ -344,7 +360,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
       anchorPatch: vi.fn(),
       readPublicState: vi.fn().mockRejectedValueOnce(new Error("Indexer temporarily unavailable")),
     };
-    mocks.deploy.mockResolvedValue({ api, evidence: { circuit: "constructor", txId: "deploy-tx", blockHeight: "100" } });
+    mocks.deploy.mockImplementation(async () => { await checkpoint(); return { api, evidence: { circuit: "constructor", txId: deploymentId, blockHeight: "100" } }; });
     render(<App />);
     await user.click(screen.getByRole("button", { name: "Guided local" }));
     await user.click(await screen.findByRole("button", { name: "Set up program" }));
@@ -352,6 +368,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     await user.type(screen.getByLabelText("Program name"), "Independent Security");
     await user.selectOptions(screen.getByLabelText("First response target"), "2");
     await user.selectOptions(screen.getByLabelText("Coordinated disclosure window"), "30");
+    fillDeploymentPassword();
     await user.click(screen.getByRole("button", { name: "Create program" }));
     await screen.findByRole("heading", { name: "Independent Security" });
     const [, ownerState, constructor] = mocks.deploy.mock.calls[0]!;
@@ -378,7 +395,7 @@ describe("browser network workflow with mocked wallet and finalized API results"
     await user.click(screen.getAllByRole("button", { name: /Verify/ })[0]!);
     const submitted = screen.getByText("sealed-tx").closest(".audit-event")!;
     expect(within(submitted as HTMLElement).getByText("Finalized at block 202")).toBeInTheDocument();
-    expect(screen.queryByText("deploy-tx")).not.toBeInTheDocument();
+    expect(screen.queryByText(deploymentId, { selector: ".audit-transaction" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /No patch or passing retest is recorded yet/ })).toBeInTheDocument();
     expect(screen.queryByText("Reproduced with minimal impact")).not.toBeInTheDocument();
     await user.click(screen.getAllByRole("button", { name: /Resolve/ })[0]!);
@@ -403,5 +420,5 @@ describe("browser network workflow with mocked wallet and finalized API results"
     await user.click(screen.getAllByRole("button", { name: /Resolve/ })[0]!);
     expect(screen.getByRole("button", { name: /Pass retest/ })).toBeEnabled();
     expect(screen.getByRole("button", { name: /Fail retest/ })).toBeEnabled();
-  });
+  }, 15_000);
 });

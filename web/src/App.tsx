@@ -34,6 +34,10 @@ import { AttachmentEditor, AttachmentReview } from "./AttachmentFields.js";
 import { HandoffPanel } from "./HandoffPanel.js";
 import type { RecipientKeys } from "./handoff.js";
 import { parsePublicReceipt } from "./public-verification.js";
+import { submissionWait } from "./submission-wait.js";
+import { RecoveryAutosave } from "./recovery-autosave.js";
+import { writeStoredRecovery } from "./recovery-storage.js";
+import { TransactionCheck } from "./TransactionCheck.js";
 import { demoTransitionWait } from "./demo-transition-wait.js";
 
 type Screen =
@@ -147,6 +151,13 @@ function App() {
   const busy = useRef(false);
   const [providers, setProviders] = useState<VulnSealProviders>();
   const [api, setApi] = useState<VulnSealApi>();
+  const [deploymentPasswords, setDeploymentPasswords] = useState({ password: "", confirmation: "" });
+  const [deploymentTransactionId, setDeploymentTransactionId] = useState<string>();
+  const [deploymentBackupNotice, setDeploymentBackupNotice] = useState("");
+  const deploymentCheckpoint = useRef<((id: string) => Promise<void>) | undefined>(undefined);
+  const deploymentWait = useRef<ReturnType<typeof submissionWait> | undefined>(undefined);
+  const deploymentGeneration = useRef(0);
+  useEffect(() => () => { deploymentGeneration.current++; deploymentWait.current?.cancel(); }, []);
   const [deploymentAttempt, setDeploymentAttempt] = useState<RecoverySnapshot["deploymentAttempt"]>();
   const [programCreated, setProgramCreated] = useState(env.mode === "guided-local");
   const [programBytes, setProgramBytes] = useState(() => randomBytes(32));
@@ -179,7 +190,7 @@ function App() {
   const initialDraftState = useRef(draftState);
   // Download initiation cannot prove that a recovery file was saved. Keep the
   // guard while this tab holds report/authority material or edited private input.
-  const hasPrivateSessionMaterial = Boolean(deploymentAttempt || JSON.stringify(programDraft) !== JSON.stringify(defaultProgramDraft) || api || sealed || reportId || pendingPreparation || uncertainTransition || recipientKeys || programPolicy !== defaultProgram || draftState !== initialDraftState.current);
+  const hasPrivateSessionMaterial = Boolean(deploymentPasswords.password || deploymentPasswords.confirmation || deploymentAttempt || JSON.stringify(programDraft) !== JSON.stringify(defaultProgramDraft) || api || sealed || reportId || pendingPreparation || uncertainTransition || recipientKeys || programPolicy !== defaultProgram || draftState !== initialDraftState.current);
   useEffect(() => {
     if (!hasPrivateSessionMaterial && operation.state !== "working") return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
@@ -259,7 +270,7 @@ function App() {
     busy.current = true;
     setOperation({ state: "working", label: "Connecting wallet", detail: "Waiting for a compatible Lace connector API." });
     try {
-      const initialized = await initializeBrowserProviders(activeNetwork);
+      const initialized = await initializeBrowserProviders(activeNetwork, async (id) => { await deploymentCheckpoint.current?.(id); });
       setProviders(initialized);
       setRuntimeMode("midnight");
       setProgramCreated(false);
@@ -286,24 +297,52 @@ function App() {
     }
     busy.current = true;
     const form = new FormData(event.currentTarget);
+    const generation = deploymentGeneration.current;
+    const assertCurrent = () => { if (generation !== deploymentGeneration.current) throw new Error("Workspace closed before deployment; no transaction was submitted by this continuation"); };
     setOperation({ state: "working", label: "Creating program", detail: networkReady ? "Generating a deployment proof and awaiting finality." : "Preparing the guided local program." });
     try {
       const policy = readProgramForm(form);
       const identifier = randomBytes(32);
       const constructor = await programConstructor(identifier, policy);
+      assertCurrent();
       if (runtimeMode === "midnight") {
         if (providers === undefined) throw new Error("Connect a wallet before deploying a Midnight program");
-        // Preserve the exact attempted constructor inputs before SDK work begins.
-        setProgramBytes(identifier); setProgramPolicy(policy);
-        setDeploymentAttempt({ startedAt: new Date().toISOString() });
-        const deployed = await demoTransitionWait(async () => {}, () => VulnSealApi.deploy(
-          providers,
-          createVulnSealPrivateState(vendorSecret),
-          constructor,
-        ), "Stopped waiting for program deployment. It may still finalize. Keep this tab open and save an encrypted backup through Private recovery. Creating another program is blocked until this attempt is investigated.");
-        setDeploymentAttempt(undefined);
-        setApi(deployed.api);
-        setEvidence([deployed.evidence]);
+        if (deploymentPasswords.password !== deploymentPasswords.confirmation) throw new Error("Deployment backup passwords do not match");
+        const attempt = { startedAt: new Date().toISOString() };
+        const checkpointSnapshot: RecoverySnapshot = { ...liveRecoverySnapshot, version: 6, deploymentAttempt: attempt, programId: bytesToHex(identifier), policy };
+        const encrypted = await encryptRecovery(checkpointSnapshot, deploymentPasswords.password);
+        assertCurrent();
+        const row = await writeStoredRecovery(crypto.randomUUID(), "Combined deployment", encrypted, null);
+        assertCurrent();
+        const writer = new RecoveryAutosave(row, deploymentPasswords.password);
+        setDeploymentPasswords({ password: "", confirmation: "" });
+        setProgramBytes(identifier); setProgramPolicy(policy); setDeploymentAttempt(attempt);
+        setDeploymentBackupNotice(`Encrypted deployment copy saved (${row.id}, revision ${row.revision}). Keep its password separately.`);
+        const wait = submissionWait(); deploymentWait.current = wait;
+        let checkpointStarted = false;
+        deploymentCheckpoint.current = async (id) => {
+          wait.assertActive();
+          if (checkpointStarted) throw new Error("A deployment checkpoint already started; duplicate submission is blocked");
+          checkpointStarted = true;
+          if (!/^[a-f0-9]{64}$/.test(id)) throw new Error("Invalid deployment transaction identifier; broadcast is blocked");
+          setDeploymentTransactionId(id);
+          const next: RecoverySnapshot = { ...checkpointSnapshot, version: 7, deploymentTransactionId: id };
+          const committed = await writer.save(next);
+          wait.checkpoint(id);
+          setDeploymentBackupNotice(`Pre-broadcast deployment checkpoint saved (${committed.id}, revision ${committed.revision}). Download an updated backup after finality.`);
+        };
+        try {
+          const deployed = await wait.run(async () => {
+            const result = await VulnSealApi.deploy(providers, createVulnSealPrivateState(vendorSecret), constructor);
+            if (!wait.transactionId || result.evidence.txId !== wait.transactionId) throw new Error("Deployment result does not match its saved transaction checkpoint; keep the backup and investigate.");
+            return result;
+          });
+          deploymentCheckpoint.current = undefined;
+          setDeploymentAttempt(undefined); setApi(deployed.api); setEvidence([deployed.evidence]);
+        } finally {
+          writer.stop(); deploymentWait.current = undefined;
+          // Failure retains the closed callback so late SDK continuations cannot broadcast.
+        }
       }
       setProgramBytes(identifier);
       setProgramPolicy(policy);
@@ -564,17 +603,18 @@ function App() {
     changeScreen("submit", "researcher");
   };
 
-  const recoverySnapshot = useMemo<RecoverySnapshot | undefined>(() => {
-    if (runtimeMode === "midnight" && !api && !deploymentAttempt) return undefined;
+  const liveRecoverySnapshot = useMemo<RecoverySnapshot>(() => {
     const encode = (value?: Uint8Array) => value ? bytesToHex(value) : null;
     return {
-      version: deploymentAttempt ? 6 : 5, ...(deploymentAttempt ? { deploymentAttempt } : {}), programDraft, uncertainTransition, attachmentDraft, pendingReport: pendingPreparation ? { report: { envelope: pendingPreparation.sealed.serializedEnvelope, key: bytesToHex(pendingPreparation.sealed.key), salt: bytesToHex(pendingPreparation.salt), id: bytesToHex(pendingPreparation.id) }, submissionStarted: pendingPreparation.submissionStarted } : null, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
+      version: deploymentTransactionId ? 7 : deploymentAttempt ? 6 : 5, ...(deploymentTransactionId ? { deploymentTransactionId } : {}), ...(deploymentAttempt ? { deploymentAttempt } : {}), programDraft, uncertainTransition, attachmentDraft, pendingReport: pendingPreparation ? { report: { envelope: pendingPreparation.sealed.serializedEnvelope, key: bytesToHex(pendingPreparation.sealed.key), salt: bytesToHex(pendingPreparation.salt), id: bytesToHex(pendingPreparation.id) }, submissionStarted: pendingPreparation.submissionStarted } : null, mode: runtimeMode, network: runtimeMode === "midnight" ? activeNetwork : "undeployed", contractAddress: api?.contractAddress ?? null,
       programId: bytesToHex(programBytes), policy: programPolicy, vendorSecret: bytesToHex(vendorSecret), researcherSecret: bytesToHex(researcherSecret), draft: report,
       report: sealed && reportSalt && reportId ? { envelope: sealed.serializedEnvelope, key: bytesToHex(sealed.key), salt: bytesToHex(reportSalt), id: bytesToHex(reportId) } : null,
       status, history: events.map((event) => event.status), patch: encode(patchCommitment), retest: encode(retestCommitment), payout: encode(payoutReceipt),
       severity: acceptedSeverity, rationale, patchReference, retestNotes,
     };
-  }, [deploymentAttempt, programDraft, uncertainTransition, attachmentDraft, pendingPreparation, runtimeMode, activeNetwork, api, programBytes, programPolicy, vendorSecret, researcherSecret, report, sealed, reportSalt, reportId, status, events, patchCommitment, retestCommitment, payoutReceipt, acceptedSeverity, rationale, patchReference, retestNotes]);
+  }, [deploymentTransactionId, deploymentAttempt, programDraft, uncertainTransition, attachmentDraft, pendingPreparation, runtimeMode, activeNetwork, api, programBytes, programPolicy, vendorSecret, researcherSecret, report, sealed, reportSalt, reportId, status, events, patchCommitment, retestCommitment, payoutReceipt, acceptedSeverity, rationale, patchReference, retestNotes]);
+
+  const recoverySnapshot = runtimeMode === "midnight" && !api && !deploymentAttempt ? undefined : liveRecoverySnapshot;
 
   const exportRecovery = async (password: string): Promise<string> => {
     if (busy.current) throw new Error("Wait for the current operation to finish");
@@ -617,7 +657,7 @@ function App() {
       const restoredStatus = current ? contractStatusName(current.status) : snapshot.status;
       setProviders(restoredProviders); setApi(restoredApi); setRuntimeMode(snapshot.mode);
       if (snapshot.mode === "midnight") setActiveNetwork(snapshot.network as typeof activeNetwork);
-      setDeploymentAttempt(snapshot.deploymentAttempt);
+      setDeploymentAttempt(snapshot.deploymentAttempt); setDeploymentTransactionId(snapshot.deploymentTransactionId);
       setProgramCreated(!snapshot.deploymentAttempt); setProgramBytes(hexToBytes(snapshot.programId)); setProgramPolicy(snapshot.policy);
       setProgramDraft(snapshot.programDraft ?? { ...snapshot.policy, responseDays: String(snapshot.policy.responseDays), disclosureDays: String(snapshot.policy.disclosureDays) });
       setVendorSecret(hexToBytes(snapshot.vendorSecret)); setResearcherSecret(hexToBytes(snapshot.researcherSecret));
@@ -645,8 +685,8 @@ function App() {
       case "dashboard":
         return <Dashboard programCreated={programCreated} programPolicy={programPolicy} programBytes={programBytes} status={status} reportId={reportId} timeline={timeline} onCreate={() => changeScreen("create", "vendor")} onTriage={() => void openVendorReview()} onVerify={() => changeScreen("verify", "verifier")} />;
       case "create":
-        if (deploymentAttempt) return <section className="page narrow-page"><h1>Deployment outcome needs investigation</h1><p>The deployment started at {deploymentAttempt.startedAt}. Its result has not been confirmed here. Creating another program is blocked because the original may still finalize.</p><HashValue label="Attempted program identifier" value={programBytes} /><p>Program: {programPolicy.name}</p><p>Keep this tab open and save an encrypted backup through Private recovery. The backup retains the attempted program policy and authority; it does not prove finality or contain a transaction identifier. Check the original wallet and network records before deciding what to do next.</p>{operation.state !== "idle" && <OperationNotice operation={operation} />}</section>;
-        return <CreateProgram draft={programDraft} onChange={setProgramDraft} mode={runtimeMode} connected={providers !== undefined} operation={operation} onConnect={() => void connectWallet()} onSubmit={(event) => void createProgram(event)} />;
+        if (deploymentAttempt) return <section className="page narrow-page"><h1>Deployment outcome needs investigation</h1><p>The deployment attempt was recorded at {deploymentAttempt.startedAt}. Its result has not been confirmed here. Creating another program is blocked because the original may still finalize.</p><HashValue label="Attempted program identifier" value={programBytes} /><p>Program: {programPolicy.name}</p><p>Keep this tab open and save an encrypted backup through Private recovery. The backup retains the attempted program policy and authority; it does not prove finality. {deploymentTransactionId ? "The saved transaction identifier is shown below." : "This backup does not contain a transaction identifier."} Check the original wallet and network records before deciding what to do next.</p>{deploymentTransactionId && <><p className="public-value">Deployment transaction: {deploymentTransactionId}</p><TransactionCheck network={activeNetwork} transactionId={deploymentTransactionId} circuit="constructor" /></>}{operation.state !== "idle" && <OperationNotice operation={operation} />}</section>;
+        return <CreateProgram deploymentPasswords={deploymentPasswords} onDeploymentPasswords={setDeploymentPasswords} draft={programDraft} onChange={setProgramDraft} mode={runtimeMode} connected={providers !== undefined} operation={operation} onConnect={() => void connectWallet()} onSubmit={(event) => void createProgram(event)} />;
       case "submit":
         if (pendingPreparation) return <section className="page narrow-page"><h1>Keep the prepared report</h1><p>The exact encrypted report is retained. Save it through Private recovery before closing this tab. Editing a replacement here could lose the original encryption material.</p><p className="public-value">Report: {bytesToHex(pendingPreparation.id)}</p><PreparedReportReview report={JSON.parse(pendingPreparation.sealed.canonicalReport) as VulnerabilityReport} />{pendingPreparation.submissionStarted ? <p role="alert">Submission setup already started. Its outcome needs reconciliation; resubmission is blocked. Check your wallet and ledger before deciding what to do next.</p> : <button className="primary-button" onClick={() => void submitSealedReport()}>Retry saved report upload</button>}</section>;
         return <ReportWizard attachmentDraft={attachmentDraft} onAttachmentDraftChange={setAttachmentDraft} report={report} onChange={setReport} onSeal={() => void submitSealedReport()} />;
@@ -708,6 +748,7 @@ function App() {
       )}
       {screen === "lookup" && <div className="truth-banner"><span>Read-only public lookup</span>No private report material, wallet connection, or transaction submission is used here.</div>}
       {runtimeMode === "midnight" && !networkReady && !deploymentAttempt && screen !== "lookup" && <div className="truth-banner" role="status"><span>Network setup required</span>Connect Lace and create a program before submitting a report. <button className="secondary-button" onClick={() => changeScreen("create", "vendor")}>Set up program</button></div>}
+      {deploymentBackupNotice && <p role="status">{deploymentBackupNotice}</p>}
       {deploymentAttempt && <div className="truth-banner" role="alert"><span>Deployment outcome unconfirmed</span>Retain an encrypted backup through Private recovery. This session cannot create another program. <button className="secondary-button" onClick={() => changeScreen("create", "vendor")}>Review deployment attempt</button></div>}
       {uncertainTransition && <div className="truth-banner" role="alert"><span>Transaction outcome unknown: {uncertainTransition}</span>Keep an encrypted backup through Private recovery. Further transactions and resetting this report are blocked, including after restore. A ledger refresh does not establish whether this attempt is safe to repeat.</div>}
       <div className="session-actions"><a className="secondary-button" href="./#roles" target="_blank" rel="noreferrer noopener">Open role workspace</a><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("handoff")}>Private exchange</button><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("lookup", "verifier")}>Independent verifier</button><button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("recovery")}>Private recovery</button>{reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={() => changeScreen("receipt")}>Submission receipt</button>}{api && reportId && <button className="secondary-button" disabled={operation.state === "working"} onClick={exportPublicReceipt}>Download public receipt</button>}{needsRefresh && <button className="primary-button" disabled={operation.state === "working"} onClick={() => void retryPublicRead()}>Refresh public commitments</button>}</div>
@@ -822,7 +863,7 @@ function Dashboard({ programCreated, programPolicy, programBytes, status, report
   );
 }
 
-function CreateProgram({ draft, onChange, mode, connected, operation, onConnect, onSubmit }: { readonly draft: ProgramDraft; readonly onChange: (draft: ProgramDraft) => void; readonly mode: RuntimeMode; readonly connected: boolean; readonly operation: Operation; readonly onConnect: () => void; readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+function CreateProgram({ deploymentPasswords, onDeploymentPasswords, draft, onChange, mode, connected, operation, onConnect, onSubmit }: { readonly deploymentPasswords: { password: string; confirmation: string }; readonly onDeploymentPasswords: (value: { password: string; confirmation: string }) => void; readonly draft: ProgramDraft; readonly onChange: (draft: ProgramDraft) => void; readonly mode: RuntimeMode; readonly connected: boolean; readonly operation: Operation; readonly onConnect: () => void; readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
   return (
     <section className="page narrow-page">
       <PageHeading eyebrow="Vendor setup" title="Create a disclosure program" detail="Publish the minimum policy surface researchers need. Sensitive internal procedures stay off-ledger." />
@@ -835,6 +876,7 @@ function CreateProgram({ draft, onChange, mode, connected, operation, onConnect,
         <label>Reward policy<textarea name="rewardPolicy" value={draft.rewardPolicy} onChange={(event) => onChange({ ...draft, rewardPolicy: event.target.value })} rows={4} required /></label>
         <div className="reveal-box"><span aria-hidden="true">◈</span><div><strong>What becomes public?</strong><p>Program identifier, authorization key, scope digest, response targets, and policy digests. Internal contacts and triage playbooks do not.</p></div></div>
         {mode === "midnight" && !connected && <div className="inline-error"><strong>Wallet disconnected</strong><span>Connect Lace before deployment.</span><button type="button" className="secondary-button" onClick={onConnect}>Connect Lace</button></div>}
+        {mode === "midnight" && <section aria-label="Deployment recovery backup"><h2>Protect this deployment</h2><p>A required encrypted browser copy saves the program authority before SDK preparation and the transaction identifier before broadcast. Keep its password separately. Clearing site data removes this copy; download a file backup after the operation.</p><label>Deployment backup password<input type="password" autoComplete="new-password" minLength={12} required value={deploymentPasswords.password} onChange={event => onDeploymentPasswords({ ...deploymentPasswords, password: event.target.value })} /></label><label>Confirm deployment backup password<input type="password" autoComplete="new-password" minLength={12} required value={deploymentPasswords.confirmation} onChange={event => onDeploymentPasswords({ ...deploymentPasswords, confirmation: event.target.value })} /></label></section>}
         {operation.state !== "idle" && <OperationNotice operation={operation} />}
         <div className="form-actions"><span>{mode === "midnight" ? "A real deployment requires proof generation and Lace authorization." : "This creates a guided local program only."}</span><button className="primary-button" disabled={operation.state === "working" || (mode === "midnight" && !connected)}>Create program</button></div>
       </form>

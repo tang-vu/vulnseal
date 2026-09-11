@@ -1,0 +1,92 @@
+{
+  "recordedAt": "2026-09-11T04:31:29.995698+00:00",
+  "baseRevision": "5defab54a096c8c64231f5b5980114322a2d1ecc",
+  "validation": {
+    "targetedTests": {
+      "tests": 67,
+      "files": 5,
+      "seconds": 57.33,
+      "exitCode": 0
+    },
+    "appAutosaveAndTransitionRegression": {
+      "tests": 22,
+      "files": 3,
+      "seconds": 10.26,
+      "exitCode": 0
+    },
+    "correctedTimelineAssertion": {
+      "tests": 1,
+      "skipped": 12,
+      "files": 1,
+      "seconds": 10.28,
+      "exitCode": 0,
+      "note": "Uses the real saved deployment identifier scoped to audit transaction entries, replacing a stale literal assertion."
+    },
+    "uniqueUnitCoverage": {
+      "tests": 89,
+      "files": 8,
+      "note": "Across runs, not one full-suite invocation."
+    },
+    "desktopMobileE2E": {
+      "tests": 8,
+      "reportedDuration": "1.3m",
+      "exitCode": 0
+    },
+    "normalWebBuildAndRelease": {
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65481257,
+      "exitCode": 0
+    }
+  },
+  "earlierRuns": [
+    {
+      "name": "initial unit",
+      "passed": 59,
+      "failed": 1,
+      "reason": "Existing full network workflow exceeded its five-second test budget after adding real checkpoint encryption; its explicit budget is now fifteen seconds."
+    },
+    {
+      "name": "initial E2E launch",
+      "exitCode": 1,
+      "reason": "Build/typecheck failed before tests: new fixture explicitly assigned undefined to an exact optional property. Removed the property via destructuring."
+    },
+    {
+      "name": "first started E2E",
+      "passed": 6,
+      "failed": 2,
+      "reason": "Quota message appears in global and form notices. Test now scopes its assertion to main content."
+    }
+  ],
+  "rawLogSha256": {
+    "deployment-checkpoint-typecheck": "e46cc40234199e52e1bf5e1db8f21c8befbead50c4410dc7edfba8141b69c5c8",
+    "deployment-checkpoint-initial": "78ee268ee9f9aacc0715ee6467d5ac02881cc0db957ec3ecf88838b53de5d9f5",
+    "deployment-checkpoint-boundaries": "eb57e1c1a08919eb863abe6ef5204d99ab4c85997296f0d8c57cf0c8f628f0b7",
+    "deployment-checkpoint-tests": "29935488199afa45453ea27a18f7b977e1055acb6651d8d6e76e56d7f13bc5f5",
+    "deployment-checkpoint-browser": "74a1b0cf682c79ef991c2902c60acf7527d044819cb32698c8d6e37956e5b08c",
+    "deployment-checkpoint-typecheck-final": "2b02bbf17b37d3bede66d1253b0b98dab7b663eb1924b61220a864ad35202ed0",
+    "deployment-checkpoint-browser-final": "3b6a86300c5d2d1ec19b4d5d4395b07a5c19946c8560707ad436e1fdcdb9897e",
+    "deployment-checkpoint-browser-verified": "9220ab168534e6a2e5e0eda4a96551e2dd8daf68f22cce987cb8a223a7f87381",
+    "deployment-checkpoint-regression": "a4a55456468b6bb58863f62ddcf0a602452dd1d914967eced8525e0bf1da0101",
+    "deployment-checkpoint-release": "ee90c11a774507cdae21f8079446e4253a79b708dff4771799df5354b45e46ba",
+    "deployment-checkpoint-timeline": "1d81dc5446d1a33c776fcfcd353cd9a9b84106b30134181f125109258edf78fd"
+  },
+  "coverage": [
+    "Initial encrypted copy must confirm before invoking SDK; initial storage failure retains password and permits explicit retry without submitting",
+    "Initial storage completion after unmount cannot start SDK work",
+    "Identifier checkpoint must persist before broadcast; storage failure, unmount or deadline expiry blocks its continuation",
+    "First checkpoint arriving after preparation expiry is rejected without another write; duplicate checkpoints are blocked in implementation",
+    "SDK success must match saved deployment identifier; failure and timeout preserve encrypted recovery and late results do not install API",
+    "V7 identifiers survive undeployed/deployed snapshots and pending report validation; older versions reject identifier downgrade",
+    "Synthetic v6/v7 desktop/mobile file and browser-copy recovery, isolated context restore and real IndexedDB quota injection with a non-signing/non-broadcasting wallet stub",
+    "Existing provider checkpoint/deadline tests and normal v5 browser recovery regression"
+  ],
+  "limits": [
+    "No native-wallet signature, broadcast, public deployment or runtime image refresh was performed.",
+    "Subsequent combined report transitions do not yet require durable identifier checkpoints.",
+    "Indexer observation is not authenticated transaction-content or inclusion verification and does not authorize retry.",
+    "Initial encryption/storage and constructor preparation precede the SDK wait.",
+    "Browser copy remains a pre-broadcast checkpoint after finality; download an updated backup. Independent physical storage durability and device failure are not established.",
+    "A checkpointed identifier does not prove broadcast; interrupted writes may commit, but late callbacks cannot release broadcast."
+  ]
+}

@@ -1,5 +1,13 @@
 # Validation report
 
+## Require durable combined deployment checkpoints -- 2026-09-11
+
+Creating a network program now requires a deployment backup password. A new encrypted browser copy must confirm before invoking the SDK. The provider then saves the finalized transaction identifier to the same revision-checked copy before releasing broadcast. The shared submission wait allows fifteen minutes for preparation/checkpoint and ten minutes for confirmation. Initial-save failure retains password inputs; after SDK work begins, failure, unmount or expiry leaves the session blocked and rejects late checkpoints. Timely SDK results must match the saved identifier. V7 retains that identifier in both unconfirmed and deployed recovery; the attempt view offers the existing read-only transaction check. Subsequent report transitions still lack required durable checkpoints.
+
+**67 tests / 5 files** passed in **57.33 seconds**, and **22 regression tests / 3 files** passed in **10.26 seconds**: **89 unique tests / 8 files across runs**. One timeline assertion was corrected to use the actual saved identifier and rerun successfully (**1 passed / 12 skipped**, **10.28 seconds**). **8 desktop/mobile E2E checks** passed in **1.3 minutes**, covering v6/v7 encrypted file/browser-copy/isolated recovery, normal recovery and actual IndexedDB quota injection with a wallet stub that never signs or broadcasts. Final normal build/typecheck and release validation passed: **8 circuits / 80 files / 65,481,257 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/combined-deployment-checkpoint.json) preserves the initial five-second test timeout, exact-optional-property fixture type error that prevented E2E launch, and duplicate-message selector failures. These are distinct from the passing final checks. No native wallet operation, full regression, runtime refresh or public deployment is claimed. Authenticated reconciliation and independent storage durability remain open.
+
 ## Preserve unconfirmed combined deployments -- 2026-09-11
 
 Combined deployment now captures the attempted program ID, validated policy, authority and start timestamp before calling the SDK. SDK failure or the ten-minute UI deadline retains that attempt and blocks creating another program. Late success cannot replace that state after timeout. Recovery v6 can export it to a file/browser copy and restore without Lace, with creation still blocked. Normal deployed/local exports remain v5. This is recoverable local uncertainty, not a durable pre-broadcast identifier journal.
