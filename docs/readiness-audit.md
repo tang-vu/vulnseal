@@ -14,6 +14,8 @@ Audit started 2026-09-09 from the current worktree. The goal is a complete, poli
 
 - Caddy source diagnostics now inherit the actual runtime compiler stage. The diagnostic binary matches the current web image byte-for-byte, and its 994-package inventory contains none of the seven OpenPGP paths in GO-2026-5932. Fresh source analysis exited 0 with no symbol/imported-package findings and one required-module finding; owned cleanup passed. Both normal and minimal-context diagnostic builds passed. The strict Trivy gate remains failed; see [runtime-bound evidence](evidence/caddy-runtime-source.json).
 
+- Combined recovery now saves explicit encrypted browser checkpoints and restores them after reload through existing password/ledger checks. Each save creates a new copy; quota failure preserves older copies, and removal checks the selected revision. Browser copies remain separate from role storage and file backups. Autosave and durable pre-wallet journaling remain incomplete.
+
 - The combined program form now retains incomplete policy drafts across navigation and in recovery v5, separately from active policy. Legacy recovery derives its form from saved policy; newer draft fields cannot be silently downgraded. This adds manual file recovery, not durable autosave or undeployed-network deployment recovery.
 
 - Combined recovery retains unfinished passwords/file selection across in-app navigation, warns before closing even while hidden, and offers explicit input clearing. Successful import clears the restore input; failed import preserves it. True unmount still guards delayed reads/exports, and synchronous serialization prevents overlapping forms. These are in-memory protections; durable autosave and crash recovery remain incomplete.

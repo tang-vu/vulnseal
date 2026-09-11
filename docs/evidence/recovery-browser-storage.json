@@ -1,0 +1,52 @@
+{
+  "recordedAt": "2026-09-11T03:09:36.596258+00:00",
+  "baseRevision": "dca9704",
+  "checks": {
+    "initialComponents": {
+      "tests": 35,
+      "files": 4,
+      "exitCode": 0
+    },
+    "finalComponents": {
+      "tests": 46,
+      "files": 6,
+      "seconds": 21.18,
+      "exitCode": 0
+    },
+    "browser": {
+      "tests": 12,
+      "reportedDuration": "1.3m",
+      "projects": [
+        "desktop-chrome",
+        "mobile-chrome"
+      ],
+      "exitCode": 0,
+      "coverage": [
+        "Combined encrypted snapshot survives actual page reload",
+        "Wrong password rejects and explicit retry restores",
+        "Injected IndexedDB quota failure preserves old copy and retry input",
+        "Removing one selected copy leaves another",
+        "Existing role storage journal/file recovery and device-copy unlock",
+        "Real IndexedDB concurrent revision writes, quota mapping, deletion and late committed completion remain covered"
+      ]
+    },
+    "normalWebBuildAndRelease": {
+      "circuits": 8,
+      "files": 80,
+      "bytes": 65435294,
+      "exitCode": 0
+    }
+  },
+  "rawLogSha256": {
+    "recovery-browser-storage-tests": "cd9ba0929f0ef5541fff39511c14f27bd849b3c5d294ce0e99b3dde9b258ef1e",
+    "recovery-browser-storage-tests-final": "184a5621c15648482996ad85456ed5b859f5db9a095b0bb4ef7d31692de815f4",
+    "recovery-browser-storage-e2e": "3c9cfb83d904be8319206c6c8d0bb3496110a43351805f9b367894e3d610ece2",
+    "recovery-browser-storage-release": "aeb4bde4422014f1c6e8261e98baa1030b84e93410bf5a6b1babd8d795632ae4"
+  },
+  "limits": [
+    "Combined saves are explicit manual checkpoints; no autosave or pre-wallet journal added.",
+    "A saved browser copy is local to its origin/profile and can be removed by eviction or clearing site data.",
+    "Shared adapter regression preserves existing role storage schema; browser tests compile both actual driver and adapter sources.",
+    "Native-wallet recovery, physical power-loss persistence, full regression and runtime image refresh are not claimed."
+  ]
+}

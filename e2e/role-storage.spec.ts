@@ -5,12 +5,17 @@ import ts from "typescript";
 import { decryptRoleVault, encryptRoleVault } from "../web/src/role-recovery.js";
 import type * as Storage from "../web/src/role-storage.js";
 
+const storageScript = async () => {
+  const compile = async (name: string) => ts.transpileModule(await readFile(new URL(`../web/src/${name}.ts`, import.meta.url), "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const core = await compile("encrypted-copy-storage"), adapter = await compile("role-storage");
+  return `window.__roleStorageTest = (() => { const core = (() => { const exports = {}; ${core}\nreturn exports; })(); const require = (name) => { if (name !== "./encrypted-copy-storage.js") throw new Error("Unexpected storage dependency"); return core; }; const exports = {}; ${adapter}\nreturn exports; })();`;
+};
+
 test("a committed write with delayed completion stays unconfirmed after the storage deadline", async ({ page }) => {
-  const source = await readFile(new URL("../web/src/role-storage.ts", import.meta.url), "utf8");
-  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const script = await storageScript();
   await page.goto("/#roles");
   await page.clock.install();
-  await page.addScriptTag({ content: `window.__roleStorageTest = (() => { const exports = {}; ${compiled}\nreturn exports; })();` });
+  await page.addScriptTag({ content: script });
   const encrypted = await encryptRoleVault({ version: 1, role: "vendor", network: "preprod", programId: "12".repeat(32), actorSecret: "34".repeat(32), contractAddress: null, reports: [] }, "Delayed storage completion password");
   const id = "12345678-1234-1234-1234-123456789abc";
   await page.evaluate(async ({ id, encrypted }) => {
@@ -119,9 +124,7 @@ test("encrypted device copy unlocks in a fresh tab without a downloaded role fil
 
 test("IndexedDB revision comparison rejects concurrent and plaintext overwrites atomically", async ({ page, context }) => {
   // Compile this repository's storage module for a real-browser primitive test; no production debug API is installed.
-  const source = await readFile(new URL("../web/src/role-storage.ts", import.meta.url), "utf8");
-  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-  const script = `window.__roleStorageTest = (() => { const exports = {}; ${compiled}\nreturn exports; })();`;
+  const script = await storageScript();
   const other = await context.newPage();
   for (const target of [page, other]) { await target.goto("/#roles"); await target.addScriptTag({ content: script }); }
   const encrypted = await encryptRoleVault({ version: 1, role: "vendor", network: "preprod", programId: "12".repeat(32), actorSecret: "34".repeat(32), contractAddress: null, reports: [] }, "Concurrent browser backup password");

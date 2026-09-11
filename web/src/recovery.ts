@@ -171,7 +171,7 @@ export const encryptRecovery = async (snapshot: RecoverySnapshot, password: stri
   return JSON.stringify({ format: "vulnseal-recovery", version: 1, algorithm: "AES-256-GCM", kdf: "PBKDF2-SHA-256", iterations, salt: bytesToBase64Url(salt), iv: bytesToBase64Url(iv), ciphertext: bytesToBase64Url(new Uint8Array(ciphertext)) });
 };
 
-export const decryptRecovery = async (serialized: string, password: string) => {
+export const parseRecoveryEnvelope = (serialized: string) => {
   if (utf8(serialized).length > MAX_RECOVERY_BYTES) throw new Error("Recovery file is too large");
   const value = object(JSON.parse(serialized));
   if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(["algorithm", "ciphertext", "format", "iterations", "iv", "kdf", "salt", "version"]) || value.format !== "vulnseal-recovery" || value.version !== 1 || value.algorithm !== "AES-256-GCM" || value.kdf !== "PBKDF2-SHA-256" || value.iterations !== iterations) throw new Error("Unsupported recovery envelope");
@@ -179,6 +179,11 @@ export const decryptRecovery = async (serialized: string, password: string) => {
   const iv = base64UrlToBytes(text(value.iv, "IV"));
   const ciphertext = base64UrlToBytes(text(value.ciphertext, "ciphertext"));
   if (salt.length !== 16 || iv.length !== 12 || ciphertext.length < 16) throw new Error("Invalid recovery envelope lengths");
+  return { salt, iv, ciphertext };
+};
+
+export const decryptRecovery = async (serialized: string, password: string) => {
+  const { salt, iv, ciphertext } = parseRecoveryEnvelope(serialized);
   const key = await passwordKey(password, salt, "decrypt");
   let plaintext: ArrayBuffer;
   try { plaintext = await crypto.subtle.decrypt({ name: "AES-GCM", iv: buffer(iv), additionalData: buffer(aad), tagLength: 128 }, key, buffer(ciphertext)); }

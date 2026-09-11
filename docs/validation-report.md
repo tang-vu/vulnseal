@@ -1,5 +1,15 @@
 # Validation report
 
+## Store and restore encrypted combined browser checkpoints -- 2026-09-11
+
+Private recovery now creates manual encrypted browser copies, lists their metadata, restores selected copies through existing password/ledger validation and removes only a selected revision. Each save creates a new random ID and preserves earlier checkpoints. The password is cleared only after a confirmed save. Browser-copy writes store the encrypted recovery envelope with a fixed label, ID, timestamp and revision; a separate IndexedDB database prevents mixing combined and single-role backups.
+
+The shared IndexedDB driver was extracted from role storage, retaining its database/schema, transaction revision comparison, strict durability request and bounded open/transaction lifecycle. Role and combined adapters validate their own envelopes before opening storage; combined import/storage share one envelope parser. Existing browser tests now compile both actual driver and role-adapter source for their fault/concurrency harness.
+
+Initial **35 tests / 4 files** passed. The final targeted unit/component run passed **46 tests / 6 files in 21.18 seconds**, including cross-format/plaintext rejection before database access and App coverage. **12 Chrome desktop/mobile E2E checks** passed in **1.3 minutes**: actual reload recovery, incorrect-password retry, injected quota failure with preserved old copy, selected-copy removal with another retained, and the existing role journal/device-copy/concurrent-write/late-completion/catalog workflows. The final normal web build/typecheck and release check exited **0**, **8 circuits / 80 files / 65,435,294 bytes**. `git diff --check` passed.
+
+[Evidence](evidence/recovery-browser-storage.json) retains log hashes and coverage limits. This provides explicit local checkpoints; it does not add autosave, deployment recovery or durable per-attempt journaling. Browser eviction/site-data removal and edits after a save still require a separately retained current file backup. Native-wallet behavior and a fresh runtime image are not claimed.
+
 ## Recover incomplete combined program drafts -- 2026-09-11
 
 The combined Create program form now stores its six text/window fields in application state instead of uncontrolled DOM defaults. Incomplete text, whitespace and selected windows survive navigation and enable a leave warning. Recovery v5 includes this draft separately from the active validated policy. Versions 1?4 remain readable and initialize the form from their saved policy; downgraded draft fields and malformed/oversized drafts are rejected. Existing pending-report and transaction-uncertainty checks remain enforced. Creation still validates required fields and supported windows before building constructor inputs.

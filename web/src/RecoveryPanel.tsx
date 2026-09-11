@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { MAX_RECOVERY_BYTES } from "./recovery.js";
+import { deleteStoredRecovery, listStoredRecoveries, readStoredRecovery, writeStoredRecovery, type StoredCopyLabel } from "./recovery-storage.js";
 
 export function RecoveryPanel({ onExport, onImport, canImport }: {
   readonly onExport: (password: string) => Promise<string>;
@@ -14,6 +15,8 @@ export function RecoveryPanel({ onExport, onImport, canImport }: {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [working, setWorking] = useState(false);
+  const [copies, setCopies] = useState<StoredCopyLabel[]>([]);
+  const [selectedCopy, setSelectedCopy] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const generation = useRef(0), busy = useRef(false), importAllowed = useRef(canImport);
   importAllowed.current = canImport;
@@ -31,7 +34,7 @@ export function RecoveryPanel({ onExport, onImport, canImport }: {
     setError(""); setMessage("");
   };
   useEffect(() => () => { generation.current++; }, []);
-  const run = async (event: FormEvent, action: (isCurrent: () => boolean) => Promise<void>) => {
+  const run = async (event: Pick<FormEvent, "preventDefault">, action: (isCurrent: () => boolean) => Promise<void>) => {
     event.preventDefault();
     if (busy.current) return;
     busy.current = true;
@@ -62,6 +65,17 @@ export function RecoveryPanel({ onExport, onImport, canImport }: {
       <label>Backup password<input type="password" autoComplete="new-password" minLength={12} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
       <label>Confirm backup password<input type="password" autoComplete="new-password" minLength={12} required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} /></label>
       <button className="primary-button" disabled={working}>Download encrypted backup</button>
+      <button type="button" className="secondary-button" disabled={working} onClick={(event) => void run(event, async (isCurrent) => {
+        if (password !== confirmation) throw new Error("Backup passwords do not match");
+        const encrypted = await onExport(password);
+        if (!isCurrent()) return;
+        const saved = await writeStoredRecovery(crypto.randomUUID(), "Combined recovery", encrypted, null);
+        if (!isCurrent()) return;
+        const { encrypted: _encrypted, ...metadata } = saved;
+        setCopies((current) => [metadata, ...current]); setSelectedCopy(saved.id);
+        setPassword(""); setConfirmation("");
+        setMessage("Encrypted browser copy saved. Save a new copy after changes and keep a separate file backup; clearing site data removes browser copies.");
+      })}>Save encrypted browser copy</button>
     </form>
     <form className="form-panel" onSubmit={(event) => void run(event, async (isCurrent) => {
       if (!importAllowed.current) throw new Error("Restore in a fresh tab to preserve this active session");
@@ -83,6 +97,33 @@ export function RecoveryPanel({ onExport, onImport, canImport }: {
       <label>Recovery password<input type="password" autoComplete="current-password" minLength={12} required value={restorePassword} onChange={(event) => setRestorePassword(event.target.value)} disabled={!canImport || working} /></label>
       <button className="primary-button" disabled={!canImport || working}>Restore encrypted backup</button>
     </form>
+    <section className="form-panel" aria-label="Saved browser recovery copies">
+      <h2>Saved browser copies</h2>
+      <p>Copies contain both experimental roles and stay encrypted on this browser and site. Saving is manual: only the state at the last confirmed save can be recovered. Keep the password separately and retain a file backup for another device.</p>
+      <button type="button" className="secondary-button" onClick={(event) => void run(event, async (isCurrent) => {
+        const rows = await listStoredRecoveries();
+        if (isCurrent()) { setCopies(rows); setSelectedCopy(""); setMessage(rows.length ? "Saved browser copies refreshed." : "No saved browser copies on this site."); }
+      })}>Refresh browser copies</button>
+      <label>Saved recovery copy<select value={selectedCopy} onChange={(event) => setSelectedCopy(event.target.value)}>
+        <option value="">Choose a saved copy</option>
+        {copies.map((copy) => <option key={copy.id} value={copy.id}>{copy.label} ? {new Date(copy.updatedAt).toLocaleString()} ? {copy.id.slice(0, 8)}</option>)}
+      </select></label>
+      <p>To restore, enter the Recovery password above. Removing a selected copy deletes only that browser copy, not downloaded files or the active session.</p>
+      <button type="button" className="primary-button" disabled={!canImport || !selectedCopy || working} onClick={(event) => void run(event, async (isCurrent) => {
+        if (!importAllowed.current) throw new Error("Restore in a fresh tab to preserve this active session");
+        const saved = await readStoredRecovery(selectedCopy);
+        if (!isCurrent()) return;
+        if (!importAllowed.current) throw new Error("Restore in a fresh tab to preserve this active session");
+        await onImport(saved.encrypted, restorePassword);
+        if (isCurrent()) { setRestorePassword(""); setFile(undefined); if (fileInput.current) fileInput.current.value = ""; }
+      })}>Restore selected browser copy</button>
+      <button type="button" className="secondary-button" disabled={!selectedCopy || working} onClick={(event) => void run(event, async (isCurrent) => {
+        const selected = copies.find((copy) => copy.id === selectedCopy);
+        if (!selected) throw new Error("Refresh and select a browser copy first");
+        await deleteStoredRecovery(selected.id, selected.revision);
+        if (isCurrent()) { setCopies((current) => current.filter((copy) => copy.id !== selected.id)); setSelectedCopy(""); setMessage("Selected browser copy removed. Other copies, files and the active session remain available."); }
+      })}>Remove selected browser copy</button>
+    </section>
     <p>Unfinished recovery inputs stay in this tab when you switch screens. Clear them when finished; closing or reloading the tab discards them.</p>
     <button type="button" className="secondary-button" disabled={working || !hasInputs} onClick={clearInputs}>Clear recovery inputs</button>
     </fieldset>
